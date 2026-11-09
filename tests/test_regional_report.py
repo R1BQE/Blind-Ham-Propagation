@@ -85,7 +85,8 @@ def test_report_contains_bearing_distance_and_band_summary():
     report = build_regional_report("KO59XX", store=store, now=10_100)
     latest = report["tx"]["latest"][0]
 
-    assert latest["distance_km"] == 0.0
+    assert latest["distance_km"] > 100
+    assert latest["local_distance_km"] == 0.0
     assert latest["bearing"] is not None
     assert latest["bearing_degrees"] is not None
     assert report["tx"]["by_band"] == [{
