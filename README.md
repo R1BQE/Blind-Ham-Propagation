@@ -5,7 +5,7 @@ Accessible amateur-radio propagation and space-weather monitoring.
 The service has two deliberately separate report areas:
 
 1. **Solar and geomagnetic activity** — global measurements that do not depend on a user's QTH locator.
-2. **My QTH conditions** — geographic context calculated for a supplied Maidenhead locator. The initial version reports coordinates, local mean solar time and geometric solar elevation. It does not pretend these values are an ionospheric measurement or an HF propagation forecast.
+2. **My QTH conditions** — geographic context calculated for a supplied Maidenhead locator. The QTH report includes coordinates, local mean solar time, geometric solar elevation and the nearest NOAA D-RAP grid cell. It does not present these model values as direct measurements or as an HF propagation forecast.
 
 ## Project status
 
@@ -43,7 +43,6 @@ API endpoints:
 - `GET /api/v1/health` — service health.
 - `GET /api/v1/solar/activity` — global NOAA solar and geomagnetic measurements plus D-RAP model status.
 - `GET /api/v1/local/report?locator=KO59XX` — local solar geometry and the nearest D-RAP grid cell.
-- `GET /api/v1/local/report?locator=KO59XX` — local solar geometry for a Maidenhead locator.
 - `POST /api/v1/locator/validate` — validate a locator and return the center coordinates.
 
 ## NOAA data
