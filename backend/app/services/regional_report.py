@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import datetime, timezone
+import math
 from typing import Any
 
 from backend.app.services.geo_filter import classify_spot_region
@@ -57,6 +58,8 @@ def build_regional_report(
 
     normalized_locator = locator.strip().upper()
     center_lat, center_lon = locator_to_center(normalized_locator)
+    if not math.isfinite(radius_km) or radius_km <= 0:
+        raise ValueError("Радиус области наблюдения должен быть положительным числом.")
     if not 1 <= hours <= 6:
         raise ValueError("Период должен быть от 1 до 6 часов.")
     if details_limit < 1 or details_limit > 100:
