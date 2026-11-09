@@ -114,6 +114,8 @@ regionalLocatorForm.addEventListener("submit", async (event) => {
     selectedModes = modes;
     const settings = { locator: locatorData.locator, radiusKm };
     applySettings(settings);
+    regionalDescription.textContent =
+      `Локатор ${settings.locator}; радиус ${radiusKm} км; диапазоны: ${bands.join(", ")}; режимы: ${modes.join(", ")}; период: 6 часов.`;
     try {
       localStorage.setItem("blindHamPropagationSettings", JSON.stringify(settings));
       localStorage.setItem("blindHamPropagationPSKFilters", JSON.stringify({ bands, modes }));
