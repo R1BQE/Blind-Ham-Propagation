@@ -65,7 +65,7 @@ install -d -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" -m 0750 "${ROOT}/data" "${
 if [[ ! -f "${ROOT}/settings.ini" ]]; then
     cat > "${ROOT}/settings.ini" <<'INI'
 [psk_reporter]
-enabled = false
+enabled = true
 topics = pskr/filter/v2/20m/FT8/#
 INI
     chown root:"${SERVICE_GROUP}" "${ROOT}/settings.ini"
