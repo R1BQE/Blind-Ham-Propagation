@@ -11,10 +11,13 @@ def test_health_endpoint():
     assert response.json()["status"] == "ok"
 
 
-def test_psk_reporter_status_endpoint_without_lifespan():
-    response = client.get("/api/v1/psk-reporter/status")
+def test_psk_reporter_status_endpoint_starts_disabled_collector(monkeypatch):
+    monkeypatch.setenv("PSK_REPORTER_ENABLED", "false")
+    with TestClient(app) as running_client:
+        response = running_client.get("/api/v1/psk-reporter/status")
     assert response.status_code == 200
-    assert response.json()["state"] == "not_started"
+    assert response.json()["enabled"] is False
+    assert response.json()["state"] == "disabled"
 
 
 def test_locator_validation_endpoint():
