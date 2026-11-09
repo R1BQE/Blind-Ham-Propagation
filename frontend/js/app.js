@@ -175,37 +175,34 @@ if ("serviceWorker" in navigator) {
 }
 
 
-// The heartbeat endpoint is registered only by the local Windows runner.
-// Production returns 404, so no background polling is started there.
-let localSessionEnabled = false;
-let localHeartbeatTimer = null;
+// Local mode advertises a WebSocket endpoint. A live WebSocket is not affected
+// by background-tab timer throttling; closing the final local tab closes it.
+let localSessionSocket = null;
+let localSessionPageClosing = false;
 
-async function sendLocalHeartbeat() {
+async function startLocalBrowserSession() {
   try {
-    const response = await fetch(`${API}/local-session/heartbeat`, {
-      method: "POST",
-      cache: "no-store",
-      keepalive: true,
-    });
-    return response.ok;
+    const response = await fetch(`${API}/local-session`, { cache: "no-store" });
+    if (!response.ok) return;
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const socketUrl = `${protocol}//${window.location.host}${API}/local-session`;
+
+    const connect = () => {
+      if (localSessionPageClosing) return;
+      localSessionSocket = new WebSocket(socketUrl);
+      localSessionSocket.addEventListener("close", () => {
+        if (!localSessionPageClosing) window.setTimeout(connect, 2000);
+      }, { once: true });
+    };
+    connect();
   } catch {
-    return false;
+    // Production does not expose the local-only lifecycle endpoint.
   }
 }
 
-async function startLocalSessionHeartbeat() {
-  localSessionEnabled = await sendLocalHeartbeat();
-  if (!localSessionEnabled) return;
-  localHeartbeatTimer = window.setInterval(() => {
-    void sendLocalHeartbeat();
-  }, 10000);
-}
-
 window.addEventListener("pagehide", () => {
-  if (!localSessionEnabled) return;
-  if (localHeartbeatTimer !== null) window.clearInterval(localHeartbeatTimer);
-  const body = new Blob([], { type: "application/octet-stream" });
-  navigator.sendBeacon(`${API}/local-session/close`, body);
-});
+  localSessionPageClosing = true;
+  if (localSessionSocket) localSessionSocket.close();
+}, { once: true });
 
-void startLocalSessionHeartbeat();
+void startLocalBrowserSession();
