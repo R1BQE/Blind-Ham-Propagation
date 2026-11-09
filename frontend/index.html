@@ -77,6 +77,18 @@
         <div id="psk-report" class="report" aria-live="polite" aria-busy="false"></div>
         <section class="result-card" aria-labelledby="regional-heading">
           <h3 id="regional-heading">Наблюдения в районе моего QTH</h3>
+          <form id="regional-locator-form" novalidate>
+            <div class="form-row">
+              <label for="regional-locator">Локатор для регионального поиска</label>
+              <input id="regional-locator" name="locator" type="text" inputmode="text"
+                autocomplete="off" autocapitalize="characters" spellcheck="false"
+                maxlength="12" minlength="2" aria-describedby="regional-locator-help regional-locator-error"
+                placeholder="KP50DB" required>
+            </div>
+            <p id="regional-locator-help" class="muted">Можно вводить разные локаторы Maidenhead. Радиус поиска настраивается в разделе «Настройки».</p>
+            <p id="regional-locator-error" class="field-error" role="alert"></p>
+            <button type="submit" id="regional-locator-submit">Проверить этот локатор</button>
+          </form>
           <p id="regional-description">Область поиска: локатор KP50DB, радиус 100 км. Период — последние 6 часов.</p>
           <button type="button" id="regional-refresh">Обновить региональные наблюдения</button>
           <p id="regional-status" class="status" role="status" aria-live="polite">Региональные данные ещё не загружены.</p>
