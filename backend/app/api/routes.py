@@ -1,3 +1,4 @@
+import asyncio
 import os
 
 from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
@@ -71,7 +72,7 @@ async def update_psk_reporter_subscriptions(
     if collector is None:
         raise HTTPException(status_code=503, detail="Сборщик PSK Reporter недоступен.")
     try:
-        topics = await __import__("asyncio").to_thread(
+        topics = await asyncio.to_thread(
             collector.set_filters, payload.bands, payload.modes
         )
     except ValueError as exc:
