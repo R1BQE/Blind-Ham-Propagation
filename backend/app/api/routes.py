@@ -28,6 +28,25 @@ async def health() -> dict[str, str]:
     return {"status": "ok", "service": "blind-ham-propagation"}
 
 
+@router.websocket("/psk-reporter/session")
+async def psk_reporter_session(websocket: WebSocket) -> None:
+    """Keep the shared collector active while at least one viewer is connected."""
+    await websocket.accept()
+    sessions = getattr(websocket.app.state, "psk_reporter_sessions", None)
+    if sessions is None:
+        await websocket.close(code=1011, reason="PSK Reporter session manager unavailable")
+        return
+    connection_id = id(websocket)
+    await sessions.connect(connection_id)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        await sessions.disconnect(connection_id)
+
+
 @router.get("/psk-reporter/status")
 async def psk_reporter_status(request: Request) -> dict:
     """Return MQTT collector connection and bounded-storage counters."""
