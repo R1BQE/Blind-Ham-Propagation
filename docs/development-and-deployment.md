@@ -47,7 +47,7 @@ enabled = true
 topics = pskr/filter/v2/20m/FT8/#
 ```
 
-On Windows, the local launcher creates this file automatically with `enabled = true` on first run. On Debian, the installer creates it with `enabled = false`. The installer does not overwrite an existing file. Edit `settings.ini` and restart the application/service for changes to take effect. The file is excluded from Git.
+On Windows and Debian, the first-run setup creates this file with `enabled = true`. This permits collection, but MQTT only connects while at least one visitor has the observations tab open. The installer does not overwrite an existing file. Edit `settings.ini` and restart the application/service for changes to take effect. The file is excluded from Git.
 
 Multiple topic filters can be separated by commas. Only filters beginning with `pskr/filter/v2/` are accepted. Environment variables `PSK_REPORTER_ENABLED` and `PSK_REPORTER_TOPICS` remain available as explicit overrides; host, port and keepalive are also configurable through environment variables.
 
