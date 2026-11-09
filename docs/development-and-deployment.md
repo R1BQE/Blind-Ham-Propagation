@@ -10,11 +10,9 @@ Run `run-windows.bat` from Explorer or a terminal. The launcher:
 4. Starts the local FastAPI application on `127.0.0.1:8765`.
 5. Opens the default browser at `http://127.0.0.1:8765/`.
 
-The console window is hidden. The local server is started as the Python module `backend.run_local`. The watchdog stops it when heartbeats have been absent for about 30 seconds, covering both a normal tab close and a browser crash. Launcher and server logs are written to:
+The console window is hidden. The local server is started as the Python module `backend.run_local`. The page opens a WebSocket session with the local backend. When the last local tab closes or navigates away, the connection closes and the server exits after a 15-second grace period. This avoids timer throttling in background browser tabs. Launcher and server logs are written to:
 
 `%TEMP%\blind-ham-propagation\`
-
-The local page sends a heartbeat while it is open. When the page is closed, it sends a shutdown request. The server waits briefly so a page reload does not immediately terminate it, then exits if no heartbeat returns. A timeout also handles a browser crash or a missed unload event.
 
 The local session shutdown endpoints are enabled only by `backend/run_local.py`; they are not registered in the production application.
 
