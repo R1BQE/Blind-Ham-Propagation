@@ -39,11 +39,17 @@ Set `BLIND_HAM_PROPAGATION_PORT` when running the installer to choose another ba
 
 ## PSK Reporter MQTT pilot
 
-The local Windows launcher enables the collector automatically. It subscribes only to 20 m FT8 over MQTT/TLS on port 1884; it does not subscribe to the full worldwide feed. No environment-variable setup is needed for ordinary local testing.
+Collector settings live in the untracked project-root `settings.ini` file:
 
-The application uses `BLIND_HAM_LOCAL_SESSION=1` to identify a local session. If `PSK_REPORTER_ENABLED` is explicitly set, that value takes precedence. This allows a local session to be run with the collector disabled by setting `PSK_REPORTER_ENABLED=false`.
+```ini
+[psk_reporter]
+enabled = true
+topics = pskr/filter/v2/20m/FT8/#
+```
 
-On Debian, the installer creates `/etc/blind-ham-propagation.env` with `PSK_REPORTER_ENABLED=false`. Production therefore remains disabled by default. To enable the pilot on the VDS, change that value to `PSK_REPORTER_ENABLED=true` and restart the service. The installer does not overwrite an existing environment file.
+On Windows, the local launcher creates this file automatically with `enabled = true` on first run. On Debian, the installer creates it with `enabled = false`. The installer does not overwrite an existing file. Edit `settings.ini` and restart the application/service for changes to take effect. The file is excluded from Git.
+
+Multiple topic filters can be separated by commas. Only filters beginning with `pskr/filter/v2/` are accepted. Environment variables `PSK_REPORTER_ENABLED` and `PSK_REPORTER_TOPICS` remain available as explicit overrides; host, port and keepalive are also configurable through environment variables.
 
 The default topic filter is `pskr/filter/v2/20m/FT8/#`. To inspect the collector, open:
 
