@@ -4,6 +4,7 @@ set -Eeuo pipefail
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 SERVICE_NAME="blind-ham-propagation"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
+ENV_FILE="/etc/blind-ham-propagation.env"
 SERVICE_USER="blindham-prop"
 SERVICE_GROUP="blindham-prop"
 PORT="${BLIND_HAM_PROPAGATION_PORT:-8765}"
@@ -61,6 +62,15 @@ echo "==> Обновление Python-зависимостей"
 "${ROOT}/.venv/bin/python" -m pip install --upgrade -r "${ROOT}/requirements.txt"
 
 install -d -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" -m 0750 "${ROOT}/data" "${ROOT}/logs"
+if [[ ! -f "${ENV_FILE}" ]]; then
+    cat > "${ENV_FILE}" <<'ENV'
+# PSK Reporter collector is disabled until explicitly enabled.
+PSK_REPORTER_ENABLED=false
+# Pilot subscription: 20 metres, FT8 only.
+PSK_REPORTER_TOPICS=pskr/filter/v2/20m/FT8/#
+ENV
+    chmod 0640 "${ENV_FILE}"
+fi
 
 cat > "${SERVICE_FILE}" <<UNIT
 [Unit]
@@ -75,6 +85,7 @@ Group=${SERVICE_GROUP}
 WorkingDirectory=${ROOT}
 Environment=PYTHONUNBUFFERED=1
 Environment=PYTHONDONTWRITEBYTECODE=1
+EnvironmentFile=-${ENV_FILE}
 ExecStart=${ROOT}/.venv/bin/uvicorn backend.app.main:app --host 127.0.0.1 --port ${PORT} --proxy-headers
 Restart=on-failure
 RestartSec=5
@@ -98,4 +109,5 @@ systemctl --no-pager --full status "${SERVICE_NAME}.service" || true
 echo
 echo "Служба установлена: ${SERVICE_NAME}.service"
 echo "Локальный backend слушает 127.0.0.1:${PORT}."
+echo "Настройки сборщика: ${ENV_FILE}"
 echo "Логи: journalctl -u ${SERVICE_NAME}.service -f"
