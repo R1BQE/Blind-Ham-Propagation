@@ -46,6 +46,8 @@ def build_regional_report(
     store: SpotStore | Any | None = None,
     now: int | None = None,
     details_limit: int = 30,
+    bands: list[str] | None = None,
+    modes: list[str] | None = None,
 ) -> dict[str, Any]:
     """Summarize observations with TX and RX stations independently in QTH area.
 
@@ -69,6 +71,8 @@ def build_regional_report(
     spot_store = store or SpotStore()
     spots = spot_store.list_recent(now=current, limit=50_000)
     cutoff = current - hours * 3600
+    selected_bands = {value.strip().lower() for value in bands or [] if value.strip()}
+    selected_modes = {value.strip().upper() for value in modes or [] if value.strip()}
 
     groups: dict[str, list[dict[str, Any]]] = {"tx": [], "rx": []}
     band_stats: dict[str, dict[tuple[str, str], dict[str, Any]]] = {
@@ -80,6 +84,10 @@ def build_regional_report(
     for spot in spots:
         observed_at = int(spot.get("observed_at") or 0)
         if observed_at < cutoff or observed_at > current + 300:
+            continue
+        if selected_bands and str(spot.get("band") or "").lower() not in selected_bands:
+            continue
+        if selected_modes and str(spot.get("mode") or "").upper() not in selected_modes:
             continue
         region = classify_spot_region(spot, normalized_locator, radius_km)
 
@@ -146,6 +154,8 @@ def build_regional_report(
         "longitude": round(center_lon, 6),
         "radius_km": float(radius_km),
         "period_hours": hours,
+        "bands": sorted(selected_bands),
+        "modes": sorted(selected_modes),
         "generated_at": _iso_utc(current),
         "period_started_at": _iso_utc(cutoff),
         "stored_spots_scanned": len(spots),
