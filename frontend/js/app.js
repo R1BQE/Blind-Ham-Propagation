@@ -570,6 +570,8 @@ try {
     selectedModes = savedFilters.modes;
     for (const input of document.querySelectorAll('input[name="regional-band"]')) input.checked = selectedBands.includes(input.value);
     for (const input of document.querySelectorAll('input[name="regional-mode"]')) input.checked = selectedModes.includes(input.value);
+    regionalDescription.textContent =
+      `Локатор ${userSettings.locator}; радиус ${userSettings.radiusKm} км; диапазоны: ${selectedBands.join(", ")}; режимы: ${selectedModes.join(", ")}; период: 6 часов.`;
   }
 } catch {
   // Keep the default 20m FT8 selection.
