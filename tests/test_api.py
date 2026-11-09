@@ -11,6 +11,12 @@ def test_health_endpoint():
     assert response.json()["status"] == "ok"
 
 
+def test_psk_reporter_status_endpoint_without_lifespan():
+    response = client.get("/api/v1/psk-reporter/status")
+    assert response.status_code == 200
+    assert response.json()["state"] == "not_started"
+
+
 def test_locator_validation_endpoint():
     response = client.post(
         "/api/v1/locator/validate",
