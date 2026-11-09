@@ -35,8 +35,11 @@ fi
 echo "==> Обновление репозитория: ${ROOT}"
 git -C "${ROOT}" pull --ff-only
 
+if ! getent group "${SERVICE_GROUP}" >/dev/null 2>&1; then
+    groupadd --system "${SERVICE_GROUP}"
+fi
 if ! id "${SERVICE_USER}" >/dev/null 2>&1; then
-    useradd --system --home-dir "${ROOT}" --no-create-home --shell /usr/sbin/nologin "${SERVICE_USER}"
+    useradd --system --gid "${SERVICE_GROUP}" --home-dir "${ROOT}" --no-create-home --shell /usr/sbin/nologin "${SERVICE_USER}"
 fi
 
 if ! runuser -u "${SERVICE_USER}" -- test -x "${ROOT}"; then
@@ -48,6 +51,9 @@ fi
 if [[ ! -x "${ROOT}/.venv/bin/python" ]]; then
     echo "==> Создание виртуального окружения"
     python3 -m venv "${ROOT}/.venv"
+fi
+if ! "${ROOT}/.venv/bin/python" -m pip --version >/dev/null 2>&1; then
+    "${ROOT}/.venv/bin/python" -m ensurepip --upgrade
 fi
 
 echo "==> Обновление Python-зависимостей"
