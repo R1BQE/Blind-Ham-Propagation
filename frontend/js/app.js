@@ -16,6 +16,10 @@ const regionalRefresh = document.querySelector("#regional-refresh");
 const regionalStatus = document.querySelector("#regional-status");
 const regionalDescription = document.querySelector("#regional-description");
 const regionalReport = document.querySelector("#regional-report");
+const regionalLocatorForm = document.querySelector("#regional-locator-form");
+const regionalLocatorInput = document.querySelector("#regional-locator");
+const regionalLocatorError = document.querySelector("#regional-locator-error");
+const regionalLocatorSubmit = document.querySelector("#regional-locator-submit");
 const settingsForm = document.querySelector("#settings-form");
 const settingsLocator = document.querySelector("#settings-locator");
 const settingsRadius = document.querySelector("#settings-radius");
@@ -30,6 +34,7 @@ function applySettings(settings) {
   settingsLocator.value = settings.locator;
   settingsRadius.value = String(settings.radiusKm);
   locatorInput.value = settings.locator;
+  regionalLocatorInput.value = settings.locator;
   regionalDescription.textContent =
     `Область поиска: локатор ${settings.locator}, радиус ${settings.radiusKm} км. Период — последние 6 часов.`;
 }
@@ -51,6 +56,45 @@ function loadSettings() {
   }
   applySettings({ ...DEFAULT_SETTINGS });
 }
+
+regionalLocatorForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  regionalLocatorError.textContent = "";
+  const locator = regionalLocatorInput.value.trim().toUpperCase();
+  if (!locator) {
+    regionalLocatorError.textContent = "Введи локатор Maidenhead.";
+    regionalLocatorInput.focus();
+    return;
+  }
+
+  regionalLocatorSubmit.disabled = true;
+  regionalStatus.textContent = "Проверяем локатор…";
+  try {
+    const response = await fetch(`${API}/locator/validate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ locator }),
+      cache: "no-store",
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || "Некорректный локатор.");
+
+    const settings = { ...userSettings, locator: data.locator };
+    applySettings(settings);
+    try {
+      localStorage.setItem("blindHamPropagationSettings", JSON.stringify(settings));
+    } catch {
+      // The selected locator remains active for this page even if storage is unavailable.
+    }
+    regionalStatus.textContent = `Локатор ${settings.locator} принят. Загружаем наблюдения…`;
+    await loadRegionalReport();
+  } catch (error) {
+    regionalLocatorError.textContent = error.message;
+    regionalStatus.textContent = "Не удалось проверить локатор.";
+  } finally {
+    regionalLocatorSubmit.disabled = false;
+  }
+});
 
 settingsForm.addEventListener("submit", async (event) => {
   event.preventDefault();
