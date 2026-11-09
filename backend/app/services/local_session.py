@@ -1,40 +1,38 @@
-"""Track the local browser session and stop the local server when it disappears."""
+"""Track browser WebSocket sessions for the local development server."""
 from __future__ import annotations
 
 import asyncio
-import time
 from typing import Any
 
-HEARTBEAT_INTERVAL_SECONDS = 10
-HEARTBEAT_TIMEOUT_SECONDS = 30
-MONITOR_INTERVAL_SECONDS = 5
+SHUTDOWN_GRACE_SECONDS = 15
 
-_last_heartbeat = time.monotonic()
-_monitor_task: asyncio.Task[None] | None = None
+_active_sessions: set[int] = set()
+_shutdown_task: asyncio.Task[None] | None = None
 
 
-def heartbeat(app: Any) -> None:
-    """Mark the local browser page as active and start the watchdog."""
-    global _last_heartbeat, _monitor_task
-    _last_heartbeat = time.monotonic()
-    if _monitor_task is None or _monitor_task.done():
-        _monitor_task = asyncio.create_task(_watch_browser(app))
+def session_connected(connection_id: int) -> None:
+    """Register an open local browser tab."""
+    global _shutdown_task
+    _active_sessions.add(connection_id)
+    if _shutdown_task is not None and not _shutdown_task.done():
+        _shutdown_task.cancel()
+        _shutdown_task = None
 
 
-async def _watch_browser(app: Any) -> None:
-    """Stop Uvicorn after heartbeats disappear (tab close or browser crash)."""
-    while True:
-        await asyncio.sleep(MONITOR_INTERVAL_SECONDS)
-        if time.monotonic() - _last_heartbeat < HEARTBEAT_TIMEOUT_SECONDS:
-            continue
-        server = getattr(app.state, "uvicorn_server", None)
-        if server is not None:
-            server.should_exit = True
+async def session_disconnected(app: Any, connection_id: int) -> None:
+    """Schedule graceful shutdown after the last local browser tab closes."""
+    global _shutdown_task
+    _active_sessions.discard(connection_id)
+    if _active_sessions:
         return
+    if _shutdown_task is not None and not _shutdown_task.done():
+        _shutdown_task.cancel()
 
+    async def stop_when_unused() -> None:
+        await asyncio.sleep(SHUTDOWN_GRACE_SECONDS)
+        if not _active_sessions:
+            server = getattr(app.state, "uvicorn_server", None)
+            if server is not None:
+                server.should_exit = True
 
-async def request_shutdown_after_page_close(app: Any) -> None:
-    """Ensure the watchdog is active; the pagehide request itself is not a heartbeat."""
-    global _monitor_task
-    if _monitor_task is None or _monitor_task.done():
-        _monitor_task = asyncio.create_task(_watch_browser(app))
+    _shutdown_task = asyncio.create_task(stop_when_unused())
