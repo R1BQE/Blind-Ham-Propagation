@@ -112,7 +112,10 @@ class PSKReporterCollector:
         if not self.config.enabled:
             self._state = "disabled"
             return
+        if self._client is not None:
+            return
 
+        self._stopping = False
         if self.store is None:
             self.store = SpotStore()
 
@@ -145,12 +148,13 @@ class PSKReporterCollector:
     def stop(self) -> None:
         self._stopping = True
         client = self._client
+        self._client = None
         if client is not None:
             try:
                 client.disconnect()
             finally:
                 client.loop_stop()
-        self._state = "stopped"
+        self._state = "stopped" if self.config.enabled else "disabled"
 
     def _on_connect(
         self,
