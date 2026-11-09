@@ -141,6 +141,7 @@ class PSKReporterCollector:
             )
             client.loop_start()
         except Exception as exc:
+            self._client = None
             self._record_error(exc)
             self._state = "error"
             logger.exception("Не удалось запустить PSK Reporter MQTT collector")
