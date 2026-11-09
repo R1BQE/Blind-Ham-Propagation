@@ -5,14 +5,14 @@ from backend.app.services.maidenhead import LocatorError, locator_to_center
 
 def test_two_character_locator_center():
     latitude, longitude = locator_to_center("KO")
-    assert latitude == pytest.approx(-5.0)
+    assert latitude == pytest.approx(55.0)
     assert longitude == pytest.approx(30.0)
 
 
 def test_six_character_locator_center():
     latitude, longitude = locator_to_center("KO59XX")
     assert latitude == pytest.approx(59.9791666667)
-    assert longitude == pytest.approx(30.9583333333)
+    assert longitude == pytest.approx(31.9583333333)
 
 
 def test_locator_is_case_insensitive_and_strips_whitespace():
