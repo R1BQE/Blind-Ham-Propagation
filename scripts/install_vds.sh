@@ -21,6 +21,16 @@ if ! command -v python3 >/dev/null 2>&1; then
     echo "Не найден python3. Установи Python 3." >&2
     exit 1
 fi
+if ! python3 -m venv --help >/dev/null 2>&1; then
+    if command -v apt-get >/dev/null 2>&1; then
+        echo "==> Установка системного пакета python3-venv"
+        apt-get update
+        apt-get install -y python3-venv python3-pip
+    else
+        echo "Не найден модуль venv. Установи пакет python3-venv." >&2
+        exit 1
+    fi
+fi
 
 echo "==> Обновление репозитория: ${ROOT}"
 git -C "${ROOT}" pull --ff-only
