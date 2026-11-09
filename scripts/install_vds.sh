@@ -29,6 +29,12 @@ if ! id "${SERVICE_USER}" >/dev/null 2>&1; then
     useradd --system --home-dir "${ROOT}" --no-create-home --shell /usr/sbin/nologin "${SERVICE_USER}"
 fi
 
+if ! runuser -u "${SERVICE_USER}" -- test -x "${ROOT}"; then
+    echo "Пользователь службы не может пройти к каталогу проекта: ${ROOT}" >&2
+    echo "Размести репозиторий, например, в /var/www/ или /opt/, а не в закрытом /root." >&2
+    exit 1
+fi
+
 if [[ ! -x "${ROOT}/.venv/bin/python" ]]; then
     echo "==> Создание виртуального окружения"
     python3 -m venv "${ROOT}/.venv"
@@ -59,7 +65,7 @@ RestartSec=5
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
-ProtectHome=true
+ProtectHome=read-only
 ReadWritePaths=${ROOT}/data ${ROOT}/logs
 
 [Install]
