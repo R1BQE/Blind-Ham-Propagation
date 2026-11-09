@@ -55,6 +55,17 @@ function renderSolar(data) {
     section.append(errors);
   }
   solarReport.append(section);
+  if (data.drap) {
+    const drap = document.createElement("section");
+    drap.className = "result-card";
+    addText(drap, "h3", "D-RAP: поглощение HF в D-области");
+    addText(drap, "p", data.drap.description || "Модель NOAA для оценки поглощения радиоволн.");
+    addText(drap, "p", `Состояние рентгеновского фона: ${data.drap.xray_message || "Нет данных"}`);
+    addText(drap, "p", `Состояние протонного фона: ${data.drap.proton_message || "Нет данных"}`);
+    addText(drap, "p", `Время актуальности модели: ${data.drap.valid_at || "Не указано"}`);
+    addText(drap, "p", `Источник: ${data.drap.source}`, "muted");
+    solarReport.append(drap);
+  }
 }
 
 async function loadSolar() {
@@ -99,6 +110,22 @@ function renderLocal(data) {
   addText(section, "p", data.interpretation);
   addText(section, "p", `Рассчитано: ${data.generated_at}`, "muted");
   localReport.append(section);
+  if (data.drap?.nearest_cell) {
+    const drap = document.createElement("section");
+    drap.className = "result-card";
+    addText(drap, "h3", "D-RAP для района QTH");
+    const cell = data.drap.nearest_cell;
+    addText(drap, "p", cell.frequency_mhz === null
+      ? "Для ближайшей ячейки нет числового значения."
+      : `Частота: ${cell.frequency_mhz} МГц.`);
+    addText(drap, "p", `Центр ближайшей ячейки модели: широта ${cell.latitude}°, долгота ${cell.longitude}°.`);
+    addText(drap, "p", cell.meaning);
+    addText(drap, "p", `Модель актуальна на: ${data.drap.valid_at || "не указано"}; разрешение сетки около 2° по широте и 4° по долготе.`, "muted");
+    addText(drap, "p", data.drap.description, "muted");
+    localReport.append(drap);
+  } else if (data.drap?.status === "unavailable") {
+    addText(localReport, "p", data.drap.error, "muted");
+  }
 }
 
 localForm.addEventListener("submit", async (event) => {
