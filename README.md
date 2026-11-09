@@ -23,6 +23,9 @@ The service has two deliberately separate report areas:
 
 ## Development
 
+On Windows, run `run-windows.bat` to pull the latest code, create/update the virtual environment and open the local application in a browser. See [Windows and VDS setup](docs/development-and-deployment.md) for details.
+
+
 Create a virtual environment and install dependencies:
 
 ```bash
