@@ -53,16 +53,59 @@ try {
     & $VenvPython -m pip install --upgrade -r (Join-Path $Root "requirements.txt")
     if ($LASTEXITCODE -ne 0) { throw "Не удалось установить зависимости. Проверь доступ к PyPI и логи." }
 
-    # Do not start a second copy if this project's local server is already running.
+    # Reuse a running instance only when it already exposes the regional API.
+    $Existing = $null
     try {
         $Existing = Invoke-RestMethod -Uri "http://127.0.0.1:8765/api/v1/health" -TimeoutSec 2
-        if ($Existing.service -eq "blind-ham-propagation") {
-            Start-Process $Url
-            Write-LauncherLog "An existing local instance was opened in the browser."
-            exit 0
-        }
     } catch {
         # No service is listening; start our own instance below.
+    }
+
+    if ($Existing.service -eq "blind-ham-propagation") {
+        $RegionalApiAvailable = $false
+        try {
+            $null = Invoke-RestMethod -Uri "http://127.0.0.1:8765/api/v1/psk-reporter/regional?locator=KP50DB&radius_km=100&hours=6&limit=1" -TimeoutSec 3
+            $RegionalApiAvailable = $true
+        } catch {
+            $StatusCode = $null
+            if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
+                $StatusCode = [int]$_.Exception.Response.StatusCode
+            }
+            if ($StatusCode -ne 404) {
+                throw "Локальный сервер отвечает, но проверка регионального API завершилась ошибкой HTTP $StatusCode. Перезапусти приложение и проверь логи: $StderrLog"
+            }
+        }
+
+        if ($RegionalApiAvailable) {
+            Start-Process $Url
+            Write-LauncherLog "An existing compatible local instance was opened in the browser."
+            exit 0
+        }
+
+        Write-LauncherLog "The existing local instance is outdated (regional API returned 404); restarting it."
+        try {
+            $Listener = Get-NetTCPConnection -LocalPort 8765 -State Listen -ErrorAction Stop |
+                Select-Object -First 1
+        } catch {
+            throw "Найден устаревший экземпляр сервера, но не удалось определить процесс на порту 8765. Закрой старое окно сервера и повтори запуск."
+        }
+        if (-not $Listener) {
+            throw "Региональный API отсутствует, но процесс на порту 8765 не найден. Закрой старый сервер и повтори запуск."
+        }
+
+        Stop-Process -Id $Listener.OwningProcess -Force
+        $PortReleased = $false
+        for ($i = 0; $i -lt 15; $i++) {
+            Start-Sleep -Seconds 1
+            $StillListening = Get-NetTCPConnection -LocalPort 8765 -State Listen -ErrorAction SilentlyContinue
+            if (-not $StillListening) {
+                $PortReleased = $true
+                break
+            }
+        }
+        if (-not $PortReleased) {
+            throw "Не удалось остановить старый локальный сервер на порту 8765."
+        }
     }
 
     $env:BLIND_HAM_LOCAL_SESSION = "1"
