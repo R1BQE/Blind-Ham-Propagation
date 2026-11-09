@@ -9,7 +9,7 @@ The service has two deliberately separate report areas:
 
 ## Project status
 
-**Stage 4 — regional PSK Reporter observations.** The application includes a controlled MQTT/TLS collector for 20 m FT8, bounded SQLite storage, reconnect handling, an accessible collector-status panel and a regional report. The report independently counts local transmitters heard by remote receivers (TX) and local receivers hearing remote transmitters (RX), with a configurable QTH locator and radius. Collector settings are stored in the untracked project-root `settings.ini`: Windows creates it enabled by default, while the VDS installer creates it disabled by default. The application also includes NOAA SWPC global measurements, NOAA D-RAP absorption data and locator-specific solar geometry.
+**Stage 4 — regional PSK Reporter observations.** The application includes a controlled MQTT/TLS collector for 20 m FT8, bounded SQLite storage, reconnect handling, an accessible collector-status panel and a regional report. The report independently counts local transmitters heard by remote receivers (TX) and local receivers hearing remote transmitters (RX), with a configurable QTH locator and radius. Collector settings are stored in the untracked project-root `settings.ini`: Windows and the VDS installer create it enabled by default; collection itself is started only while the observations tab is open. The application also includes NOAA SWPC global measurements, NOAA D-RAP absorption data and locator-specific solar geometry.
 
 ## Planned stack
 
