@@ -71,11 +71,18 @@
     <section class="tab-panel" id="panel-spots" role="tabpanel" aria-labelledby="tab-spots" tabindex="0" hidden>
       <section class="panel" aria-labelledby="spots-heading">
         <h2 id="spots-heading">Радионаблюдения PSK Reporter</h2>
-        <p>Сначала проверим, подключён ли сервер к PSK Reporter и поступают ли реальные наблюдения. Сейчас работает ограниченный тестовый сбор: FT8 на диапазоне 20 метров.</p>
+        <p>Здесь показаны реальные декодирования PSK Reporter за последние часы. Передатчики и приёмники в твоём районе считаются отдельно.</p>
         <button type="button" id="psk-status-refresh">Проверить подключение PSK Reporter</button>
         <p id="psk-status" class="status" role="status" aria-live="polite">Состояние сборщика ещё не проверено.</p>
         <div id="psk-report" class="report" aria-live="polite" aria-busy="false"></div>
-        <p class="muted">Пока это проверка приёмника данных, а не региональная статистика. Отсутствие спотов не означает, что диапазон закрыт.</p>
+        <section class="result-card" aria-labelledby="regional-heading">
+          <h3 id="regional-heading">Наблюдения в районе моего QTH</h3>
+          <p id="regional-description">Область поиска: локатор KP50DB, радиус 100 км. Период — последние 6 часов.</p>
+          <button type="button" id="regional-refresh">Обновить региональные наблюдения</button>
+          <p id="regional-status" class="status" role="status" aria-live="polite">Региональные данные ещё не загружены.</p>
+          <div id="regional-report" class="report" aria-live="polite" aria-busy="false"></div>
+        </section>
+        <p class="muted">Спот означает, что конкретная передача была декодирована. Это не прогноз прохождения и не гарантия связи с твоей станцией. Отсутствие спотов не означает, что диапазон закрыт.</p>
       </section>
     </section>
 
@@ -90,8 +97,25 @@
     <section class="tab-panel" id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" tabindex="0" hidden>
       <section class="panel" aria-labelledby="settings-heading">
         <h2 id="settings-heading">Настройки станции и наблюдения</h2>
-        <p>Здесь появятся настройки QTH-локатора, радиуса наблюдения, мощности передатчика, типа антенны и высоты её подвеса.</p>
-        <p class="muted">Планируемые значения станции по умолчанию: 100 Вт, обычный диполь, высота подвеса 10 метров. Форма сохранения настроек пока не реализована.</p>
+        <p>Локатор и радиус используются для региональной статистики PSK Reporter и локального отчёта. Настройки сохраняются в этом браузере.</p>
+        <form id="settings-form">
+          <div class="form-row">
+            <label for="settings-locator">Мой QTH-локатор Maidenhead</label>
+            <input id="settings-locator" name="locator" type="text" maxlength="12"
+              autocomplete="off" autocapitalize="characters" spellcheck="false"
+              aria-describedby="settings-help" value="KP50DB" required>
+          </div>
+          <div class="form-row">
+            <label for="settings-radius">Радиус области наблюдения, км</label>
+            <input id="settings-radius" name="radius" type="number" min="1" max="1000"
+              step="1" value="100" required>
+          </div>
+          <p id="settings-help" class="muted">Координаты берутся из центра квадрата локатора, а не из точного адреса. Расстояния приблизительные.</p>
+          <p id="settings-error" class="field-error" role="alert"></p>
+          <button type="submit" id="settings-save">Сохранить настройки</button>
+        </form>
+        <p id="settings-status" class="status" role="status" aria-live="polite">Используются значения по умолчанию: KP50DB и 100 км.</p>
+        <p class="muted">Параметры передающей станции для расчётной модели: 100 Вт, обычный диполь, высота подвеса 10 метров. Они пока не влияют на статистику PSK Reporter.</p>
       </section>
     </section>
   </main>
