@@ -92,6 +92,7 @@ const tabList = document.querySelector('[role="tablist"]');
 const tabs = Array.from(tabList.querySelectorAll('[role="tab"]'));
 
 function activateTab(tab, moveFocus = false) {
+  const previousTab = tabs.find((item) => item.getAttribute("aria-selected") === "true");
   for (const item of tabs) {
     const selected = item === tab;
     item.setAttribute("aria-selected", String(selected));
@@ -100,6 +101,8 @@ function activateTab(tab, moveFocus = false) {
     panel.hidden = !selected;
   }
   if (moveFocus) tab.focus();
+  if (tab.id === "tab-spots") startPskReporterSession();
+  else if (previousTab?.id === "tab-spots") stopPskReporterSession();
 }
 
 tabList.addEventListener("click", (event) => {
@@ -478,6 +481,51 @@ regionalRefresh.addEventListener("click", loadRegionalReport);
 loadSettings();
 pskStatusButton.addEventListener("click", loadPskStatus);
 
+let pskReporterSocket = null;
+let pskReporterReconnectTimer = null;
+let pskReporterTabActive = false;
+let pskReporterPageClosing = false;
+
+function stopPskReporterSession() {
+  pskReporterTabActive = false;
+  if (pskReporterReconnectTimer !== null) {
+    window.clearTimeout(pskReporterReconnectTimer);
+    pskReporterReconnectTimer = null;
+  }
+  if (pskReporterSocket) {
+    const socket = pskReporterSocket;
+    pskReporterSocket = null;
+    socket.close();
+  }
+}
+
+function startPskReporterSession() {
+  pskReporterTabActive = true;
+  if (pskReporterPageClosing || pskReporterSocket || pskReporterReconnectTimer !== null) return;
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const socketUrl = `${protocol}//${window.location.host}${API}/psk-reporter/session`;
+  const socket = new WebSocket(socketUrl);
+  pskReporterSocket = socket;
+  socket.addEventListener("open", () => {
+    if (!pskReporterTabActive || pskReporterPageClosing) {
+      socket.close();
+      return;
+    }
+    loadPskStatus();
+    loadRegionalReport();
+  });
+  socket.addEventListener("close", () => {
+    if (pskReporterSocket === socket) pskReporterSocket = null;
+    if (pskReporterTabActive && !pskReporterPageClosing) {
+      pskReporterReconnectTimer = window.setTimeout(() => {
+        pskReporterReconnectTimer = null;
+        startPskReporterSession();
+      }, 2000);
+    }
+  });
+  socket.addEventListener("error", () => {});
+}
+
 async function checkService() {
   try {
     const response = await fetch(`${API}/health`, { cache: "no-store" });
@@ -522,6 +570,8 @@ async function startLocalBrowserSession() {
 
 window.addEventListener("pagehide", () => {
   localSessionPageClosing = true;
+  pskReporterPageClosing = true;
+  stopPskReporterSession();
   if (localSessionSocket) localSessionSocket.close();
 }, { once: true });
 
