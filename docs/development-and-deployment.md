@@ -72,3 +72,8 @@ Parameters:
 TX counts spots where the transmitting station's locator is inside the region; the transmitter was heard by the remote receiving station. RX counts spots where the receiving station's locator is inside the region; the local receiver heard the remote transmitter. A spot may appear in both groups if both stations are inside the radius. Invalid or missing locator values are excluded only from the direction that depends on that station's location.
 
 The distance and bearing shown for each record point from the QTH locator-cell centre to the remote station's locator-cell centre. The local station's distance from QTH is also shown. Regional inclusion is based only on the local endpoint's locator; a missing or invalid remote locator does not remove an otherwise valid local observation. All times in the API are UTC.
+
+
+## PSK Reporter collection lifecycle
+
+The MQTT collector is not started at application boot. It starts when the first browser opens the "Радионаблюдения" tab and remains active while at least one browser keeps that tab open. The browser holds a WebSocket connection; switching to another application tab or closing the page disconnects that viewer. After the last viewer leaves, the backend waits 20 seconds before stopping MQTT. A new viewer during this grace period cancels the pending stop. Observations remain in the bounded six-hour SQLite history after MQTT disconnects. This coordination is in-process; run a single Uvicorn worker so all viewers share the same collector and viewer count.
