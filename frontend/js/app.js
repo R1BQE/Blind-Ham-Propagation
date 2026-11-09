@@ -10,6 +10,50 @@ const localStatus = document.querySelector("#local-status");
 const localReport = document.querySelector("#local-report");
 const serviceStatus = document.querySelector("#service-status");
 
+// Accessible tabs: arrow keys move between tabs and activate the selected panel.
+const tabList = document.querySelector('[role="tablist"]');
+const tabs = Array.from(tabList.querySelectorAll('[role="tab"]'));
+
+function activateTab(tab, moveFocus = false) {
+  for (const item of tabs) {
+    const selected = item === tab;
+    item.setAttribute("aria-selected", String(selected));
+    item.tabIndex = selected ? 0 : -1;
+    const panel = document.getElementById(item.getAttribute("aria-controls"));
+    panel.hidden = !selected;
+  }
+  if (moveFocus) tab.focus();
+}
+
+tabList.addEventListener("click", (event) => {
+  const tab = event.target.closest('[role="tab"]');
+  if (tab && tabs.includes(tab)) activateTab(tab);
+});
+
+tabList.addEventListener("keydown", (event) => {
+  const currentIndex = tabs.indexOf(document.activeElement);
+  if (currentIndex < 0) return;
+  let nextIndex;
+  switch (event.key) {
+    case "ArrowRight":
+      nextIndex = (currentIndex + 1) % tabs.length;
+      break;
+    case "ArrowLeft":
+      nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+      break;
+    case "Home":
+      nextIndex = 0;
+      break;
+    case "End":
+      nextIndex = tabs.length - 1;
+      break;
+    default:
+      return;
+  }
+  event.preventDefault();
+  activateTab(tabs[nextIndex], true);
+});
+
 function addText(parent, tag, text, className = "") {
   const element = document.createElement(tag);
   element.textContent = text;
@@ -173,7 +217,6 @@ if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("./sw.js", { scope: "./" }).catch(() => {});
   });
 }
-
 
 // Local mode advertises a WebSocket endpoint. A live WebSocket is not affected
 // by background-tab timer throttling; closing the final local tab closes it.
