@@ -9,7 +9,7 @@ The service has two deliberately separate report areas:
 
 ## Project status
 
-**Stage 1 — first data-backed foundation.** The application includes a PWA shell, accessible text-first interface, Maidenhead conversion, a NOAA SWPC collector and locator-specific solar geometry. Additional ionospheric data, propagation models and real reception reports are planned.
+**Stage 2 — global D-RAP and QTH lookup.** The application includes a PWA shell, accessible text-first interface, Maidenhead conversion, NOAA SWPC global measurements, NOAA D-RAP absorption data and locator-specific solar geometry. Direct GIRO/DIDBase observations remain unavailable until access and permitted use are arranged.
 
 ## Planned stack
 
@@ -41,7 +41,8 @@ uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
 API endpoints:
 
 - `GET /api/v1/health` — service health.
-- `GET /api/v1/solar/activity` — global NOAA solar and geomagnetic measurements.
+- `GET /api/v1/solar/activity` — global NOAA solar and geomagnetic measurements plus D-RAP model status.
+- `GET /api/v1/local/report?locator=KO59XX` — local solar geometry and the nearest D-RAP grid cell.
 - `GET /api/v1/local/report?locator=KO59XX` — local solar geometry for a Maidenhead locator.
 - `POST /api/v1/locator/validate` — validate a locator and return the center coordinates.
 
@@ -53,13 +54,13 @@ The first collector uses public JSON products from NOAA SWPC. No API key is requ
 - Planetary Kp index.
 - Solar-wind proton speed.
 - Interplanetary magnetic field Bt and Bz (GSM).
-- GOES X-ray flux.
+- GOES X-ray flux.\n\nThe report also includes NOAA D-RAP tabular values. For a supplied QTH, the service selects the nearest published grid cell (no interpolation) and reports the modelled highest frequency affected by at least 1 dB of D-region absorption. The product grid is approximately 2° latitude by 4° longitude. This is an absorption estimate, not MUF, a band-opening forecast or a direct measurement of link quality. Product documentation: https://www.swpc.noaa.gov/products/d-region-absorption-predictions-d-rap
 
 Each feed is fetched independently. A failed feed is reported in the API response instead of causing the entire solar report to fail. Each measurement includes its observation timestamp; the response also includes retrieval time and source errors.
 
 NOAA changed several JSON formats in 2026. The collector accepts both object-based rows and the older header/value array format. Official data catalogue: https://services.swpc.noaa.gov/json/ and https://services.swpc.noaa.gov/products/.
 
-## Deployment layout
+## GIRO / ionosonde data\n\nGIRO/DIDBase is not currently queried by this public service. Lowell DIDBase numerical access requires a read-only account, and its published rules limit free online access to educational and non-commercial research purposes. Data-provider acknowledgement requirements also apply. Any integration must first establish appropriate access and use conditions; no credentials are embedded in this repository. Rules: https://ulcar.uml.edu/DIDB/RulesOfTheRoadForDIDBase.htm\n\n## Deployment layout
 
 The intended public application URL is `https://blind-ham.ru/prop/`. Apache2 serves the files from `frontend/` under that URL and proxies `/prop/api/` to the local Uvicorn process.
 
