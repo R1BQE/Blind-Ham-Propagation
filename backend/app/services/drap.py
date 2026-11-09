@@ -39,7 +39,7 @@ def parse_drap_text(payload: str) -> dict[str, Any]:
                 candidate = [float(value) for value in parts]
             except ValueError:
                 continue
-            if len(candidate) > 20 and min(candidate) >= -180 and max(candidate) <= 180:
+            if len(candidate) > 2 and min(candidate) >= -180 and max(candidate) <= 180:
                 longitudes = candidate
             continue
 
