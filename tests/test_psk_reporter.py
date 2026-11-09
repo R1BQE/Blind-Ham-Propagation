@@ -51,14 +51,14 @@ def test_parse_spot_rejects_invalid_messages(topic, payload):
         parse_spot(topic, payload)
 
 
-def test_spot_freshness_uses_tx_timestamp():
+def test_spot_freshness_uses_normalized_observation_timestamp():
     now = datetime.fromtimestamp(1794255000, tz=timezone.utc)
     spot = {"observed_at": 1794254400}
 
     result = spot_freshness(spot, now=now)
 
     assert result["status"] == "fresh"
-    assert result["age_seconds"] == 612
+    assert result["age_seconds"] == 600
     assert result["observed_at_utc"].endswith("+00:00")
 
 
