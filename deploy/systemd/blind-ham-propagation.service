@@ -16,7 +16,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/blind-ham-propagation /var/log/blind-ham-propagation
+ReadWritePaths=/var/lib/blind-ham-propagation /var/log/blind-ham-propagation /var/www/blind-ham-propagation/data
 
 [Install]
 WantedBy=multi-user.target
