@@ -49,6 +49,29 @@ def test_default_collector_is_disabled_and_uses_narrow_pilot_topic():
     assert status["topic_filters"] == ["pskr/filter/v2/20m/FT8/#"]
 
 
+def test_build_topic_filters_creates_band_mode_combinations():
+    topics = PSKReporterCollector.build_topic_filters(
+        ["20m", "40m"],
+        ["FT8", "FT4"],
+    )
+
+    assert topics == (
+        "pskr/filter/v2/20m/FT8/#",
+        "pskr/filter/v2/20m/FT4/#",
+        "pskr/filter/v2/40m/FT8/#",
+        "pskr/filter/v2/40m/FT4/#",
+    )
+
+
+def test_build_topic_filters_rejects_empty_and_unknown_values():
+    with pytest.raises(ValueError, match="хотя бы один"):
+        PSKReporterCollector.build_topic_filters([], ["FT8"])
+    with pytest.raises(ValueError, match="Неизвестные диапазоны"):
+        PSKReporterCollector.build_topic_filters(["999m"], ["FT8"])
+    with pytest.raises(ValueError, match="Неизвестные режимы"):
+        PSKReporterCollector.build_topic_filters(["20m"], ["UNKNOWN"])
+
+
 def test_collector_saves_normalized_spot_and_counts_duplicate():
     store = FakeStore()
     collector = PSKReporterCollector(
