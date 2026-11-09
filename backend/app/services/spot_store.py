@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+from contextlib import contextmanager
 import time
 from pathlib import Path
 from typing import Any
@@ -43,8 +44,17 @@ class SpotStore:
         connection.execute("PRAGMA busy_timeout = 10000")
         return connection
 
+    @contextmanager
+    def _connection(self):
+        connection = self._connect()
+        try:
+            with connection:
+                yield connection
+        finally:
+            connection.close()
+
     def _initialize(self) -> None:
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute("PRAGMA journal_mode = WAL")
             connection.execute(
                 """
@@ -131,7 +141,7 @@ class SpotStore:
             float(spot["snr_db"]) if spot.get("snr_db") is not None else None,
             str(spot["sequence"]) if spot.get("sequence") is not None else None,
         )
-        with self._connect() as connection:
+        with self._connection() as connection:
             cursor = connection.execute(
                 """
                 INSERT OR IGNORE INTO spots (
