@@ -9,7 +9,7 @@ The service has two deliberately separate report areas:
 
 ## Project status
 
-**Stage 3 — PSK Reporter MQTT pilot.** The application includes a controlled MQTT/TLS collector for 20 m FT8, bounded SQLite storage, reconnect handling and an accessible collector-status panel. Collection is disabled by default and must be explicitly enabled. Regional TX/RX filtering and multi-band collection are the next steps. The application also includes NOAA SWPC global measurements, NOAA D-RAP absorption data and locator-specific solar geometry.
+**Stage 4 — regional PSK Reporter observations.** The application includes a controlled MQTT/TLS collector for 20 m FT8, bounded SQLite storage, reconnect handling, an accessible collector-status panel and a regional report. The report independently counts local transmitters heard by remote receivers (TX) and local receivers hearing remote transmitters (RX), with a configurable QTH locator and radius. Collection is disabled by default and must be explicitly enabled. The application also includes NOAA SWPC global measurements, NOAA D-RAP absorption data and locator-specific solar geometry.
 
 ## Planned stack
 
@@ -45,6 +45,7 @@ API endpoints:
 
 - `GET /api/v1/health` — service health.
 - `GET /api/v1/psk-reporter/status` — MQTT collector connection and storage counters.
+- `GET /api/v1/psk-reporter/regional?locator=KP50DB&radius_km=100&hours=6` — regional TX/RX observations, grouped by band and mode, with distances, bearings and latest spots.
 - `GET /api/v1/solar/activity` — global NOAA solar and geomagnetic measurements plus D-RAP model status.
 - `GET /api/v1/local/report?locator=KO59XX` — local solar geometry and the nearest D-RAP grid cell.
 - `POST /api/v1/locator/validate` — validate a locator and return the center coordinates.
