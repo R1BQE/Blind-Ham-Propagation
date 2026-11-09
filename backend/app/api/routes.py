@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from backend.app.services.drap import get_drap
 from backend.app.services.local_report import build_local_report
 from backend.app.services.maidenhead import LocatorError, locator_to_center
 from backend.app.services.noaa import get_space_weather
@@ -40,13 +41,31 @@ async def validate_locator(payload: LocatorRequest) -> LocatorResponse:
 @router.get("/solar/activity")
 async def solar_activity() -> dict:
     """Global solar and geomagnetic measurements; no QTH is required."""
-    return await get_space_weather()
+    report = await get_space_weather()
+    try:
+        report["drap"] = await get_drap()
+    except Exception as exc:
+        report.setdefault("errors", {})["drap"] = (
+            f"Источник D-RAP временно недоступен: {type(exc).__name__}"
+        )
+        report["status"] = "partial"
+    return report
 
 
 @router.get("/local/report")
 async def local_report(locator: str = Query(min_length=2, max_length=12)) -> dict:
     """Geographic and solar-illumination context for a Maidenhead locator."""
     try:
-        return build_local_report(locator)
+        report = build_local_report(locator)
+        latitude, longitude = locator_to_center(locator)
     except LocatorError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    try:
+        report["drap"] = await get_drap(latitude, longitude)
+    except Exception as exc:
+        report["drap"] = {
+            "status": "unavailable",
+            "error": f"Источник D-RAP временно недоступен: {type(exc).__name__}",
+        }
+    return report
