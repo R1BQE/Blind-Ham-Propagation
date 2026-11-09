@@ -61,7 +61,7 @@ try {
     }
 
     $env:BLIND_HAM_LOCAL_SESSION = "1"
-    $Server = Start-Process -FilePath $VenvPython -ArgumentList "backend/run_local.py" -WorkingDirectory $Root -WindowStyle Hidden -PassThru -RedirectStandardOutput $StdoutLog -RedirectStandardError $StderrLog
+    $Server = Start-Process -FilePath $VenvPython -ArgumentList "-m backend.run_local" -WorkingDirectory $Root -WindowStyle Hidden -PassThru -RedirectStandardOutput $StdoutLog -RedirectStandardError $StderrLog
     Write-LauncherLog ("Started server process PID {0}." -f $Server.Id)
 
     $Ready = $false
