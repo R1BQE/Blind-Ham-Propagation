@@ -173,3 +173,39 @@ if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("./sw.js", { scope: "./" }).catch(() => {});
   });
 }
+
+
+// The heartbeat endpoint is registered only by the local Windows runner.
+// Production returns 404, so no background polling is started there.
+let localSessionEnabled = false;
+let localHeartbeatTimer = null;
+
+async function sendLocalHeartbeat() {
+  try {
+    const response = await fetch(`${API}/local-session/heartbeat`, {
+      method: "POST",
+      cache: "no-store",
+      keepalive: true,
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function startLocalSessionHeartbeat() {
+  localSessionEnabled = await sendLocalHeartbeat();
+  if (!localSessionEnabled) return;
+  localHeartbeatTimer = window.setInterval(() => {
+    void sendLocalHeartbeat();
+  }, 10000);
+}
+
+window.addEventListener("pagehide", () => {
+  if (!localSessionEnabled) return;
+  if (localHeartbeatTimer !== null) window.clearInterval(localHeartbeatTimer);
+  const body = new Blob([], { type: "application/octet-stream" });
+  navigator.sendBeacon(`${API}/local-session/close`, body);
+});
+
+void startLocalSessionHeartbeat();
