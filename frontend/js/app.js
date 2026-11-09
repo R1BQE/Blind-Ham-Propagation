@@ -503,7 +503,8 @@ function startPskReporterSession() {
   pskReporterTabActive = true;
   if (pskReporterPageClosing || pskReporterSocket || pskReporterReconnectTimer !== null) return;
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const socketUrl = `${protocol}//${window.location.host}${API}/psk-reporter/session`;
+  const apiPath = new URL(API, window.location.href).pathname;
+  const socketUrl = `${protocol}//${window.location.host}${apiPath}/psk-reporter/session`;
   const socket = new WebSocket(socketUrl);
   pskReporterSocket = socket;
   socket.addEventListener("open", () => {
@@ -553,7 +554,8 @@ async function startLocalBrowserSession() {
     const response = await fetch(`${API}/local-session`, { cache: "no-store" });
     if (!response.ok) return;
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const socketUrl = `${protocol}//${window.location.host}${API}/local-session`;
+    const apiPath = new URL(API, window.location.href).pathname;
+    const socketUrl = `${protocol}//${window.location.host}${apiPath}/local-session`;
 
     const connect = () => {
       if (localSessionPageClosing) return;
