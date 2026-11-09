@@ -10,7 +10,7 @@ Run `run-windows.bat` from Explorer or a terminal. The launcher:
 4. Starts the local FastAPI application on `127.0.0.1:8765`.
 5. Opens the default browser at `http://127.0.0.1:8765/`.
 
-The console window is hidden. Launcher and server logs are written to:
+The console window is hidden. The local server is started as the Python module `backend.run_local`. The watchdog stops it when heartbeats have been absent for about 30 seconds, covering both a normal tab close and a browser crash. Launcher and server logs are written to:
 
 `%TEMP%\blind-ham-propagation\`
 
