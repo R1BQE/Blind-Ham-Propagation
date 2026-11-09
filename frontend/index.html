@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#14283f">
-  <meta name="description" content="Доступный мониторинг космической погоды и радиопрохождения по QTH-локатору.">
+  <meta name="description" content="Доступный мониторинг солнечной активности и радиопрохождения по QTH-локатору.">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./css/app.css">
@@ -16,52 +16,46 @@
     <div class="container">
       <p class="eyebrow">Радиолюбительский мониторинг</p>
       <h1>Blind-Ham Propagation</h1>
-      <p class="lead">Космическая погода и условия радиопрохождения для твоего QTH.</p>
+      <p class="lead">Солнечная активность и локальные условия для радиолюбительской станции.</p>
     </div>
   </header>
-
   <main id="main" class="container">
-    <section class="panel" aria-labelledby="locator-heading">
-      <h2 id="locator-heading">Укажи свой QTH-локатор</h2>
-      <p id="locator-help">Введи локатор Maidenhead длиной от 2 до 12 символов, например KO59XX.</p>
+    <section class="panel" aria-labelledby="solar-heading">
+      <h2 id="solar-heading">Солнечная и геомагнитная активность</h2>
+      <p>Глобальные показатели космической погоды. Для просмотра этого раздела QTH-локатор не требуется.</p>
+      <button type="button" id="solar-refresh">Обновить данные солнечной активности</button>
+      <p id="solar-status" class="status" role="status" aria-live="polite">Данные ещё не загружены.</p>
+      <div id="solar-report" class="report" aria-live="polite" aria-busy="false"></div>
+    </section>
+    <section class="panel" aria-labelledby="local-heading">
+      <h2 id="local-heading">Условия для моего QTH</h2>
+      <p id="locator-help">Введи локатор Maidenhead. Здесь отображаются географически привязанные расчёты и наблюдения, когда соответствующие источники подключены.</p>
       <form id="locator-form" novalidate>
         <div class="form-row">
           <label for="locator">QTH-локатор</label>
-          <input
-            id="locator"
-            name="locator"
-            type="text"
-            inputmode="text"
-            autocomplete="off"
-            autocapitalize="characters"
-            spellcheck="false"
-            maxlength="12"
-            minlength="2"
-            aria-describedby="locator-help locator-error"
-            placeholder="KO59XX"
-            required
-          >
+          <input id="locator" name="locator" type="text" inputmode="text"
+            autocomplete="off" autocapitalize="characters" spellcheck="false"
+            maxlength="12" minlength="2" aria-describedby="locator-help locator-error"
+            placeholder="KO59XX" required>
         </div>
         <p id="locator-error" class="field-error" role="alert"></p>
-        <button type="submit" id="submit-button">Проверить локатор</button>
+        <button type="submit" id="local-submit">Получить данные для локатора</button>
       </form>
-      <div id="locator-result" class="result" aria-live="polite" aria-atomic="true"></div>
+      <p id="local-status" class="status" role="status" aria-live="polite">Локатор ещё не указан.</p>
+      <div id="local-report" class="report" aria-live="polite" aria-busy="false"></div>
     </section>
-
-    <section class="panel" aria-labelledby="status-heading">
-      <h2 id="status-heading">Состояние сервиса</h2>
-      <p id="service-status">Проверяем доступность сервера…</p>
-      <p class="muted">Сбор показателей солнечной активности, ионосферы и радиопрохождения будет подключён на следующих этапах разработки.</p>
+    <section class="panel" aria-labelledby="service-heading">
+      <h2 id="service-heading">Состояние сервиса</h2>
+      <p id="service-status" role="status">Проверяем доступность сервера…</p>
+      <p class="muted">Показатели снабжаются источником и временем наблюдения. Расчётные значения отделяются от измерений.</p>
     </section>
   </main>
-
   <footer class="site-footer">
     <div class="container">
       <p>Blind-Ham Propagation — доступный инструмент для радиолюбителей.</p>
       <p><a href="https://blind-ham.ru/">Blind-Ham.ru</a></p>
     </div>
   </footer>
-
   <script src="./js/app.js" defer></script>
 </body>
 </html>
