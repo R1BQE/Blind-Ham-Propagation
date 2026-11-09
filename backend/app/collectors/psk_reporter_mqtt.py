@@ -22,6 +22,14 @@ from backend.app.services.spot_store import SpotStore
 logger = logging.getLogger(__name__)
 
 DEFAULT_TOPIC_FILTERS = ("pskr/filter/v2/20m/FT8/#",)
+SUPPORTED_BANDS = (
+    "160m", "80m", "60m", "40m", "30m", "20m", "17m",
+    "15m", "12m", "10m", "6m", "2m", "70cm",
+)
+SUPPORTED_MODES = (
+    "FT8", "FT4", "JS8", "JT65", "JT9", "MSK144",
+    "PSK31", "PSK63", "RTTY", "OLIVIA", "MFSK", "WSPR",
+)
 SETTINGS_PATH = Path(__file__).resolve().parents[3] / "settings.ini"
 
 
@@ -107,6 +115,48 @@ class PSKReporterCollector:
         self._last_message_at: str | None = None
         self._last_spot_at: str | None = None
         self._last_error: str | None = None
+
+    @staticmethod
+    def build_topic_filters(bands: list[str] | tuple[str, ...],
+                            modes: list[str] | tuple[str, ...]) -> tuple[str, ...]:
+        selected_bands = tuple(dict.fromkeys(str(value).strip().lower() for value in bands))
+        selected_modes = tuple(dict.fromkeys(str(value).strip().upper() for value in modes))
+        if not selected_bands or not selected_modes:
+            raise ValueError("Выбери хотя бы один диапазон и один режим.")
+        invalid_bands = sorted(set(selected_bands) - set(SUPPORTED_BANDS))
+        invalid_modes = sorted(set(selected_modes) - set(SUPPORTED_MODES))
+        if invalid_bands:
+            raise ValueError("Неизвестные диапазоны: " + ", ".join(invalid_bands))
+        if invalid_modes:
+            raise ValueError("Неизвестные режимы: " + ", ".join(invalid_modes))
+        return tuple(
+            f"pskr/filter/v2/{band}/{mode}/#"
+            for band in selected_bands
+            for mode in selected_modes
+        )
+
+    def set_filters(self, bands: list[str], modes: list[str]) -> tuple[str, ...]:
+        """Replace live MQTT subscriptions with the selected band/mode matrix."""
+        topics = self.build_topic_filters(bands, modes)
+        client = self._client
+        old_topics = self.config.topic_filters
+        self.config = MQTTConfig(
+            enabled=self.config.enabled,
+            host=self.config.host,
+            port=self.config.port,
+            keepalive=self.config.keepalive,
+            topic_filters=topics,
+        )
+        if client is not None and self._state == "connected":
+            if old_topics:
+                result, _ = client.unsubscribe(list(old_topics))
+                if result != 0:
+                    raise RuntimeError(f"Не удалось отменить старые MQTT-подписки (код {result}).")
+            result, _ = client.subscribe([(topic, 0) for topic in topics])
+            if result != 0:
+                raise RuntimeError(f"Не удалось установить новые MQTT-подписки (код {result}).")
+        logger.info("PSK Reporter subscriptions updated: %s", ", ".join(topics))
+        return topics
 
     def start(self) -> None:
         if not self.config.enabled:
