@@ -98,3 +98,14 @@ def test_radius_must_be_finite_and_positive(radius):
         classify_spot_region(
             {"tx_grid": "KO59XX", "rx_grid": "KO59XY"}, "KO59XX", radius
         )
+
+
+def test_station_exactly_on_radius_boundary_is_included():
+    radius = distance_between_locators("KO59XX", "KO59XY")
+    result = classify_spot_region(
+        {"tx_grid": "KO59XX", "rx_grid": "KO59XY"},
+        "KO59XX",
+        radius_km=radius,
+    )
+    assert result["rx_distance_km"] == pytest.approx(radius, abs=0.001)
+    assert result["rx_in_area"] is True
