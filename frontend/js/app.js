@@ -444,7 +444,7 @@ function renderRegionalReport(data) {
   const info = document.createElement("p");
   info.className = "muted";
   info.textContent =
-    `Локатор: ${data.locator}; радиус: ${data.radius_km} км; период: ${data.period_hours} ч. Центр квадрата: ${data.latitude}, ${data.longitude}. Проверено записей в хранилище: ${data.stored_spots_scanned}. Сформировано: ${formatObservationTime(data.generated_at)}.`;
+    `Локатор: ${data.locator}; радиус: ${data.radius_km} км; период: ${data.period_hours} ч. Диапазоны: ${(data.bands || []).join(", ") || "все"}; режимы: ${(data.modes || []).join(", ") || "все"}. Центр квадрата: ${data.latitude}, ${data.longitude}. Проверено записей в хранилище: ${data.stored_spots_scanned}. Сформировано: ${formatObservationTime(data.generated_at)}.`;
   regionalReport.append(info);
   renderRegionalDirection(
     regionalReport,
@@ -592,6 +592,23 @@ function stopPskReporterSession() {
   }
 }
 
+async function applyPskSubscriptions() {
+  try {
+    const response = await fetch(`${API}/psk-reporter/subscriptions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bands: selectedBands, modes: selectedModes }),
+      cache: "no-store",
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || "Не удалось восстановить MQTT-подписки.");
+    return data;
+  } catch (error) {
+    regionalStatus.textContent = error.message;
+    return null;
+  }
+}
+
 function startPskReporterSession() {
   pskReporterTabActive = true;
   if (pskReporterPageClosing || pskReporterSocket || pskReporterReconnectTimer !== null) return;
@@ -605,8 +622,11 @@ function startPskReporterSession() {
       socket.close();
       return;
     }
-    loadPskStatus();
-    loadRegionalReport();
+    void (async () => {
+      await applyPskSubscriptions();
+      await loadPskStatus();
+      await loadRegionalReport();
+    })();
   });
   socket.addEventListener("close", () => {
     if (pskReporterSocket === socket) pskReporterSocket = null;
