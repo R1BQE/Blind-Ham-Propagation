@@ -72,6 +72,42 @@ def test_collector_counts_malformed_messages_without_stopping():
     assert status["spots_saved"] == 0
 
 
+def test_environment_enables_collector_in_local_session_by_default(monkeypatch):
+    monkeypatch.delenv("PSK_REPORTER_ENABLED", raising=False)
+    monkeypatch.setenv("BLIND_HAM_LOCAL_SESSION", "1")
+
+    config = MQTTConfig.from_environment()
+
+    assert config.enabled is True
+
+
+def test_environment_keeps_collector_disabled_outside_local_session(monkeypatch):
+    monkeypatch.delenv("PSK_REPORTER_ENABLED", raising=False)
+    monkeypatch.delenv("BLIND_HAM_LOCAL_SESSION", raising=False)
+
+    config = MQTTConfig.from_environment()
+
+    assert config.enabled is False
+
+
+def test_explicit_environment_setting_overrides_local_default(monkeypatch):
+    monkeypatch.setenv("BLIND_HAM_LOCAL_SESSION", "1")
+    monkeypatch.setenv("PSK_REPORTER_ENABLED", "false")
+
+    config = MQTTConfig.from_environment()
+
+    assert config.enabled is False
+
+
+def test_explicit_environment_setting_can_enable_collector(monkeypatch):
+    monkeypatch.delenv("BLIND_HAM_LOCAL_SESSION", raising=False)
+    monkeypatch.setenv("PSK_REPORTER_ENABLED", "true")
+
+    config = MQTTConfig.from_environment()
+
+    assert config.enabled is True
+
+
 def test_environment_topics_are_validated(monkeypatch):
     monkeypatch.setenv("PSK_REPORTER_ENABLED", "true")
     monkeypatch.setenv(
