@@ -61,7 +61,8 @@ def test_regional_psk_report_endpoint(monkeypatch):
     assert payload["rx"]["spots"] == 0
 
 
-def test_regional_psk_report_rejects_invalid_locator():
+def test_regional_psk_report_rejects_invalid_locator(monkeypatch):
+    monkeypatch.setenv("PSK_REPORTER_ENABLED", "false")
     with TestClient(app) as running_client:
         response = running_client.get(
             "/api/v1/psk-reporter/regional",
