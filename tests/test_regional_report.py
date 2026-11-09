@@ -32,7 +32,7 @@ def test_regional_report_keeps_tx_and_rx_directions_separate():
     store = MemoryStore([
         spot("R1BQE", "W1ABC", "KO59XX", "FN31PR"),
         spot("W1ABC", "R1BQE", "FN31PR", "KO59XX", observed_at=9_999),
-        spot("R2ABC", "R3ABC", "KO59XW", "KO59XY", observed_at=9_998),
+        spot("R2ABC", "R3ABC", "KO59XW", "KO59WW", observed_at=9_998),
     ])
 
     report = build_regional_report("KO59XX", store=store, now=10_100)
