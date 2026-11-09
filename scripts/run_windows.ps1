@@ -42,6 +42,11 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "Не удалось создать .venv." }
     }
 
+    if (& $VenvPython -m pip --version 2>$null) { } else {
+        & $VenvPython -m ensurepip --upgrade
+        if ($LASTEXITCODE -ne 0) { throw "Не удалось подготовить pip в .venv." }
+    }
+
     Write-LauncherLog "Updating Python packages."
     & $VenvPython -m pip install --upgrade pip
     if ($LASTEXITCODE -ne 0) { throw "Не удалось обновить pip." }
