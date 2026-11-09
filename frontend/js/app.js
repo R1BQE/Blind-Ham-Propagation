@@ -20,6 +20,7 @@ const regionalLocatorForm = document.querySelector("#regional-locator-form");
 const regionalLocatorInput = document.querySelector("#regional-locator");
 const regionalLocatorError = document.querySelector("#regional-locator-error");
 const regionalLocatorSubmit = document.querySelector("#regional-locator-submit");
+const regionalRadiusInput = document.querySelector("#regional-radius");
 const settingsForm = document.querySelector("#settings-form");
 const settingsLocator = document.querySelector("#settings-locator");
 const settingsRadius = document.querySelector("#settings-radius");
@@ -28,6 +29,8 @@ const settingsStatus = document.querySelector("#settings-status");
 
 const DEFAULT_SETTINGS = { locator: "KP50DB", radiusKm: 100 };
 let userSettings = { ...DEFAULT_SETTINGS };
+let selectedBands = ["20m"];
+let selectedModes = ["FT8"];
 
 function applySettings(settings) {
   userSettings = settings;
@@ -35,6 +38,7 @@ function applySettings(settings) {
   settingsRadius.value = String(settings.radiusKm);
   locatorInput.value = settings.locator;
   regionalLocatorInput.value = settings.locator;
+  regionalRadiusInput.value = String(settings.radiusKm);
   regionalDescription.textContent =
     `Область поиска: локатор ${settings.locator}, радиус ${settings.radiusKm} км. Период — последние 6 часов.`;
 }
@@ -61,36 +65,68 @@ regionalLocatorForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   regionalLocatorError.textContent = "";
   const locator = regionalLocatorInput.value.trim().toUpperCase();
+  const radiusKm = Number(regionalRadiusInput.value);
+  const bands = Array.from(document.querySelectorAll('input[name="regional-band"]:checked')).map((input) => input.value);
+  const modes = Array.from(document.querySelectorAll('input[name="regional-mode"]:checked')).map((input) => input.value);
   if (!locator) {
     regionalLocatorError.textContent = "Введи локатор Maidenhead.";
     regionalLocatorInput.focus();
     return;
   }
+  if (!Number.isFinite(radiusKm) || radiusKm <= 0 || radiusKm > 1000) {
+    regionalLocatorError.textContent = "Радиус должен быть положительным числом от 1 до 1000 км.";
+    regionalRadiusInput.focus();
+    return;
+  }
+  if (!bands.length) {
+    regionalLocatorError.textContent = "Выбери хотя бы один диапазон.";
+    document.querySelector('input[name="regional-band"]').focus();
+    return;
+  }
+  if (!modes.length) {
+    regionalLocatorError.textContent = "Выбери хотя бы один режим.";
+    document.querySelector('input[name="regional-mode"]').focus();
+    return;
+  }
 
   regionalLocatorSubmit.disabled = true;
-  regionalStatus.textContent = "Проверяем локатор…";
+  regionalStatus.textContent = "Проверяем локатор и применяем MQTT-подписки…";
   try {
-    const response = await fetch(`${API}/locator/validate`, {
+    const validateResponse = await fetch(`${API}/locator/validate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ locator }),
       cache: "no-store",
     });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || "Некорректный локатор.");
+    const locatorData = await validateResponse.json();
+    if (!validateResponse.ok) throw new Error(locatorData.detail || "Некорректный локатор.");
 
-    const settings = { ...userSettings, locator: data.locator };
+    const subscriptionResponse = await fetch(`${API}/psk-reporter/subscriptions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bands, modes }),
+      cache: "no-store",
+    });
+    const subscriptionData = await subscriptionResponse.json();
+    if (!subscriptionResponse.ok) throw new Error(subscriptionData.detail || "Не удалось изменить MQTT-подписки.");
+
+    selectedBands = bands;
+    selectedModes = modes;
+    const settings = { locator: locatorData.locator, radiusKm };
     applySettings(settings);
     try {
       localStorage.setItem("blindHamPropagationSettings", JSON.stringify(settings));
+      localStorage.setItem("blindHamPropagationPSKFilters", JSON.stringify({ bands, modes }));
     } catch {
-      // The selected locator remains active for this page even if storage is unavailable.
+      // Active settings remain in memory for this page.
     }
-    regionalStatus.textContent = `Локатор ${settings.locator} принят. Загружаем наблюдения…`;
+    regionalStatus.textContent =
+      `Подписки обновлены: ${subscriptionData.topic_filters.length}. Ожидаем поток и загружаем накопленные наблюдения…`;
+    await loadPskStatus();
     await loadRegionalReport();
   } catch (error) {
     regionalLocatorError.textContent = error.message;
-    regionalStatus.textContent = "Не удалось проверить локатор.";
+    regionalStatus.textContent = "Не удалось применить параметры регионального поиска.";
   } finally {
     regionalLocatorSubmit.disabled = false;
   }
@@ -435,6 +471,8 @@ async function loadRegionalReport() {
     radius_km: String(userSettings.radiusKm),
     hours: "6",
     limit: "30",
+    bands: selectedBands.join(","),
+    modes: selectedModes.join(","),
   });
   try {
     const response = await fetch(`${API}/psk-reporter/regional?${params}`, {
@@ -523,6 +561,17 @@ localForm.addEventListener("submit", async (event) => {
 solarButton.addEventListener("click", loadSolar);
 regionalRefresh.addEventListener("click", loadRegionalReport);
 loadSettings();
+try {
+  const savedFilters = JSON.parse(localStorage.getItem("blindHamPropagationPSKFilters") || "null");
+  if (savedFilters && Array.isArray(savedFilters.bands) && Array.isArray(savedFilters.modes)) {
+    selectedBands = savedFilters.bands;
+    selectedModes = savedFilters.modes;
+    for (const input of document.querySelectorAll('input[name="regional-band"]')) input.checked = selectedBands.includes(input.value);
+    for (const input of document.querySelectorAll('input[name="regional-mode"]')) input.checked = selectedModes.includes(input.value);
+  }
+} catch {
+  // Keep the default 20m FT8 selection.
+}
 pskStatusButton.addEventListener("click", loadPskStatus);
 
 let pskReporterSocket = null;
