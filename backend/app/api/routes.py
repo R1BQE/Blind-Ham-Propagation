@@ -23,6 +23,11 @@ class LocatorResponse(BaseModel):
     longitude: float
 
 
+class PSKSubscriptionRequest(BaseModel):
+    bands: list[str] = Field(min_length=1, max_length=13)
+    modes: list[str] = Field(min_length=1, max_length=12)
+
+
 @router.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok", "service": "blind-ham-propagation"}
@@ -56,6 +61,30 @@ async def psk_reporter_status(request: Request) -> dict:
     return collector.status()
 
 
+@router.post("/psk-reporter/subscriptions")
+async def update_psk_reporter_subscriptions(
+    payload: PSKSubscriptionRequest,
+    request: Request,
+) -> dict:
+    """Apply selected bands and modes to the live shared MQTT collector."""
+    collector = getattr(request.app.state, "psk_reporter_collector", None)
+    if collector is None:
+        raise HTTPException(status_code=503, detail="Сборщик PSK Reporter недоступен.")
+    try:
+        topics = await __import__("asyncio").to_thread(
+            collector.set_filters, payload.bands, payload.modes
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {
+        "bands": list(dict.fromkeys(value.strip().lower() for value in payload.bands)),
+        "modes": list(dict.fromkeys(value.strip().upper() for value in payload.modes)),
+        "topic_filters": list(topics),
+    }
+
+
 @router.get("/psk-reporter/regional")
 async def psk_reporter_regional(
     request: Request,
@@ -63,6 +92,8 @@ async def psk_reporter_regional(
     radius_km: float = Query(default=100.0, gt=0, le=1000),
     hours: int = Query(default=6, ge=1, le=6),
     limit: int = Query(default=30, ge=1, le=100),
+    bands: str | None = Query(default=None),
+    modes: str | None = Query(default=None),
 ) -> dict:
     """Return independent TX/RX PSK Reporter statistics around a QTH."""
     collector = getattr(request.app.state, "psk_reporter_collector", None)
@@ -74,6 +105,8 @@ async def psk_reporter_regional(
             hours,
             store=store or SpotStore(),
             details_limit=limit,
+            bands=[value for value in (bands or "").split(",") if value],
+            modes=[value for value in (modes or "").split(",") if value],
         )
     except LocatorError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
