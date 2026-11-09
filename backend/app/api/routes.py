@@ -1,4 +1,6 @@
-from fastapi import APIRouter, HTTPException, Query
+import os
+
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from backend.app.services.drap import get_drap
@@ -69,3 +71,22 @@ async def local_report(locator: str = Query(min_length=2, max_length=12)) -> dic
             "error": f"Источник D-RAP временно недоступен: {type(exc).__name__}",
         }
     return report
+
+
+# These endpoints exist only in the Windows local runner. They are deliberately
+# absent from the public VDS application, so a browser cannot stop production.
+if os.environ.get("BLIND_HAM_LOCAL_SESSION") == "1":
+    from backend.app.services.local_session import (
+        heartbeat as local_heartbeat,
+        request_shutdown_after_page_close,
+    )
+
+    @router.post("/local-session/heartbeat")
+    async def local_session_heartbeat() -> dict[str, bool]:
+        local_heartbeat()
+        return {"enabled": True}
+
+    @router.post("/local-session/close")
+    async def local_session_close(request: Request) -> dict[str, bool]:
+        await request_shutdown_after_page_close(request.app)
+        return {"shutdown_scheduled": True}
