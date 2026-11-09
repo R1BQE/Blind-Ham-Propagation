@@ -71,8 +71,11 @@
     <section class="tab-panel" id="panel-spots" role="tabpanel" aria-labelledby="tab-spots" tabindex="0" hidden>
       <section class="panel" aria-labelledby="spots-heading">
         <h2 id="spots-heading">Радионаблюдения PSK Reporter</h2>
-        <p>Здесь будут отображаться реальные декодирования: какие станции слышны в районе твоего QTH и какие удалённые станции принимают передачи из твоего района.</p>
-        <p class="muted">Подключение к потоку PSK Reporter и сбор наблюдений ещё находятся в разработке. Отсутствие спотов не означает, что диапазон закрыт.</p>
+        <p>Сначала проверим, подключён ли сервер к PSK Reporter и поступают ли реальные наблюдения. Сейчас работает ограниченный тестовый сбор: FT8 на диапазоне 20 метров.</p>
+        <button type="button" id="psk-status-refresh">Проверить подключение PSK Reporter</button>
+        <p id="psk-status" class="status" role="status" aria-live="polite">Состояние сборщика ещё не проверено.</p>
+        <div id="psk-report" class="report" aria-live="polite" aria-busy="false"></div>
+        <p class="muted">Пока это проверка приёмника данных, а не региональная статистика. Отсутствие спотов не означает, что диапазон закрыт.</p>
       </section>
     </section>
 
