@@ -332,10 +332,13 @@ function renderRegionalDirection(parent, title, description, data) {
       const local = `${item.local_call}${item.local_grid ? ` (${item.local_grid})` : ""}`;
       const remote = `${item.remote_call}${item.remote_grid ? ` (${item.remote_grid})` : ""}`;
       const distance = item.distance_km === null
-        ? "расстояние неизвестно"
-        : `${item.distance_km} км от центра QTH`;
+        ? "расстояние до удалённой станции неизвестно"
+        : `удалённая станция — ${item.distance_km} км от QTH`;
+      const localDistance = item.local_distance_km === null
+        ? ""
+        : `; местная станция — ${item.local_distance_km} км от QTH`;
       const bearing = item.bearing
-        ? `, направление ${item.bearing} (${item.bearing_degrees}°)`
+        ? `, направление на удалённую станцию ${item.bearing} (${item.bearing_degrees}°)`
         : "";
       const snr = item.snr_db === null || item.snr_db === undefined
         ? ""
@@ -343,7 +346,7 @@ function renderRegionalDirection(parent, title, description, data) {
       addText(
         list,
         "li",
-        `${formatObservationTime(item.observed_at)}; ${item.band} ${item.mode}; местная станция: ${local}; удалённая станция: ${remote}; ${distance}${bearing}${snr}.`
+        `${formatObservationTime(item.observed_at)}; ${item.band} ${item.mode}; местная станция: ${local}; удалённая станция: ${remote}; ${distance}${bearing}${localDistance}${snr}.`
       );
     }
     section.append(list);
