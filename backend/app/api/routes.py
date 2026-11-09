@@ -82,8 +82,8 @@ if os.environ.get("BLIND_HAM_LOCAL_SESSION") == "1":
     )
 
     @router.post("/local-session/heartbeat")
-    async def local_session_heartbeat() -> dict[str, bool]:
-        local_heartbeat()
+    async def local_session_heartbeat(request: Request) -> dict[str, bool]:
+        local_heartbeat(request.app)
         return {"enabled": True}
 
     @router.post("/local-session/close")
