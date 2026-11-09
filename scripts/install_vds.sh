@@ -62,14 +62,14 @@ echo "==> Обновление Python-зависимостей"
 "${ROOT}/.venv/bin/python" -m pip install --upgrade -r "${ROOT}/requirements.txt"
 
 install -d -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" -m 0750 "${ROOT}/data" "${ROOT}/logs"
-if [[ ! -f "${ENV_FILE}" ]]; then
-    cat > "${ENV_FILE}" <<'ENV'
-# PSK Reporter collector is disabled until explicitly enabled.
-PSK_REPORTER_ENABLED=false
-# Pilot subscription: 20 metres, FT8 only.
-PSK_REPORTER_TOPICS=pskr/filter/v2/20m/FT8/#
-ENV
-    chmod 0640 "${ENV_FILE}"
+if [[ ! -f "${ROOT}/settings.ini" ]]; then
+    cat > "${ROOT}/settings.ini" <<'INI'
+[psk_reporter]
+enabled = false
+topics = pskr/filter/v2/20m/FT8/#
+INI
+    chown root:"${SERVICE_GROUP}" "${ROOT}/settings.ini"
+    chmod 0640 "${ROOT}/settings.ini"
 fi
 
 cat > "${SERVICE_FILE}" <<UNIT
@@ -85,7 +85,6 @@ Group=${SERVICE_GROUP}
 WorkingDirectory=${ROOT}
 Environment=PYTHONUNBUFFERED=1
 Environment=PYTHONDONTWRITEBYTECODE=1
-EnvironmentFile=-${ENV_FILE}
 ExecStart=${ROOT}/.venv/bin/uvicorn backend.app.main:app --host 127.0.0.1 --port ${PORT} --proxy-headers
 Restart=on-failure
 RestartSec=5
@@ -109,5 +108,5 @@ systemctl --no-pager --full status "${SERVICE_NAME}.service" || true
 echo
 echo "Служба установлена: ${SERVICE_NAME}.service"
 echo "Локальный backend слушает 127.0.0.1:${PORT}."
-echo "Настройки сборщика: ${ENV_FILE}"
+echo "Настройки сборщика: ${ROOT}/settings.ini"
 echo "Логи: journalctl -u ${SERVICE_NAME}.service -f"
