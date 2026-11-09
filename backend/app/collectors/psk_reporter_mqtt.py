@@ -5,8 +5,10 @@ It does not subscribe to the complete worldwide feed by default.
 """
 from __future__ import annotations
 
+import configparser
 import logging
 import os
+from pathlib import Path
 import threading
 import time
 import uuid
@@ -20,6 +22,7 @@ from backend.app.services.spot_store import SpotStore
 logger = logging.getLogger(__name__)
 
 DEFAULT_TOPIC_FILTERS = ("pskr/filter/v2/20m/FT8/#",)
+SETTINGS_PATH = Path(__file__).resolve().parents[3] / "settings.ini"
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
@@ -39,25 +42,41 @@ class MQTTConfig:
 
     @classmethod
     def from_environment(cls) -> "MQTTConfig":
+        """Load collector options from the untracked project-root settings.ini."""
+        parser = configparser.ConfigParser()
+        if SETTINGS_PATH.exists():
+            parser.read(SETTINGS_PATH, encoding="utf-8")
+
+        local_default = os.getenv("BLIND_HAM_LOCAL_SESSION", "").strip() == "1"
+        if not SETTINGS_PATH.exists():
+            parser["psk_reporter"] = {
+                "enabled": "true" if local_default else "false",
+                "topics": ",".join(DEFAULT_TOPIC_FILTERS),
+            }
+            try:
+                with SETTINGS_PATH.open("w", encoding="utf-8") as settings_file:
+                    parser.write(settings_file)
+            except OSError:
+                logger.warning("Не удалось создать файл настроек %s", SETTINGS_PATH)
+
+        section = parser["psk_reporter"] if parser.has_section("psk_reporter") else {}
+        file_enabled = str(section.get("enabled", "true" if local_default else "false"))
+        enabled = file_enabled.strip().lower() in {"1", "true", "yes", "on"}
+        if "PSK_REPORTER_ENABLED" in os.environ:
+            enabled = _env_bool("PSK_REPORTER_ENABLED", enabled)
+
         raw_topics = os.getenv("PSK_REPORTER_TOPICS", "").strip()
-        if raw_topics:
-            topics = tuple(item.strip() for item in raw_topics.split(",") if item.strip())
-        else:
-            topics = DEFAULT_TOPIC_FILTERS
+        if not raw_topics:
+            raw_topics = str(section.get("topics", ",".join(DEFAULT_TOPIC_FILTERS)))
+        topics = tuple(item.strip() for item in raw_topics.split(",") if item.strip())
 
         if not topics:
-            raise ValueError("PSK_REPORTER_TOPICS не содержит MQTT-фильтров.")
+            raise ValueError("В настройках PSK Reporter не указаны MQTT-фильтры.")
         if any(not item.startswith("pskr/filter/v2/") for item in topics):
             raise ValueError("Разрешены только MQTT-фильтры pskr/filter/v2/.")
 
         return cls(
-            # Local sessions collect pilot observations automatically. Production
-            # remains opt-in because BLIND_HAM_LOCAL_SESSION is not set there.
-            # An explicit PSK_REPORTER_ENABLED value always overrides this default.
-            enabled=_env_bool(
-                "PSK_REPORTER_ENABLED",
-                default=os.getenv("BLIND_HAM_LOCAL_SESSION", "").strip() == "1",
-            ),
+            enabled=enabled,
             host=os.getenv("PSK_REPORTER_HOST", "mqtt.pskreporter.info").strip(),
             port=int(os.getenv("PSK_REPORTER_PORT", "1884")),
             keepalive=int(os.getenv("PSK_REPORTER_KEEPALIVE", "60")),
