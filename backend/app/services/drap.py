@@ -33,7 +33,7 @@ def parse_drap_text(payload: str) -> dict[str, Any]:
         if line.startswith("#") or set(line) <= {"-"}:
             continue
 
-        parts = line.split()
+        parts = line.replace("|", " ").split()
         if not longitudes:
             try:
                 candidate = [float(value) for value in parts]
