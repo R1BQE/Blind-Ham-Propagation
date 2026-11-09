@@ -1,3 +1,6 @@
+import os
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -23,3 +26,11 @@ app.add_middleware(
 )
 
 app.include_router(router, prefix="/api/v1")
+
+# Local development serves the same frontend from Uvicorn. Production keeps
+# frontend delivery in Apache and proxies only the API to this application.
+if os.environ.get("BLIND_HAM_LOCAL_SESSION") == "1":
+    from fastapi.staticfiles import StaticFiles
+
+    frontend_dir = Path(__file__).resolve().parents[2] / "frontend"
+    app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="frontend")
