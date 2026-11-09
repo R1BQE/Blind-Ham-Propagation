@@ -98,6 +98,28 @@ def test_report_contains_bearing_distance_and_band_summary():
     }]
 
 
+def test_regional_report_filters_selected_bands_and_modes():
+    store = MemoryStore([
+        spot("R1BQE", "W1ABC", "KO59XX", "FN31PR"),
+        spot("R1BQE", "W2ABC", "KO59XX", "FN32PR", band="40m", mode="FT4"),
+        spot("R1BQE", "W3ABC", "KO59XX", "FN33PR", band="40m", mode="FT8"),
+    ])
+
+    report = build_regional_report(
+        "KO59XX",
+        bands=["40m"],
+        modes=["FT4"],
+        store=store,
+        now=10_100,
+    )
+
+    assert report["tx"]["spots"] == 1
+    assert report["tx"]["by_band"][0]["band"] == "40m"
+    assert report["tx"]["by_band"][0]["mode"] == "FT4"
+    assert report["bands"] == ["40m"]
+    assert report["modes"] == ["FT4"]
+
+
 def test_invalid_radius_is_rejected_even_when_store_is_empty():
     import pytest
 
