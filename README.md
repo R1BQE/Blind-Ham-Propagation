@@ -9,7 +9,7 @@ The service has two deliberately separate report areas:
 
 ## Project status
 
-**Stage 2 — global D-RAP and QTH lookup.** The application includes a PWA shell, accessible text-first interface, Maidenhead conversion, NOAA SWPC global measurements, NOAA D-RAP absorption data and locator-specific solar geometry. Direct GIRO/DIDBase observations remain unavailable until access and permitted use are arranged.
+**Stage 3 — PSK Reporter MQTT pilot.** The application includes a controlled MQTT/TLS collector for 20 m FT8, bounded SQLite storage, reconnect handling and an accessible collector-status panel. Collection is disabled by default and must be explicitly enabled. Regional TX/RX filtering and multi-band collection are the next steps. The application also includes NOAA SWPC global measurements, NOAA D-RAP absorption data and locator-specific solar geometry.
 
 ## Planned stack
 
@@ -44,6 +44,7 @@ uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
 API endpoints:
 
 - `GET /api/v1/health` — service health.
+- `GET /api/v1/psk-reporter/status` — MQTT collector connection and storage counters.
 - `GET /api/v1/solar/activity` — global NOAA solar and geomagnetic measurements plus D-RAP model status.
 - `GET /api/v1/local/report?locator=KO59XX` — local solar geometry and the nearest D-RAP grid cell.
 - `POST /api/v1/locator/validate` — validate a locator and return the center coordinates.
