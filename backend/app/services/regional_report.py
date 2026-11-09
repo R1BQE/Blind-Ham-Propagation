@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 import math
 from typing import Any
 
-from backend.app.services.geo_filter import classify_spot_region
+from backend.app.services.geo_filter import classify_spot_region, distance_between_locators
 from backend.app.services.maidenhead import locator_to_center
 from backend.app.services.spot_store import SpotStore
 
@@ -94,12 +94,16 @@ def build_regional_report(
             local_grid = spot.get(f"{local_side}_grid")
             remote_call = str(spot.get(f"{remote_side}_call") or "").strip().upper()
             remote_grid = spot.get(f"{remote_side}_grid")
-            distance = region[f"{local_side}_distance_km"]
+            local_distance = region[f"{local_side}_distance_km"]
+            remote_distance = None
             bearing_degrees = None
             bearing_direction = None
-            if local_grid:
+            if isinstance(remote_grid, str) and remote_grid.strip():
                 try:
-                    remote_lat, remote_lon = locator_to_center(local_grid)
+                    remote_lat, remote_lon = locator_to_center(remote_grid)
+                    remote_distance = distance_between_locators(
+                        normalized_locator, remote_grid
+                    )
                     bearing_degrees, bearing_direction = _bearing(
                         center_lat, center_lon, remote_lat, remote_lon
                     )
@@ -113,7 +117,10 @@ def build_regional_report(
                 "local_grid": local_grid,
                 "remote_call": remote_call or "Неизвестно",
                 "remote_grid": remote_grid,
-                "distance_km": round(float(distance), 1) if distance is not None else None,
+                "distance_km": round(float(remote_distance), 1) if remote_distance is not None else None,
+                "local_distance_km": (
+                    round(float(local_distance), 1) if local_distance is not None else None
+                ),
                 "bearing_degrees": bearing_degrees,
                 "bearing": bearing_direction,
                 "snr_db": spot.get("snr_db"),
@@ -145,8 +152,8 @@ def build_regional_report(
             "tx": "Передатчики внутри области QTH были услышаны удалёнными приёмниками.",
             "rx": "Приёмники внутри области QTH услышали удалённые передатчики.",
             "distance": (
-                "Расстояния и направления рассчитаны до центра локатора "
-                "станции внутри области."
+                "Расстояние и направление показывают удалённую станцию относительно QTH. "
+                "Отдельно указано расстояние до местной станции внутри области."
             ),
         },
     }
