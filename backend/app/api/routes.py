@@ -7,6 +7,8 @@ from backend.app.services.drap import get_drap
 from backend.app.services.local_report import build_local_report
 from backend.app.services.maidenhead import LocatorError, locator_to_center
 from backend.app.services.noaa import get_space_weather
+from backend.app.services.regional_report import build_regional_report
+from backend.app.services.spot_store import SpotStore
 
 router = APIRouter()
 
@@ -33,6 +35,31 @@ async def psk_reporter_status(request: Request) -> dict:
     if collector is None:
         return {"enabled": False, "state": "not_started"}
     return collector.status()
+
+
+@router.get("/psk-reporter/regional")
+async def psk_reporter_regional(
+    request: Request,
+    locator: str = Query(default="KP50DB", min_length=2, max_length=12),
+    radius_km: float = Query(default=100.0, gt=0, le=1000),
+    hours: int = Query(default=6, ge=1, le=6),
+    limit: int = Query(default=30, ge=1, le=100),
+) -> dict:
+    """Return independent TX/RX PSK Reporter statistics around a QTH."""
+    collector = getattr(request.app.state, "psk_reporter_collector", None)
+    store = getattr(collector, "store", None) if collector is not None else None
+    try:
+        return build_regional_report(
+            locator,
+            radius_km,
+            hours,
+            store=store or SpotStore(),
+            details_limit=limit,
+        )
+    except LocatorError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post("/locator/validate", response_model=LocatorResponse)
