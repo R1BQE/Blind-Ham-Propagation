@@ -79,15 +79,55 @@
           <h3 id="regional-heading">Наблюдения в районе моего QTH</h3>
           <form id="regional-locator-form" novalidate>
             <div class="form-row">
-              <label for="regional-locator">Локатор для регионального поиска</label>
+              <label for="regional-locator">Локатор Maidenhead</label>
               <input id="regional-locator" name="locator" type="text" inputmode="text"
                 autocomplete="off" autocapitalize="characters" spellcheck="false"
                 maxlength="12" minlength="2" aria-describedby="regional-locator-help regional-locator-error"
                 placeholder="KP50DB" required>
             </div>
-            <p id="regional-locator-help" class="muted">Можно вводить разные локаторы Maidenhead. Радиус поиска настраивается в разделе «Настройки».</p>
+            <div class="form-row">
+              <label for="regional-radius">Радиус поиска, км</label>
+              <input id="regional-radius" name="radius" type="number" min="1" max="1000"
+                step="1" value="100" required>
+            </div>
+            <fieldset class="choice-group">
+              <legend>Диапазоны</legend>
+              <div class="choice-grid">
+                <label><input type="checkbox" name="regional-band" value="160m"> 160 м</label>
+                <label><input type="checkbox" name="regional-band" value="80m"> 80 м</label>
+                <label><input type="checkbox" name="regional-band" value="60m"> 60 м</label>
+                <label><input type="checkbox" name="regional-band" value="40m"> 40 м</label>
+                <label><input type="checkbox" name="regional-band" value="30m"> 30 м</label>
+                <label><input type="checkbox" name="regional-band" value="20m" checked> 20 м</label>
+                <label><input type="checkbox" name="regional-band" value="17m"> 17 м</label>
+                <label><input type="checkbox" name="regional-band" value="15m"> 15 м</label>
+                <label><input type="checkbox" name="regional-band" value="12m"> 12 м</label>
+                <label><input type="checkbox" name="regional-band" value="10m"> 10 м</label>
+                <label><input type="checkbox" name="regional-band" value="6m"> 6 м</label>
+                <label><input type="checkbox" name="regional-band" value="2m"> 2 м</label>
+                <label><input type="checkbox" name="regional-band" value="70cm"> 70 см</label>
+              </div>
+            </fieldset>
+            <fieldset class="choice-group">
+              <legend>Режимы</legend>
+              <div class="choice-grid">
+                <label><input type="checkbox" name="regional-mode" value="FT8" checked> FT8</label>
+                <label><input type="checkbox" name="regional-mode" value="FT4"> FT4</label>
+                <label><input type="checkbox" name="regional-mode" value="JS8"> JS8</label>
+                <label><input type="checkbox" name="regional-mode" value="JT65"> JT65</label>
+                <label><input type="checkbox" name="regional-mode" value="JT9"> JT9</label>
+                <label><input type="checkbox" name="regional-mode" value="MSK144"> MSK144</label>
+                <label><input type="checkbox" name="regional-mode" value="PSK31"> PSK31</label>
+                <label><input type="checkbox" name="regional-mode" value="PSK63"> PSK63</label>
+                <label><input type="checkbox" name="regional-mode" value="RTTY"> RTTY</label>
+                <label><input type="checkbox" name="regional-mode" value="OLIVIA"> Olivia</label>
+                <label><input type="checkbox" name="regional-mode" value="MFSK"> MFSK</label>
+                <label><input type="checkbox" name="regional-mode" value="WSPR"> WSPR</label>
+              </div>
+            </fieldset>
+            <p id="regional-locator-help" class="muted">Отметь один или несколько диапазонов и режимов. Для каждой выбранной пары будет создана отдельная MQTT-подписка. Период отчёта — последние 6 часов.</p>
             <p id="regional-locator-error" class="field-error" role="alert"></p>
-            <button type="submit" id="regional-locator-submit">Проверить этот локатор</button>
+            <button type="submit" id="regional-locator-submit">Применить фильтры и проверить</button>
           </form>
           <p id="regional-description">Область поиска: локатор KP50DB, радиус 100 км. Период — последние 6 часов.</p>
           <button type="button" id="regional-refresh">Обновить региональные наблюдения</button>
