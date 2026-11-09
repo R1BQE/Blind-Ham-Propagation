@@ -87,3 +87,6 @@ Every measurement must identify its source, observation time, retrieval time and
 ## License
 
 License has not yet been selected. Until one is added, do not assume that the source code is licensed for redistribution or reuse.
+
+
+The PSK Reporter collector starts on demand when a visitor opens the observations tab and stops 20 seconds after the last visitor leaves. It is shared across visitors and stores observations in the bounded six-hour history.
