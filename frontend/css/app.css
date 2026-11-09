@@ -98,3 +98,38 @@ button:disabled { cursor: wait; opacity: .7; }
   .data-table { font-size: .88rem; }
   .data-table th, .data-table td { padding: .35rem; }
 }
+
+
+.choice-group {
+  margin-block: 1rem;
+  padding: .8rem 1rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: .5rem;
+}
+.choice-group legend {
+  padding-inline: .35rem;
+  font-weight: 700;
+}
+.choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: .45rem .8rem;
+}
+.choice-grid label {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  min-height: 2.5rem;
+  font-weight: 500;
+}
+.choice-grid input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 1.25rem;
+  min-height: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--accent);
+  text-transform: none;
+  letter-spacing: normal;
+}
