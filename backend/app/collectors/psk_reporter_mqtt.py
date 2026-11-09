@@ -51,7 +51,13 @@ class MQTTConfig:
             raise ValueError("Разрешены только MQTT-фильтры pskr/filter/v2/.")
 
         return cls(
-            enabled=_env_bool("PSK_REPORTER_ENABLED"),
+            # Local sessions collect pilot observations automatically. Production
+            # remains opt-in because BLIND_HAM_LOCAL_SESSION is not set there.
+            # An explicit PSK_REPORTER_ENABLED value always overrides this default.
+            enabled=_env_bool(
+                "PSK_REPORTER_ENABLED",
+                default=os.getenv("BLIND_HAM_LOCAL_SESSION", "").strip() == "1",
+            ),
             host=os.getenv("PSK_REPORTER_HOST", "mqtt.pskreporter.info").strip(),
             port=int(os.getenv("PSK_REPORTER_PORT", "1884")),
             keepalive=int(os.getenv("PSK_REPORTER_KEEPALIVE", "60")),
