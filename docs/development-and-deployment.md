@@ -39,29 +39,17 @@ Set `BLIND_HAM_PROPAGATION_PORT` when running the installer to choose another ba
 
 ## PSK Reporter MQTT pilot
 
-The collector is disabled by default. The first test subscribes only to 20 m FT8 over MQTT/TLS on port 1884; it does not subscribe to the full worldwide feed.
+The local Windows launcher enables the collector automatically. It subscribes only to 20 m FT8 over MQTT/TLS on port 1884; it does not subscribe to the full worldwide feed. No environment-variable setup is needed for ordinary local testing.
 
-For a temporary Windows test, set the environment variable in the same PowerShell session before launching the application:
+The application uses `BLIND_HAM_LOCAL_SESSION=1` to identify a local session. If `PSK_REPORTER_ENABLED` is explicitly set, that value takes precedence. This allows a local session to be run with the collector disabled by setting `PSK_REPORTER_ENABLED=false`.
 
-```powershell
-$env:PSK_REPORTER_ENABLED = "true"
-.\run-windows.bat
-```
+On Debian, the installer creates `/etc/blind-ham-propagation.env` with `PSK_REPORTER_ENABLED=false`. Production therefore remains disabled by default. To enable the pilot on the VDS, change that value to `PSK_REPORTER_ENABLED=true` and restart the service. The installer does not overwrite an existing environment file.
 
 The default topic filter is `pskr/filter/v2/20m/FT8/#`. To inspect the collector, open:
 
 `http://127.0.0.1:8765/api/v1/psk-reporter/status`
 
-The response reports connection state, received MQTT messages, saved spots, duplicates, malformed messages, and storage count. To stop the collector on the next launch, use:
-
-```powershell
-Remove-Item Env:PSK_REPORTER_ENABLED
-```
-
-On Debian, the installer creates `/etc/blind-ham-propagation.env` with the collector disabled. To enable the pilot on the VDS, change `PSK_REPORTER_ENABLED=false` to `PSK_REPORTER_ENABLED=true` in that file and restart the service. The installer does not overwrite an existing environment file.
-
-The collector stores a bounded sample stream in the local SQLite database. The «Радионаблюдения» tab can now build a regional report from the stored spots. The default QTH is KP50DB and the default radius is 100 km; both can be changed in the «Настройки» tab and are saved in the current browser. The report uses the last six hours of stored data and keeps TX and RX independent. It shows band/mode totals, unique local stations, latest observations, distance and bearing to the remote station, plus distance to the local station. The locator coordinates refer to the centre of the Maidenhead cell, so distances are approximate. The collector still subscribes only to 20 m FT8; regional filtering does not expand the MQTT feed.
-
+The response reports connection state, received MQTT messages, saved spots, duplicates, malformed messages, and storage count.
 
 ## Regional PSK Reporter API
 
