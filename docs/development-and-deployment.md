@@ -7,8 +7,9 @@ Run `run-windows.bat` from Explorer or a terminal. The launcher:
 1. Runs `git pull --ff-only`.
 2. Creates `.venv` when it does not exist.
 3. Updates pip and all dependencies from `requirements.txt`.
-4. Starts the local FastAPI application on `127.0.0.1:8765`.
-5. Opens the default browser at `http://127.0.0.1:8765/`.
+4. Checks whether an existing local instance exposes the regional PSK Reporter API. A compatible instance is reused; an older instance that returns `404` for that endpoint is stopped and restarted with the updated code.
+5. Starts the local FastAPI application on `127.0.0.1:8765` when needed.
+6. Opens the default browser at `http://127.0.0.1:8765/`.
 
 The console window is hidden. The local server is started as the Python module `backend.run_local`. The page opens a WebSocket session with the local backend. When the last local tab closes or navigates away, the connection closes and the server exits after a 15-second grace period. This avoids timer throttling in background browser tabs. Launcher and server logs are written to:
 
