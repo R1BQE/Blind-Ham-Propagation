@@ -95,3 +95,11 @@ def test_report_contains_bearing_distance_and_band_summary():
         "stations": 1,
         "last_seen": "1970-01-01T02:46:40+00:00",
     }]
+
+
+def test_invalid_radius_is_rejected_even_when_store_is_empty():
+    import pytest
+
+    store = MemoryStore([])
+    with pytest.raises(ValueError, match="Радиус"):
+        build_regional_report("KO59XX", radius_km=0, store=store, now=10_100)
