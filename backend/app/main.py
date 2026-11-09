@@ -1,10 +1,24 @@
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.app.api.routes import router
+from backend.app.collectors.psk_reporter_mqtt import PSKReporterCollector
+
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    collector = PSKReporterCollector()
+    application.state.psk_reporter_collector = collector
+    collector.start()
+    try:
+        yield
+    finally:
+        collector.stop()
+
 
 app = FastAPI(
     title="Blind-Ham Propagation API",
@@ -13,6 +27,7 @@ app = FastAPI(
     docs_url="/api/docs",
     redoc_url=None,
     openapi_url="/api/openapi.json",
+    lifespan=lifespan,
 )
 
 # The frontend and API are served from the same origin in production.
