@@ -42,8 +42,8 @@ def test_haversine_rejects_invalid_coordinates(coordinates):
 
 
 def test_distance_between_locator_centers_is_symmetric():
-    forward = distance_between_locators("KO59XX", "KO59XY")
-    reverse = distance_between_locators("KO59XY", "KO59XX")
+    forward = distance_between_locators("KO59XX", "KO59XW")
+    reverse = distance_between_locators("KO59XW", "KO59XX")
     assert forward > 0
     assert forward == pytest.approx(reverse)
 
@@ -61,7 +61,7 @@ def test_spot_classifies_tx_and_rx_independently():
 
 def test_station_inside_radius_is_included():
     result = classify_spot_region(
-        {"tx_grid": "KO59XX", "rx_grid": "KO59XY"}, "KO59XX", radius_km=100
+        {"tx_grid": "KO59XX", "rx_grid": "KO59XW"}, "KO59XX", radius_km=100
     )
     assert result["tx_in_area"] is True
     assert result["rx_in_area"] is True
@@ -88,7 +88,7 @@ def test_missing_or_invalid_station_locator_is_not_in_area():
 def test_qth_locator_must_be_valid():
     with pytest.raises(LocatorError):
         classify_spot_region(
-            {"tx_grid": "KO59XX", "rx_grid": "KO59XY"}, "INVALID"
+            {"tx_grid": "KO59XX", "rx_grid": "KO59XW"}, "INVALID"
         )
 
 
@@ -96,14 +96,14 @@ def test_qth_locator_must_be_valid():
 def test_radius_must_be_finite_and_positive(radius):
     with pytest.raises(ValueError):
         classify_spot_region(
-            {"tx_grid": "KO59XX", "rx_grid": "KO59XY"}, "KO59XX", radius
+            {"tx_grid": "KO59XX", "rx_grid": "KO59XW"}, "KO59XX", radius
         )
 
 
 def test_station_exactly_on_radius_boundary_is_included():
-    radius = distance_between_locators("KO59XX", "KO59XY")
+    radius = distance_between_locators("KO59XX", "KO59XW")
     result = classify_spot_region(
-        {"tx_grid": "KO59XX", "rx_grid": "KO59XY"},
+        {"tx_grid": "KO59XX", "rx_grid": "KO59XW"},
         "KO59XX",
         radius_km=radius,
     )
