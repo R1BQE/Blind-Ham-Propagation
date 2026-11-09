@@ -18,7 +18,7 @@ The service has two deliberately separate report areas:
 - HTML, CSS and vanilla JavaScript
 - Progressive Web App (PWA)
 - pytest
-- SQLite for cached measurements and history in a later stage
+- SQLite for bounded PSK Reporter spot history
 - Apache2 reverse proxy under `/prop/`
 
 ## Development
@@ -66,7 +66,7 @@ NOAA changed several JSON formats in 2026. The collector accepts both object-bas
 
 The intended public application URL is `https://blind-ham.ru/prop/`. Apache2 serves the files from `frontend/` under that URL and proxies `/prop/api/` to the local Uvicorn process.
 
-Keep runtime data, secrets, virtual environments, logs and the SQLite database outside the Git checkout. Never commit API keys or personal user data.
+Keep runtime data in the Git-ignored `data/` and `logs/` directories. Keep secrets outside the repository. Never commit API keys or personal user data.
 
 ## Accessibility principles
 
