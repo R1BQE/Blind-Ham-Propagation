@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#14283f">
+  <meta name="description" content="Доступный мониторинг космической погоды и радиопрохождения по QTH-локатору.">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./css/app.css">
+  <title>Blind-Ham Propagation</title>
+</head>
+<body>
+  <a class="skip-link" href="#main">Перейти к основному содержимому</a>
+  <header class="site-header">
+    <div class="container">
+      <p class="eyebrow">Радиолюбительский мониторинг</p>
+      <h1>Blind-Ham Propagation</h1>
+      <p class="lead">Космическая погода и условия радиопрохождения для твоего QTH.</p>
+    </div>
+  </header>
+
+  <main id="main" class="container">
+    <section class="panel" aria-labelledby="locator-heading">
+      <h2 id="locator-heading">Укажи свой QTH-локатор</h2>
+      <p id="locator-help">Введи локатор Maidenhead длиной от 2 до 12 символов, например KO59XX.</p>
+      <form id="locator-form" novalidate>
+        <div class="form-row">
+          <label for="locator">QTH-локатор</label>
+          <input
+            id="locator"
+            name="locator"
+            type="text"
+            inputmode="text"
+            autocomplete="off"
+            autocapitalize="characters"
+            spellcheck="false"
+            maxlength="12"
+            minlength="2"
+            aria-describedby="locator-help locator-error"
+            placeholder="KO59XX"
+            required
+          >
+        </div>
+        <p id="locator-error" class="field-error" role="alert"></p>
+        <button type="submit" id="submit-button">Проверить локатор</button>
+      </form>
+      <div id="locator-result" class="result" aria-live="polite" aria-atomic="true"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="status-heading">
+      <h2 id="status-heading">Состояние сервиса</h2>
+      <p id="service-status">Проверяем доступность сервера…</p>
+      <p class="muted">Сбор показателей солнечной активности, ионосферы и радиопрохождения будет подключён на следующих этапах разработки.</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>Blind-Ham Propagation — доступный инструмент для радиолюбителей.</p>
+      <p><a href="https://blind-ham.ru/">Blind-Ham.ru</a></p>
+    </div>
+  </footer>
+
+  <script src="./js/app.js" defer></script>
+</body>
+</html>
