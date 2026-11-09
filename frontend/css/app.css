@@ -71,3 +71,30 @@ button:disabled { cursor: wait; opacity: .7; }
   .measurements dd { margin-block-end: .55rem; }
 }
 @media (prefers-reduced-motion: no-preference) { .skip-link { transition: transform 120ms ease; } }
+
+
+.form-row + .form-row { margin-block-start: .8rem; }
+.data-table {
+  width: 100%;
+  margin-block: .8rem 1rem;
+  border-collapse: collapse;
+  text-align: start;
+}
+.data-table caption {
+  padding-block: .4rem;
+  font-weight: 700;
+  text-align: start;
+}
+.data-table th, .data-table td {
+  padding: .45rem .55rem;
+  border: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+}
+.data-table th { background: var(--page); }
+.observation-list { padding-inline-start: 1.5rem; }
+.observation-list li { margin-block: .65rem; overflow-wrap: anywhere; }
+@media (max-width: 36rem) {
+  .data-table { font-size: .88rem; }
+  .data-table th, .data-table td { padding: .35rem; }
+}
