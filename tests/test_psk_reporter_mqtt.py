@@ -2,7 +2,6 @@ import pytest
 
 from backend.app.collectors.psk_reporter_mqtt import (
     DEFAULT_TOPIC_FILTERS,
-    SETTINGS_PATH,
     MQTTConfig,
     PSKReporterCollector,
 )
