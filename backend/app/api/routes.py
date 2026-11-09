@@ -26,6 +26,15 @@ async def health() -> dict[str, str]:
     return {"status": "ok", "service": "blind-ham-propagation"}
 
 
+@router.get("/psk-reporter/status")
+async def psk_reporter_status(request: Request) -> dict:
+    """Return MQTT collector connection and bounded-storage counters."""
+    collector = getattr(request.app.state, "psk_reporter_collector", None)
+    if collector is None:
+        return {"enabled": False, "state": "not_started"}
+    return collector.status()
+
+
 @router.post("/locator/validate", response_model=LocatorResponse)
 async def validate_locator(payload: LocatorRequest) -> LocatorResponse:
     try:
