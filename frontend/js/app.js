@@ -9,6 +9,9 @@ const localSubmit = document.querySelector("#local-submit");
 const localStatus = document.querySelector("#local-status");
 const localReport = document.querySelector("#local-report");
 const serviceStatus = document.querySelector("#service-status");
+const pskStatusButton = document.querySelector("#psk-status-refresh");
+const pskStatus = document.querySelector("#psk-status");
+const pskReport = document.querySelector("#psk-report");
 
 // Accessible tabs: arrow keys move between tabs and activate the selected panel.
 const tabList = document.querySelector('[role="tablist"]');
@@ -132,6 +135,67 @@ async function loadSolar() {
   }
 }
 
+function renderPskStatus(data) {
+  pskReport.replaceChildren();
+  const section = document.createElement("section");
+  section.className = "result-card";
+  const stateLabels = {
+    disabled: "Сборщик выключен",
+    idle: "Ожидает запуска",
+    connecting: "Подключается к брокеру",
+    connected: "Подключён, получает поток",
+    reconnecting: "Потеряно соединение, выполняется переподключение",
+    error: "Ошибка сборщика",
+    stopped: "Сборщик остановлен",
+    not_started: "Сборщик ещё не запущен",
+  };
+  addText(section, "h3", stateLabels[data.state] || data.state || "Состояние неизвестно");
+  const list = document.createElement("dl");
+  list.className = "measurements";
+  const rows = [
+    ["Брокер", data.broker ? `${data.broker}:${data.port}` : "Не задан"],
+    ["Защищённое соединение", data.transport || "Неизвестно"],
+    ["Подписки", (data.topic_filters || []).join(", ") || "Нет"],
+    ["Получено MQTT-сообщений", String(data.messages_received ?? 0)],
+    ["Сохранено новых спотов", String(data.spots_saved ?? 0)],
+    ["Сейчас в хранилище", String(data.stored_spots ?? 0)],
+    ["Повторных сообщений", String(data.duplicates ?? 0)],
+    ["Некорректных сообщений", String(data.invalid_messages ?? 0)],
+    ["Ошибок", String(data.errors ?? 0)],
+    ["Последнее MQTT-сообщение", data.last_message_at || "Пока не поступало"],
+    ["Время последнего спота", data.last_spot_at || "Пока не поступало"],
+  ];
+  for (const [label, value] of rows) {
+    addText(list, "dt", label);
+    addText(list, "dd", value);
+  }
+  section.append(list);
+  if (data.last_error) addText(section, "p", `Последняя ошибка: ${data.last_error}`, "field-error");
+  pskReport.append(section);
+}
+
+async function loadPskStatus() {
+  pskStatusButton.disabled = true;
+  pskReport.setAttribute("aria-busy", "true");
+  pskStatus.textContent = "Проверяем состояние сборщика…";
+  try {
+    const response = await fetch(`${API}/psk-reporter/status`, { cache: "no-store" });
+    if (!response.ok) throw new Error("Сервер вернул ошибку.");
+    const data = await response.json();
+    renderPskStatus(data);
+    pskStatus.textContent = data.state === "connected"
+      ? "Соединение с PSK Reporter установлено."
+      : data.state === "disabled"
+        ? "Сборщик выключен. Для теста его нужно включить переменной окружения."
+        : "Состояние сборщика обновлено.";
+  } catch (error) {
+    pskStatus.textContent = `Не удалось получить состояние: ${error.message}`;
+  } finally {
+    pskStatusButton.disabled = false;
+    pskReport.setAttribute("aria-busy", "false");
+  }
+}
+
 function renderLocal(data) {
   localReport.replaceChildren();
   const section = document.createElement("section");
@@ -200,6 +264,7 @@ localForm.addEventListener("submit", async (event) => {
 });
 
 solarButton.addEventListener("click", loadSolar);
+pskStatusButton.addEventListener("click", loadPskStatus);
 
 async function checkService() {
   try {
