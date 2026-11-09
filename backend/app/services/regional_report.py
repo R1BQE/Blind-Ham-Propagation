@@ -117,7 +117,10 @@ def build_regional_report(
                 "local_grid": local_grid,
                 "remote_call": remote_call or "Неизвестно",
                 "remote_grid": remote_grid,
-                "distance_km": round(float(remote_distance), 1) if remote_distance is not None else None,
+                "distance_km": (
+                    round(float(remote_distance), 1)
+                    if remote_distance is not None else None
+                ),
                 "local_distance_km": (
                     round(float(local_distance), 1) if local_distance is not None else None
                 ),
