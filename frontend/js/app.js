@@ -12,6 +12,80 @@ const serviceStatus = document.querySelector("#service-status");
 const pskStatusButton = document.querySelector("#psk-status-refresh");
 const pskStatus = document.querySelector("#psk-status");
 const pskReport = document.querySelector("#psk-report");
+const regionalRefresh = document.querySelector("#regional-refresh");
+const regionalStatus = document.querySelector("#regional-status");
+const regionalDescription = document.querySelector("#regional-description");
+const regionalReport = document.querySelector("#regional-report");
+const settingsForm = document.querySelector("#settings-form");
+const settingsLocator = document.querySelector("#settings-locator");
+const settingsRadius = document.querySelector("#settings-radius");
+const settingsError = document.querySelector("#settings-error");
+const settingsStatus = document.querySelector("#settings-status");
+
+const DEFAULT_SETTINGS = { locator: "KP50DB", radiusKm: 100 };
+let userSettings = { ...DEFAULT_SETTINGS };
+
+function applySettings(settings) {
+  userSettings = settings;
+  settingsLocator.value = settings.locator;
+  settingsRadius.value = String(settings.radiusKm);
+  locatorInput.value = settings.locator;
+  regionalDescription.textContent =
+    `Область поиска: локатор ${settings.locator}, радиус ${settings.radiusKm} км. Период — последние 6 часов.`;
+}
+
+function loadSettings() {
+  try {
+    const saved = JSON.parse(localStorage.getItem("blindHamPropagationSettings") || "null");
+    if (saved && typeof saved.locator === "string"
+        && Number.isFinite(Number(saved.radiusKm))) {
+      applySettings({
+        locator: saved.locator.trim().toUpperCase(),
+        radiusKm: Number(saved.radiusKm),
+      });
+      settingsStatus.textContent = "Загружены сохранённые настройки этого браузера.";
+      return;
+    }
+  } catch {
+    // Invalid or unavailable browser storage falls back to defaults.
+  }
+  applySettings({ ...DEFAULT_SETTINGS });
+}
+
+settingsForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  settingsError.textContent = "";
+  const locator = settingsLocator.value.trim().toUpperCase();
+  const radiusKm = Number(settingsRadius.value);
+  if (!Number.isFinite(radiusKm) || radiusKm < 1 || radiusKm > 1000) {
+    settingsError.textContent = "Радиус должен быть от 1 до 1000 км.";
+    settingsRadius.focus();
+    return;
+  }
+  const saveButton = document.querySelector("#settings-save");
+  saveButton.disabled = true;
+  settingsStatus.textContent = "Проверяем локатор…";
+  try {
+    const response = await fetch(`${API}/locator/validate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ locator }),
+      cache: "no-store",
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || "Некорректный локатор.");
+    const settings = { locator: data.locator, radiusKm };
+    localStorage.setItem("blindHamPropagationSettings", JSON.stringify(settings));
+    applySettings(settings);
+    settingsStatus.textContent =
+      `Настройки сохранены: ${settings.locator}, радиус ${settings.radiusKm} км.`;
+  } catch (error) {
+    settingsError.textContent = error.message;
+    settingsStatus.textContent = "Не удалось сохранить настройки.";
+  } finally {
+    saveButton.disabled = false;
+  }
+});
 
 // Accessible tabs: arrow keys move between tabs and activate the selected panel.
 const tabList = document.querySelector('[role="tablist"]');
@@ -196,6 +270,139 @@ async function loadPskStatus() {
   }
 }
 
+function formatObservationTime(value) {
+  if (!value) return "время неизвестно";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("ru-RU");
+}
+
+function renderBandSummary(parent, rows) {
+  if (!rows?.length) return;
+  const table = document.createElement("table");
+  table.className = "data-table";
+  const caption = document.createElement("caption");
+  caption.textContent = "Распределение по диапазонам и режимам";
+  table.append(caption);
+  const thead = document.createElement("thead");
+  const header = document.createElement("tr");
+  for (const label of ["Диапазон", "Режим", "Спотов", "Станций", "Последнее наблюдение"]) {
+    const th = addText(header, "th", label);
+    th.scope = "col";
+  }
+  thead.append(header);
+  table.append(thead);
+  const tbody = document.createElement("tbody");
+  for (const row of rows) {
+    const tr = document.createElement("tr");
+    for (const value of [
+      row.band,
+      row.mode,
+      String(row.spots),
+      String(row.stations),
+      formatObservationTime(row.last_seen),
+    ]) addText(tr, "td", value);
+    tbody.append(tr);
+  }
+  table.append(tbody);
+  parent.append(table);
+}
+
+function renderRegionalDirection(parent, title, description, data) {
+  const section = document.createElement("section");
+  section.className = "result-card";
+  addText(section, "h3", title);
+  addText(section, "p", description);
+  const summary = document.createElement("dl");
+  summary.className = "measurements";
+  for (const [label, value] of [
+    ["Всего наблюдений", String(data.spots)],
+    ["Уникальных местных станций", String(data.unique_local_stations)],
+    ["Последнее наблюдение", formatObservationTime(data.last_seen)],
+  ]) {
+    addText(summary, "dt", label);
+    addText(summary, "dd", value);
+  }
+  section.append(summary);
+  renderBandSummary(section, data.by_band);
+  if (data.latest?.length) {
+    addText(section, "h4", "Последние наблюдения");
+    const list = document.createElement("ol");
+    list.className = "observation-list";
+    for (const item of data.latest) {
+      const local = `${item.local_call}${item.local_grid ? ` (${item.local_grid})` : ""}`;
+      const remote = `${item.remote_call}${item.remote_grid ? ` (${item.remote_grid})` : ""}`;
+      const distance = item.distance_km === null
+        ? "расстояние неизвестно"
+        : `${item.distance_km} км от центра QTH`;
+      const bearing = item.bearing
+        ? `, направление ${item.bearing} (${item.bearing_degrees}°)`
+        : "";
+      const snr = item.snr_db === null || item.snr_db === undefined
+        ? ""
+        : `, сигнал ${item.snr_db} дБ`;
+      addText(
+        list,
+        "li",
+        `${formatObservationTime(item.observed_at)}; ${item.band} ${item.mode}; местная станция: ${local}; удалённая станция: ${remote}; ${distance}${bearing}${snr}.`
+      );
+    }
+    section.append(list);
+  } else {
+    addText(section, "p", "За выбранный период наблюдений этого типа в указанной области нет.");
+  }
+  parent.append(section);
+}
+
+function renderRegionalReport(data) {
+  regionalReport.replaceChildren();
+  const info = document.createElement("p");
+  info.className = "muted";
+  info.textContent =
+    `Локатор: ${data.locator}; радиус: ${data.radius_km} км; период: ${data.period_hours} ч. Центр квадрата: ${data.latitude}, ${data.longitude}. Проверено записей в хранилище: ${data.stored_spots_scanned}. Сформировано: ${formatObservationTime(data.generated_at)}.`;
+  regionalReport.append(info);
+  renderRegionalDirection(
+    regionalReport,
+    "TX: местные передатчики услышаны снаружи",
+    data.explanation.tx,
+    data.tx
+  );
+  renderRegionalDirection(
+    regionalReport,
+    "RX: местные приёмники услышали удалённые станции",
+    data.explanation.rx,
+    data.rx
+  );
+  addText(regionalReport, "p", data.explanation.distance, "muted");
+}
+
+async function loadRegionalReport() {
+  regionalRefresh.disabled = true;
+  regionalReport.setAttribute("aria-busy", "true");
+  regionalStatus.textContent = "Загружаем региональные наблюдения…";
+  regionalReport.replaceChildren();
+  const params = new URLSearchParams({
+    locator: userSettings.locator,
+    radius_km: String(userSettings.radiusKm),
+    hours: "6",
+    limit: "30",
+  });
+  try {
+    const response = await fetch(`${API}/psk-reporter/regional?${params}`, {
+      cache: "no-store",
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || "Не удалось получить региональные данные.");
+    renderRegionalReport(data);
+    regionalStatus.textContent =
+      `Региональный отчёт готов. TX: ${data.tx.spots} наблюдений; RX: ${data.rx.spots} наблюдений.`;
+  } catch (error) {
+    regionalStatus.textContent = error.message;
+  } finally {
+    regionalRefresh.disabled = false;
+    regionalReport.setAttribute("aria-busy", "false");
+  }
+}
+
 function renderLocal(data) {
   localReport.replaceChildren();
   const section = document.createElement("section");
@@ -264,6 +471,8 @@ localForm.addEventListener("submit", async (event) => {
 });
 
 solarButton.addEventListener("click", loadSolar);
+regionalRefresh.addEventListener("click", loadRegionalReport);
+loadSettings();
 pskStatusButton.addEventListener("click", loadPskStatus);
 
 async function checkService() {
