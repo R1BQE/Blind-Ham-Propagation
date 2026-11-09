@@ -1,8 +1,19 @@
+import pytest
+
 from backend.app.collectors.psk_reporter_mqtt import (
     DEFAULT_TOPIC_FILTERS,
+    SETTINGS_PATH,
     MQTTConfig,
     PSKReporterCollector,
 )
+
+
+@pytest.fixture(autouse=True)
+def isolate_settings_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        "backend.app.collectors.psk_reporter_mqtt.SETTINGS_PATH",
+        tmp_path / "settings.ini",
+    )
 
 
 class FakeStore:
