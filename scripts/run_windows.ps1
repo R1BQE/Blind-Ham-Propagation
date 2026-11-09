@@ -1,4 +1,4 @@
-$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
@@ -14,6 +14,32 @@ function Write-LauncherLog([string]$Message) {
 function Show-LauncherError([string]$Message) {
     Add-Type -AssemblyName PresentationFramework
     [System.Windows.MessageBox]::Show($Message, "Blind-Ham Propagation", "OK", "Error") | Out-Null
+}
+
+function Get-ListeningProcessId([int]$Port) {
+    # Prefer the structured networking cmdlet when available.
+    try {
+        $Connection = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction Stop |
+            Select-Object -First 1
+        if ($Connection -and $Connection.OwningProcess -gt 0) {
+            return [int]$Connection.OwningProcess
+        }
+    } catch {
+        Write-LauncherLog ("Get-NetTCPConnection unavailable: " + $_.Exception.Message)
+    }
+
+    # netstat is present on supported Windows versions and does not depend
+    # on the NetTCPIP PowerShell module.
+    $Lines = & "$env:SystemRoot\System32\netstat.exe" -ano -p tcp 2>$null
+    foreach ($Line in $Lines) {
+        if ($Line -match "^\s*TCP\s+\S+:$Port\s+\S+\s+LISTENING\s+(\d+)\s*$") {
+            $ProcessId = [int]$Matches[1]
+            if ($ProcessId -gt 0) {
+                return $ProcessId
+            }
+        }
+    }
+    return $null
 }
 
 try {
@@ -83,21 +109,17 @@ try {
         }
 
         Write-LauncherLog "The existing local instance is outdated (regional API returned 404); restarting it."
-        try {
-            $Listener = Get-NetTCPConnection -LocalPort 8765 -State Listen -ErrorAction Stop |
-                Select-Object -First 1
-        } catch {
-            throw "Найден устаревший экземпляр сервера, но не удалось определить процесс на порту 8765. Закрой старое окно сервера и повтори запуск."
-        }
-        if (-not $Listener) {
-            throw "Региональный API отсутствует, но процесс на порту 8765 не найден. Закрой старый сервер и повтори запуск."
+        $ListenerProcessId = Get-ListeningProcessId -Port 8765
+        if (-not $ListenerProcessId) {
+            throw "Обнаружен старый сервер, но Windows не смогла определить процесс на порту 8765. Закрой окно старого сервера вручную и повтори запуск. Подробности: $StderrLog"
         }
 
-        Stop-Process -Id $Listener.OwningProcess -Force
+        Write-LauncherLog ("Stopping outdated server process PID " + $ListenerProcessId)
+        Stop-Process -Id $ListenerProcessId -Force -ErrorAction Stop
         $PortReleased = $false
         for ($i = 0; $i -lt 15; $i++) {
             Start-Sleep -Seconds 1
-            $StillListening = Get-NetTCPConnection -LocalPort 8765 -State Listen -ErrorAction SilentlyContinue
+            $StillListening = Get-ListeningProcessId -Port 8765
             if (-not $StillListening) {
                 $PortReleased = $true
                 break
