@@ -1,6 +1,6 @@
 import os
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
 from backend.app.services.drap import get_drap
@@ -73,20 +73,26 @@ async def local_report(locator: str = Query(min_length=2, max_length=12)) -> dic
     return report
 
 
-# These endpoints exist only in the Windows local runner. They are deliberately
-# absent from the public VDS application, so a browser cannot stop production.
+# Local browser lifecycle endpoints are deliberately absent from production.
 if os.environ.get("BLIND_HAM_LOCAL_SESSION") == "1":
     from backend.app.services.local_session import (
-        heartbeat as local_heartbeat,
-        request_shutdown_after_page_close,
+        session_connected,
+        session_disconnected,
     )
 
-    @router.post("/local-session/heartbeat")
-    async def local_session_heartbeat(request: Request) -> dict[str, bool]:
-        local_heartbeat(request.app)
+    @router.get("/local-session")
+    async def local_session_capability() -> dict[str, bool]:
         return {"enabled": True}
 
-    @router.post("/local-session/close")
-    async def local_session_close(request: Request) -> dict[str, bool]:
-        await request_shutdown_after_page_close(request.app)
-        return {"shutdown_scheduled": True}
+    @router.websocket("/local-session")
+    async def local_session_socket(websocket: WebSocket) -> None:
+        await websocket.accept()
+        connection_id = id(websocket)
+        session_connected(connection_id)
+        try:
+            while True:
+                await websocket.receive_text()
+        except WebSocketDisconnect:
+            pass
+        finally:
+            await session_disconnected(websocket.app, connection_id)
