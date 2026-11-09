@@ -60,7 +60,7 @@ Remove-Item Env:PSK_REPORTER_ENABLED
 
 On Debian, the installer creates `/etc/blind-ham-propagation.env` with the collector disabled. To enable the pilot on the VDS, change `PSK_REPORTER_ENABLED=false` to `PSK_REPORTER_ENABLED=true` in that file and restart the service. The installer does not overwrite an existing environment file.
 
-The collector stores a bounded sample stream in the local SQLite database. The «Радионаблюдения» tab can now build a regional report from the stored spots. The default QTH is KP50DB and the default radius is 100 km; both can be changed in the «Настройки» tab and are saved in the current browser. The report uses the last six hours of stored data and keeps TX and RX independent. It shows band/mode totals, unique local stations, latest observations, distance and bearing to the local station. The locator coordinates refer to the centre of the Maidenhead cell, so distances are approximate. The collector still subscribes only to 20 m FT8; regional filtering does not expand the MQTT feed.
+The collector stores a bounded sample stream in the local SQLite database. The «Радионаблюдения» tab can now build a regional report from the stored spots. The default QTH is KP50DB and the default radius is 100 km; both can be changed in the «Настройки» tab and are saved in the current browser. The report uses the last six hours of stored data and keeps TX and RX independent. It shows band/mode totals, unique local stations, latest observations, distance and bearing to the remote station, plus distance to the local station. The locator coordinates refer to the centre of the Maidenhead cell, so distances are approximate. The collector still subscribes only to 20 m FT8; regional filtering does not expand the MQTT feed.
 
 
 ## Regional PSK Reporter API
@@ -77,4 +77,4 @@ Parameters:
 
 TX counts spots where the transmitting station's locator is inside the region; the transmitter was heard by the remote receiving station. RX counts spots where the receiving station's locator is inside the region; the local receiver heard the remote transmitter. A spot may appear in both groups if both stations are inside the radius. Invalid or missing locator values are excluded only from the direction that depends on that station's location.
 
-The distance and bearing shown for each record point from the QTH locator-cell centre to the local station's locator-cell centre. The remote endpoint's locator is shown for context; its distance is not used for regional inclusion. All times in the API are UTC.
+The distance and bearing shown for each record point from the QTH locator-cell centre to the remote station's locator-cell centre. The local station's distance from QTH is also shown. Regional inclusion is based only on the local endpoint's locator; a missing or invalid remote locator does not remove an otherwise valid local observation. All times in the API are UTC.
