@@ -2,6 +2,7 @@ const API = "./api/v1";
 const solarButton = document.querySelector("#solar-refresh");
 const solarStatus = document.querySelector("#solar-status");
 const solarReport = document.querySelector("#solar-report");
+const solarDetailsReport = document.querySelector("#solar-details-report");
 const localForm = document.querySelector("#locator-form");
 const locatorInput = document.querySelector("#locator");
 const locatorError = document.querySelector("#locator-error");
@@ -275,67 +276,23 @@ function formatValue(measurement) {
 
 function renderSolar(data) {
   solarReport.replaceChildren();
-
-  if (data.hamqsl && typeof window.renderHamqslMonitor === "function") {
-    window.renderHamqslMonitor(data.hamqsl, data.measurements || {}, solarReport);
+  solarDetailsReport?.replaceChildren();
+  if (typeof window.renderSolarOverview === "function") {
+    solarReport.append(window.renderSolarOverview(data.hamqsl || {}, data.measurements || {}));
+  } else {
+    addText(solarReport, "p", "Модуль сводки солнечной активности не загружен.");
   }
-
-  const section = document.createElement("section");
-  section.className = "result-card";
-  addText(section, "h3", "Измерения NOAA для сравнения");
-  addText(section, "p",
-    "NOAA и HamQSL — независимые источники. Значения могут отличаться из-за разного времени измерения и способов усреднения. Мы показываем их отдельно и не усредняем.",
-    "muted");
-  const list = document.createElement("dl");
-  list.className = "measurements";
-  const labels = [
-    ["solar_flux", "Солнечный поток F10.7"],
-    ["kp", "Индекс геомагнитной активности Kp"],
-    ["solar_wind_speed", "Скорость солнечного ветра"],
-    ["magnetic_field_bt", "Полная сила межпланетного магнитного поля Bt"],
-    ["magnetic_field_bz", "Составляющая магнитного поля Bz"],
-    ["xray_flux", "Рентгеновское излучение"],
-  ];
-  for (const [key, label] of labels) {
-    const measurement = data.measurements?.[key];
-    addText(list, "dt", label);
-    const value = document.createElement("dd");
-    value.textContent = formatValue(measurement);
-    if (measurement?.observed_at) {
-      value.append(document.createTextNode(
-        `; время измерения: ${formatObservationTime(measurement.observed_at)}`
-      ));
-    }
-    list.append(value);
+  if (solarDetailsReport && typeof window.renderSolarDetails === "function") {
+    solarDetailsReport.append(window.renderSolarDetails(data.hamqsl || {}, data.measurements || {}));
   }
-  section.append(list);
-  addText(section, "p",
-    `Источник: ${data.source || "NOAA SWPC"}. Получено сервером: ${formatObservationTime(data.retrieved_at)}`,
-    "muted");
-  solarReport.append(section);
-
-  if (data.drap) {
-    const drap = document.createElement("section");
-    drap.className = "result-card";
-    addText(drap, "h3", "Поглощение коротких волн в нижней части ионосферы");
-    addText(drap, "p", "Модель оценивает, насколько сильно нижние слои ионосферы могут ослаблять КВ-сигналы. Это оценка модели, а не измерение сигнала на твоей антенне.");
-    addText(drap, "p", `Влияние солнечного рентгеновского излучения: ${data.drap.xray_message || "Нет данных"}`);
-    addText(drap, "p", `Влияние солнечных протонов: ${data.drap.proton_message || "Нет данных"}`);
-    addText(drap, "p", `Данные модели обновлены: ${formatObservationTime(data.drap.valid_at)}`);
-    addText(drap, "p", `Источник данных: ${data.drap.source}`, "muted");
-    solarReport.append(drap);
-  }
-
   if (data.errors && Object.keys(data.errors).length) {
-    const errors = document.createElement("section");
-    errors.className = "result-card";
-    addText(errors, "h3", "Какие источники сейчас недоступны");
-    const errorList = document.createElement("ul");
-    for (const [name, message] of Object.entries(data.errors)) {
-      addText(errorList, "li", `${name}: ${message}`);
-    }
-    errors.append(errorList);
-    solarReport.append(errors);
+    const section = document.createElement("section");
+    section.className = "result-card";
+    addText(section, "h3", "Часть источников временно недоступна");
+    const list = document.createElement("ul");
+    for (const [name, message] of Object.entries(data.errors)) addText(list, "li", `${name}: ${message}`);
+    section.append(list);
+    solarReport.append(section);
   }
 }
 
