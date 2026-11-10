@@ -474,11 +474,17 @@ function renderRegionalDirection(parent, title, description, data, roles) {
         [`${roles.localTitle}: расстояние от твоего QTH`, formatDistanceFromQth(item.local_distance_km)],
         [roles.remoteTitle, formatStation(item.remote_call, item.remote_grid)],
         [`${roles.remoteTitle}: расстояние от твоего QTH`, formatDistanceFromQth(item.distance_km)],
+        ["Расстояние непосредственно между станциями", item.station_distance_km === null || item.station_distance_km === undefined
+          ? "Не удалось рассчитать: у одной из станций нет локатора."
+          : `${Number(item.station_distance_km).toLocaleString("ru-RU")} км`],
+        ["Азимут радиотрассы от передатчика к приёмнику", item.station_azimuth
+          ? `${item.station_azimuth} (${item.station_azimuth_degrees}°)`
+          : "Не удалось рассчитать: у одной из станций нет локатора."],
       ];
 
       if (item.bearing) {
         rows.push([
-          "Направление от твоего QTH на удалённую станцию",
+          "Азимут от твоего QTH до удалённой станции",
           `${item.bearing} (${item.bearing_degrees}°)`,
         ]);
       }
