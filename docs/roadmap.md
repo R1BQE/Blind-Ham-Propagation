@@ -73,7 +73,7 @@ Status: in progress.
 - [x] API and testing documentation.
 - [x] Data-source semantics and roadmap.
 - [ ] Keep all documents synchronized with implementation.
-- [ ] Add automated CI checks for tests and linting if not already configured.
+- [x] GitHub Actions workflow runs the pytest suite on pushes and pull requests to main.\n- [ ] Add Ruff linting to CI.
 - [ ] Review licensing/attribution for every integrated code and data source.
 
 Acceptance: a new developer or AI assistant can understand the architecture, run tests, safely modify a feature and report validation without relying on undocumented chat history.
