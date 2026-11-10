@@ -29,8 +29,33 @@ const settingsStatus = document.querySelector("#settings-status");
 
 const DEFAULT_SETTINGS = { locator: "KP50DB", radiusKm: 100 };
 let userSettings = { ...DEFAULT_SETTINGS };
-let selectedBands = ["20m"];
-let selectedModes = ["FT8"];
+const ALL_BANDS = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "2m", "70cm"];
+const ALL_MODES = ["FT8", "FT4", "JS8", "JT65", "JT9", "MSK144", "PSK31", "PSK63", "RTTY", "OLIVIA", "MFSK", "WSPR"];
+let bandSelection = "all";
+let modeSelection = "all";
+let selectedBands = [...ALL_BANDS];
+let selectedModes = [...ALL_MODES];
+
+function updateFilterVisibility() {
+  bandSelection = document.querySelector('input[name="regional-band-selection"]:checked')?.value || "all";
+  modeSelection = document.querySelector('input[name="regional-mode-selection"]:checked')?.value || "all";
+  document.querySelector("#regional-band-options").hidden = bandSelection !== "custom";
+  document.querySelector("#regional-mode-options").hidden = modeSelection !== "custom";
+}
+
+function getSelectedFilters() {
+  const bands = bandSelection === "all"
+    ? [...ALL_BANDS]
+    : Array.from(document.querySelectorAll('input[name="regional-band"]:checked')).map((input) => input.value);
+  const modes = modeSelection === "all"
+    ? [...ALL_MODES]
+    : Array.from(document.querySelectorAll('input[name="regional-mode"]:checked')).map((input) => input.value);
+  return { bands, modes };
+}
+
+function filterDescription() {
+  return `диапазоны: ${bandSelection === "all" ? "все" : selectedBands.join(", ")}; режимы: ${modeSelection === "all" ? "все" : selectedModes.join(", ")}`;
+}
 
 function applySettings(settings) {
   userSettings = settings;
@@ -64,28 +89,29 @@ function loadSettings() {
 regionalLocatorForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   regionalLocatorError.textContent = "";
+  updateFilterVisibility();
   const locator = regionalLocatorInput.value.trim().toUpperCase();
   const radiusKm = Number(regionalRadiusInput.value);
-  const bands = Array.from(document.querySelectorAll('input[name="regional-band"]:checked')).map((input) => input.value);
-  const modes = Array.from(document.querySelectorAll('input[name="regional-mode"]:checked')).map((input) => input.value);
+  const filters = getSelectedFilters();
+  const { bands, modes } = filters;
   if (!locator) {
     regionalLocatorError.textContent = "Введи локатор Maidenhead.";
     regionalLocatorInput.focus();
     return;
   }
-  if (!Number.isFinite(radiusKm) || radiusKm <= 0 || radiusKm > 1000) {
+  if (!Number.isFinite(radiusKm) || radiusKm < 1 || radiusKm > 1000) {
     regionalLocatorError.textContent = "Радиус должен быть положительным числом от 1 до 1000 км.";
     regionalRadiusInput.focus();
     return;
   }
   if (!bands.length) {
-    regionalLocatorError.textContent = "Выбери хотя бы один диапазон.";
-    document.querySelector('input[name="regional-band"]').focus();
+    regionalLocatorError.textContent = "Выбери хотя бы один диапазон или переключи выбор на «Все».";
+    document.querySelector('input[name="regional-band-selection"][value="custom"]').focus();
     return;
   }
   if (!modes.length) {
-    regionalLocatorError.textContent = "Выбери хотя бы один режим.";
-    document.querySelector('input[name="regional-mode"]').focus();
+    regionalLocatorError.textContent = "Выбери хотя бы один режим или переключи выбор на «Все».";
+    document.querySelector('input[name="regional-mode-selection"][value="custom"]').focus();
     return;
   }
 
@@ -115,10 +141,12 @@ regionalLocatorForm.addEventListener("submit", async (event) => {
     const settings = { locator: locatorData.locator, radiusKm };
     applySettings(settings);
     regionalDescription.textContent =
-      `Локатор ${settings.locator}; радиус ${radiusKm} км; диапазоны: ${bands.join(", ")}; режимы: ${modes.join(", ")}; период: 6 часов.`;
+      `Локатор ${settings.locator}; радиус ${radiusKm} км; ${filterDescription()}; период: 6 часов.`;
     try {
       localStorage.setItem("blindHamPropagationSettings", JSON.stringify(settings));
-      localStorage.setItem("blindHamPropagationPSKFilters", JSON.stringify({ bands, modes }));
+      localStorage.setItem("blindHamPropagationPSKFilters", JSON.stringify({
+        bandSelection, modeSelection, bands, modes,
+      }));
     } catch {
       // Active settings remain in memory for this page.
     }
@@ -446,7 +474,7 @@ function renderRegionalReport(data) {
   const info = document.createElement("p");
   info.className = "muted";
   info.textContent =
-    `Локатор: ${data.locator}; радиус: ${data.radius_km} км; период: ${data.period_hours} ч. Диапазоны: ${(data.bands || []).join(", ") || "все"}; режимы: ${(data.modes || []).join(", ") || "все"}. Центр квадрата: ${data.latitude}, ${data.longitude}. Проверено записей в хранилище: ${data.stored_spots_scanned}. Сформировано: ${formatObservationTime(data.generated_at)}.`;
+    `Локатор: ${data.locator}; радиус: ${data.radius_km} км; период: ${data.period_hours} ч. Диапазоны: ${(data.bands || []).length ? (data.bands || []).join(", ") : "все"}; режимы: ${(data.modes || []).length ? (data.modes || []).join(", ") : "все"}. Центр квадрата: ${data.latitude}, ${data.longitude}. Проверено записей в хранилище: ${data.stored_spots_scanned}. Сформировано: ${formatObservationTime(data.generated_at)}.`;
   regionalReport.append(info);
   renderRegionalDirection(
     regionalReport,
@@ -473,8 +501,8 @@ async function loadRegionalReport() {
     radius_km: String(userSettings.radiusKm),
     hours: "6",
     limit: "30",
-    bands: selectedBands.join(","),
-    modes: selectedModes.join(","),
+    bands: bandSelection === "all" ? "" : selectedBands.join(","),
+    modes: modeSelection === "all" ? "" : selectedModes.join(","),
   });
   try {
     const response = await fetch(`${API}/psk-reporter/regional?${params}`, {
@@ -566,16 +594,25 @@ loadSettings();
 try {
   const savedFilters = JSON.parse(localStorage.getItem("blindHamPropagationPSKFilters") || "null");
   if (savedFilters && Array.isArray(savedFilters.bands) && Array.isArray(savedFilters.modes)) {
-    selectedBands = savedFilters.bands;
-    selectedModes = savedFilters.modes;
+    // New settings preserve independent "all/custom" choices.
+    // Older saved settings are restored as custom filters for compatibility.
+    bandSelection = savedFilters.bandSelection || "custom";
+    modeSelection = savedFilters.modeSelection || "custom";
+    selectedBands = bandSelection === "all" ? [...ALL_BANDS] : savedFilters.bands;
+    selectedModes = modeSelection === "all" ? [...ALL_MODES] : savedFilters.modes;
+    document.querySelector(`input[name="regional-band-selection"][value="${bandSelection}"]`).checked = true;
+    document.querySelector(`input[name="regional-mode-selection"][value="${modeSelection}"]`).checked = true;
     for (const input of document.querySelectorAll('input[name="regional-band"]')) input.checked = selectedBands.includes(input.value);
     for (const input of document.querySelectorAll('input[name="regional-mode"]')) input.checked = selectedModes.includes(input.value);
-    regionalDescription.textContent =
-      `Локатор ${userSettings.locator}; радиус ${userSettings.radiusKm} км; диапазоны: ${selectedBands.join(", ")}; режимы: ${selectedModes.join(", ")}; период: 6 часов.`;
   }
 } catch {
-  // Keep the default 20m FT8 selection.
+  // Use all supported bands and modes by default.
 }
+updateFilterVisibility();
+regionalDescription.textContent =
+  `Локатор ${userSettings.locator}; радиус ${userSettings.radiusKm} км; ${filterDescription()}; период: 6 часов.`;
+document.querySelectorAll('input[name="regional-band-selection"], input[name="regional-mode-selection"]')
+  .forEach((input) => input.addEventListener("change", updateFilterVisibility));
 pskStatusButton.addEventListener("click", loadPskStatus);
 
 let pskReporterSocket = null;
