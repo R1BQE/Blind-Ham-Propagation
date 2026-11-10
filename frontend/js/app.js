@@ -21,13 +21,14 @@ const regionalLocatorInput = document.querySelector("#regional-locator");
 const regionalLocatorError = document.querySelector("#regional-locator-error");
 const regionalLocatorSubmit = document.querySelector("#regional-locator-submit");
 const regionalRadiusInput = document.querySelector("#regional-radius");
+const regionalPeriodSelect = document.querySelector("#regional-period");
 const settingsForm = document.querySelector("#settings-form");
 const settingsLocator = document.querySelector("#settings-locator");
 const settingsRadius = document.querySelector("#settings-radius");
 const settingsError = document.querySelector("#settings-error");
 const settingsStatus = document.querySelector("#settings-status");
 
-const DEFAULT_SETTINGS = { locator: "KP50DB", radiusKm: 100 };
+const DEFAULT_SETTINGS = { locator: "KP50DB", radiusKm: 100, periodHours: 6 };
 let userSettings = { ...DEFAULT_SETTINGS };
 const ALL_BANDS = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "2m", "70cm"];
 const ALL_MODES = ["FT8", "FT4", "JS8", "JT65", "JT9", "MSK144", "PSK31", "PSK63", "RTTY", "OLIVIA", "MFSK", "WSPR"];
@@ -64,8 +65,9 @@ function applySettings(settings) {
   locatorInput.value = settings.locator;
   regionalLocatorInput.value = settings.locator;
   regionalRadiusInput.value = String(settings.radiusKm);
+  regionalPeriodSelect.value = String(settings.periodHours || 6);
   regionalDescription.textContent =
-    `Область поиска: локатор ${settings.locator}, радиус ${settings.radiusKm} км. Период — последние 6 часов.`;
+    `Область поиска: локатор ${settings.locator}, радиус ${settings.radiusKm} км. Период — последние ${settings.periodHours || 6} часов.`;
 }
 
 function loadSettings() {
@@ -76,6 +78,7 @@ function loadSettings() {
       applySettings({
         locator: saved.locator.trim().toUpperCase(),
         radiusKm: Number(saved.radiusKm),
+        periodHours: Number(saved.periodHours) || 6,
       });
       settingsStatus.textContent = "Загружены сохранённые настройки этого браузера.";
       return;
@@ -92,6 +95,7 @@ regionalLocatorForm.addEventListener("submit", async (event) => {
   updateFilterVisibility();
   const locator = regionalLocatorInput.value.trim().toUpperCase();
   const radiusKm = Number(regionalRadiusInput.value);
+  const periodHours = Number(regionalPeriodSelect.value);
   const filters = getSelectedFilters();
   const { bands, modes } = filters;
   if (!locator) {
@@ -102,6 +106,11 @@ regionalLocatorForm.addEventListener("submit", async (event) => {
   if (!Number.isFinite(radiusKm) || radiusKm < 1 || radiusKm > 1000) {
     regionalLocatorError.textContent = "Радиус должен быть положительным числом от 1 до 1000 км.";
     regionalRadiusInput.focus();
+    return;
+  }
+  if (![3, 6, 9, 12, 15, 18, 21, 24].includes(periodHours)) {
+    regionalLocatorError.textContent = "Выбери период наблюдений от 3 до 24 часов.";
+    regionalPeriodSelect.focus();
     return;
   }
   if (!bands.length) {
@@ -138,10 +147,10 @@ regionalLocatorForm.addEventListener("submit", async (event) => {
 
     selectedBands = bands;
     selectedModes = modes;
-    const settings = { locator: locatorData.locator, radiusKm };
+    const settings = { locator: locatorData.locator, radiusKm, periodHours };
     applySettings(settings);
     regionalDescription.textContent =
-      `Локатор ${settings.locator}; радиус ${radiusKm} км; ${filterDescription()}; период: 6 часов.`;
+      `Локатор ${settings.locator}; радиус ${radiusKm} км; ${filterDescription()}; период: ${periodHours} часов.`;
     try {
       localStorage.setItem("blindHamPropagationSettings", JSON.stringify(settings));
       localStorage.setItem("blindHamPropagationPSKFilters", JSON.stringify({
@@ -184,11 +193,11 @@ settingsForm.addEventListener("submit", async (event) => {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.detail || "Некорректный локатор.");
-    const settings = { locator: data.locator, radiusKm };
+    const settings = { ...userSettings, locator: data.locator, radiusKm };
     localStorage.setItem("blindHamPropagationSettings", JSON.stringify(settings));
     applySettings(settings);
     settingsStatus.textContent =
-      `Настройки сохранены: ${settings.locator}, радиус ${settings.radiusKm} км.`;
+      `Настройки сохранены: ${settings.locator}, радиус ${settings.radiusKm} км, период ${settings.periodHours || 6} часов.`;
   } catch (error) {
     settingsError.textContent = error.message;
     settingsStatus.textContent = "Не удалось сохранить настройки.";
@@ -499,7 +508,7 @@ async function loadRegionalReport() {
   const params = new URLSearchParams({
     locator: userSettings.locator,
     radius_km: String(userSettings.radiusKm),
-    hours: "6",
+    hours: String(userSettings.periodHours || 6),
     limit: "30",
     bands: bandSelection === "all" ? "" : selectedBands.join(","),
     modes: modeSelection === "all" ? "" : selectedModes.join(","),
@@ -610,7 +619,7 @@ try {
 }
 updateFilterVisibility();
 regionalDescription.textContent =
-  `Локатор ${userSettings.locator}; радиус ${userSettings.radiusKm} км; ${filterDescription()}; период: 6 часов.`;
+  `Локатор ${userSettings.locator}; радиус ${userSettings.radiusKm} км; ${filterDescription()}; период: ${userSettings.periodHours || 6} часов.`;
 document.querySelectorAll('input[name="regional-band-selection"], input[name="regional-mode-selection"]')
   .forEach((input) => input.addEventListener("change", updateFilterVisibility));
 pskStatusButton.addEventListener("click", loadPskStatus);
