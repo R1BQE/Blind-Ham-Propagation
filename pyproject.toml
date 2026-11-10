@@ -6,6 +6,8 @@ build-backend = "setuptools.build_meta"
 name = "blind-ham-propagation"
 version = "0.1.0"
 description = "Accessible amateur-radio propagation and space-weather monitoring"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
