@@ -31,8 +31,20 @@ def test_parse_spot_combines_topic_and_payload():
     assert spot["observed_at"] == 1794254388
 
 
-def test_parse_spot_falls_back_to_report_time():
-    spot = parse_spot(TOPIC, '{"f":14074653,"t":1794254400}')
+def test_parse_spot_prefers_full_locators_from_json_payload():
+    topic = "pskr/filter/v2/20m/FT8/R1BQE/W1ABC/KO59/FN31/54/291"
+    spot = parse_spot(topic, PAYLOAD)
+
+    assert spot["tx_grid"] == "KO59XX"
+    assert spot["rx_grid"] == "FN31pr"
+
+
+def test_parse_spot_falls_back_to_topic_locators_when_payload_has_none():
+    topic = "pskr/filter/v2/20m/FT8/R1BQE/W1ABC/KO59/FN31/54/291"
+    spot = parse_spot(topic, '{"f":14074653,"t":1794254400}')
+
+    assert spot["tx_grid"] == "KO59"
+    assert spot["rx_grid"] == "FN31"
     assert spot["observed_at"] == 1794254400
     assert spot["tx_started_at"] is None
 
