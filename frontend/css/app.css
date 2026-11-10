@@ -158,3 +158,20 @@ button:disabled { cursor: wait; opacity: .7; }
   text-transform: none;
   letter-spacing: normal;
 }
+
+
+/* Keep every observation field on its own line for easier reading. */
+.observation-details {
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+.observation-details dd {
+  margin-block-end: .45rem;
+}
+.observation-list h5 {
+  margin-block: .35rem .1rem;
+  font-size: 1rem;
+}
+.observation-list h5 + .observation-details {
+  margin-block-end: .35rem;
+}
