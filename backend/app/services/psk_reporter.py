@@ -46,6 +46,13 @@ def parse_spot(topic: str, payload: bytes | str) -> dict[str, Any]:
     if not isinstance(raw, dict):
         raise SpotFormatError("PSK Reporter payload must be a JSON object")
 
+    # The v2 topic carries only a four-character grid square. The JSON payload
+    # may include the more precise station locator in sl/rl; prefer it when present.
+    for topic_key, payload_key in (("tx_grid", "sl"), ("rx_grid", "rl")):
+        payload_locator = raw.get(payload_key)
+        if isinstance(payload_locator, str) and payload_locator.strip():
+            topic_data[topic_key] = payload_locator.strip()
+
     try:
         frequency_hz = int(raw["f"])
         reported_at = int(raw["t"])
