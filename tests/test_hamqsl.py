@@ -8,17 +8,19 @@ def test_parse_solar_xml_preserves_values_attributes_and_repeated_rows():
         <solarflux>128.4</solarflux>
         <kindex>2</kindex>
         <muf>28.1</muf>
-        <band name="20m"><time name="day">Good</time></band>
-        <band name="20m"><time name="night">Fair</time></band>
+        <calculatedconditions>
+          <band name="80m-40m" time="day">Good</band>
+          <band name="80m-40m" time="night">Fair</band>
+        </calculatedconditions>
       </solardata>
     </solar>"""
     data = parse_solar_xml(xml)["solardata"]
     assert data["solarflux"] == "128.4"
     assert data["kindex"] == "2"
     assert data["muf"] == "28.1"
-    assert data["band"] == [
-        {"@name": "20m", "time": {"@name": "day", "#text": "Good"}},
-        {"@name": "20m", "time": {"@name": "night", "#text": "Fair"}},
+    assert data["calculatedconditions"]["band"] == [
+        {"@name": "80m-40m", "@time": "day", "#text": "Good"},
+        {"@name": "80m-40m", "@time": "night", "#text": "Fair"},
     ]
 
 
