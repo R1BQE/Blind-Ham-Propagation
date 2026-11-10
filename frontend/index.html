@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#14283f">
-  <meta name="description" content="Доступный мониторинг солнечной активности и радиопрохождения по QTH-локатору.">
+  <meta name="description" content="Доступный мониторинг солнечной активности и условий радиосвязи по радиолюбительскому локатору.">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./css/app.css">
@@ -54,7 +54,7 @@
         <p id="locator-help">Укажи свой радиолюбительский локатор. Мы покажем положение Солнца над твоим районом и доступные данные о поглощении радиосигналов.</p>
         <form id="locator-form" novalidate>
           <div class="form-row">
-            <label for="locator">QTH-локатор</label>
+            <label for="locator">Мой радиолюбительский локатор Maidenhead</label>
             <input id="locator" name="locator" type="text" inputmode="text"
               autocomplete="off" autocapitalize="characters" spellcheck="false"
               maxlength="12" minlength="2" aria-describedby="locator-help locator-error"
@@ -71,12 +71,12 @@
     <section class="tab-panel" id="panel-spots" role="tabpanel" aria-labelledby="tab-spots" tabindex="0" hidden>
       <section class="panel" aria-labelledby="spots-heading">
         <h2 id="spots-heading">Какие станции сейчас слышат друг друга</h2>
-        <p>Здесь показано, какие передачи станций рядом с твоим QTH услышали в других местах и какие удалённые станции услышали приёмники рядом с тобой. Для каждой пары станций отдельно указаны расстояние от твоего QTH до каждой станции, расстояние между самими станциями и направление радиотрассы от передатчика к приёмнику.</p>
+        <p>Здесь показано, какие передачи станций рядом с твоим локатором услышали в других местах и какие удалённые станции услышали приёмники рядом с твоей станцией. Для каждой пары станций отдельно указаны расстояние от твоего QTH до каждой станции, расстояние между самими станциями и направление радиотрассы от передатчика к приёмнику.</p>
         <button type="button" id="psk-status-refresh">Проверить получение радионаблюдений</button>
         <p id="psk-status" class="status" role="status" aria-live="polite">Состояние сборщика ещё не проверено.</p>
         <div id="psk-report" class="report" aria-live="polite" aria-busy="false"></div>
         <section class="result-card" aria-labelledby="regional-heading">
-          <h3 id="regional-heading">Что услышали станции рядом с моим QTH</h3>
+          <h3 id="regional-heading">Что услышали станции рядом с моей станцией</h3>
           <form id="regional-locator-form" novalidate>
             <div class="form-row">
               <label for="regional-locator">Мой радиолюбительский локатор</label>
@@ -86,7 +86,7 @@
                 placeholder="KP50DB" required>
             </div>
             <div class="form-row">
-              <label for="regional-radius">Радиус поиска вокруг моего QTH, км</label>
+              <label for="regional-radius">Радиус поиска вокруг моей станции, км</label>
               <input id="regional-radius" name="radius" type="number" min="1" max="1000"
                 step="1" value="100" required>
             </div>
@@ -173,7 +173,7 @@
         <p>Укажи свой локатор и радиус вокруг него. Эти данные нужны, чтобы находить передачи и приёмники рядом с тобой. Настройки сохраняются в этом браузере.</p>
         <form id="settings-form">
           <div class="form-row">
-            <label for="settings-locator">Мой QTH-локатор Maidenhead</label>
+            <label for="settings-locator">Мой радиолюбительский локатор Maidenhead</label>
             <input id="settings-locator" name="locator" type="text" maxlength="12"
               autocomplete="off" autocapitalize="characters" spellcheck="false"
               aria-describedby="settings-help" value="KP50DB" required>
