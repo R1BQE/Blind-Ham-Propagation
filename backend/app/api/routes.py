@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, WebSock
 from pydantic import BaseModel, Field
 
 from backend.app.services.drap import get_drap
+from backend.app.services.hamqsl import get_hamqsl_data
 from backend.app.services.local_report import build_local_report
 from backend.app.services.maidenhead import LocatorError, locator_to_center
 from backend.app.services.noaa import get_space_weather
@@ -138,6 +139,13 @@ async def solar_activity() -> dict:
     except Exception as exc:
         report.setdefault("errors", {})["drap"] = (
             f"Источник D-RAP временно недоступен: {type(exc).__name__}"
+        )
+        report["status"] = "partial"
+    try:
+        report["hamqsl"] = await get_hamqsl_data()
+    except Exception as exc:
+        report.setdefault("errors", {})["hamqsl"] = (
+            f"Источник HamQSL временно недоступен: {type(exc).__name__}"
         )
         report["status"] = "partial"
     return report
