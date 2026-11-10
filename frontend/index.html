@@ -90,6 +90,19 @@
               <input id="regional-radius" name="radius" type="number" min="1" max="1000"
                 step="1" value="100" required>
             </div>
+            <div class="form-row">
+              <label for="regional-period">Период наблюдений</label>
+              <select id="regional-period" name="period-hours">
+                <option value="3">Последние 3 часа</option>
+                <option value="6" selected>Последние 6 часов</option>
+                <option value="9">Последние 9 часов</option>
+                <option value="12">Последние 12 часов</option>
+                <option value="15">Последние 15 часов</option>
+                <option value="18">Последние 18 часов</option>
+                <option value="21">Последние 21 час</option>
+                <option value="24">Последние 24 часа</option>
+              </select>
+            </div>
             <fieldset class="choice-group">
               <legend>Диапазоны</legend>
               <div class="choice-options">
@@ -133,7 +146,7 @@
                 <label><input type="checkbox" name="regional-mode" value="WSPR"> WSPR</label>
               </div>
             </fieldset>
-            <p id="regional-locator-help" class="muted">По умолчанию используются все диапазоны и режимы. Если выбрать «Настроить», появятся дополнительные флажки. Для каждой выбранной пары будет создана MQTT-подписка. Период отчёта — последние 6 часов.</p>
+            <p id="regional-locator-help" class="muted">По умолчанию используются все диапазоны и режимы. Если выбрать «Настроить», появятся дополнительные флажки. Для каждой выбранной пары будет создана MQTT-подписка. Период отчёта выбирается от 3 до 24 часов.</p>
             <p id="regional-locator-error" class="field-error" role="alert"></p>
             <button type="submit" id="regional-locator-submit">Применить фильтры и проверить</button>
           </form>
