@@ -1,3 +1,5 @@
+import pytest
+
 from backend.app.services.regional_report import build_regional_report
 
 
@@ -74,7 +76,7 @@ def test_report_excludes_spots_outside_selected_time_window():
         spot("R1BQE", "W1ABC", "KO59XX", "FN31PR", observed_at=9_900),
     ])
 
-    report = build_regional_report("KO59XX", hours=1, store=store, now=10_000)
+    report = build_regional_report("KO59XX", hours=3, store=store, now=20_000)
 
     assert report["tx"]["spots"] == 1
 
@@ -124,8 +126,6 @@ def test_regional_report_filters_selected_bands_and_modes():
 
 
 def test_invalid_radius_is_rejected_even_when_store_is_empty():
-    import pytest
-
     store = MemoryStore([])
     with pytest.raises(ValueError, match="Радиус"):
         build_regional_report("KO59XX", radius_km=0, store=store, now=10_100)
@@ -155,5 +155,8 @@ def test_radio_path_azimuth_is_always_from_transmitter_to_receiver():
     rx_item = report["rx"]["latest"][0]
 
     assert tx_item["station_distance_km"] == rx_item["station_distance_km"]
-    assert tx_item["station_azimuth_degrees"] == rx_item["station_azimuth_degrees"]
-    assert tx_item["station_azimuth"] == rx_item["station_azimuth"]
+    assert tx_item["station_azimuth_degrees"] == pytest.approx(304.5)
+    assert rx_item["station_azimuth_degrees"] == pytest.approx(33.5)
+    assert tx_item["station_azimuth"] == "СЗ"
+    assert rx_item["station_azimuth"] == "ССВ"
+    assert tx_item["station_azimuth_degrees"] != rx_item["station_azimuth_degrees"]
