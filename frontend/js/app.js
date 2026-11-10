@@ -292,7 +292,7 @@ function renderSolar(data) {
     list.append(value);
   }
   section.append(list);
-  addText(section, "p", `Источник: ${data.source}. Получено: ${data.retrieved_at}`, "muted");
+  addText(section, "p", `Источник: ${data.source}. Получено: ${formatObservationTime(data.retrieved_at)}`, "muted");
   if (data.errors && Object.keys(data.errors).length) {
     const errors = document.createElement("ul");
     addText(section, "h3", "Предупреждения источников");
