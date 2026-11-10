@@ -4,7 +4,7 @@ This is a working plan, not a claim that planned features are already implemente
 
 ## Stage 1 — Stable and understandable solar monitor
 
-Status: in progress.
+Status: in progress. The overview/details split is implemented; local NVDA verification and source-quality work remain pending.
 
 - [x] Integrate NOAA SWPC global indicators.
 - [x] Integrate NOAA D-RAP data.
