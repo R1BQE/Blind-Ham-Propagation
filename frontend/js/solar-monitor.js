@@ -25,7 +25,7 @@
   function rows(v){return v==null?[]:Array.isArray(v)?v:[v];}
   function val(v){const s=raw(v);return !s||s==="NoRpt"||s==="No Report"?"Нет данных":(translations[s]||s);}
   function time(v){return raw(v)||"время не указано";}
-  function measurement(dl,label,value,unit=""){el(dl,"dt",label);el(dl,"dd",value===null||value===undefined||value===""?"Нет данных":`${value}${unit?" "+unit:""}`);}
+  function measurement(dl,label,value,unit=""){el(dl,"dt",label);return el(dl,"dd",value===null||value===undefined||value===""?"Нет данных":`${value}${unit?" "+unit:""}`);}
   function help(parent,text){const p=el(parent,"p",text,"solar-help muted");p.hidden=!hints?.checked;}
   function bandsTable(parent,solar){
     const source=rows(solar?.calculatedconditions?.band);
@@ -44,12 +44,11 @@
     for(const r of phenomena){if(!r||typeof r!=="object")continue;const name=vhfNames[r["@name"]]||r["@name"]||"Явление";const loc=vhfNames[r["@location"]]||r["@location"]||"Регион не указан";const li=el(list,"li");el(li,"strong",`${name}. Регион: ${loc}. Статус: ${val(r)}.`);help(li,"Спорадический слой E и авроральное прохождение иногда позволяют проводить УКВ-связи дальше обычной прямой видимости. Условия быстро меняются.");}
   }
   function overview(payload,noaa){
-    const fragment=document.createDocumentFragment();const solar=payload?.data?.solardata;
-    if(!solar||typeof solar!=="object"){el(fragment,"section","HamQSL не передал данные. Подробности доступны во вкладке «Подробные данные».","result-card");return fragment;}
+    const fragment=document.createDocumentFragment();const solar=payload?.data?.solardata||{};
     const activity=el(fragment,"section",undefined,"result-card");el(activity,"h3","Солнечная активность");const dl=el(activity,"dl",undefined,"measurements");
-    const flux=noaa?.solar_flux?.value??(raw(solar.solarflux)||null);measurement(dl,"Поток F10.7",flux,noaa?.solar_flux?.value!==null&&noaa?.solar_flux?.value!==undefined?"sfu":"");measurement(dl,"Солнечные пятна",val(solar.sunspots));el(activity,"p",`F10.7: ${noaa?.solar_flux?.value!==null&&noaa?.solar_flux?.value!==undefined?"NOAA":"HamQSL"}. Время измерения смотри в подробных данных.`,"muted");
-    const geo=el(fragment,"section",undefined,"result-card");el(geo,"h3","Геомагнитная обстановка");const gd=el(geo,"dl",undefined,"measurements");measurement(gd,"Индекс Kp NOAA",noaa?.kp?.value);measurement(gd,"Оценка HamQSL",val(solar.geomagfield));measurement(gd,"Индекс K HamQSL",val(solar.kindex));el(geo,"p","Глобальные показатели общей обстановки, а не прогноз прохождения на конкретной трассе.","muted");
-    bandsTable(fragment,solar);
+    const flux=noaa?.solar_flux?.value??(raw(solar.solarflux)||null);measurement(dl,"Поток F10.7",flux,noaa?.solar_flux?.value!==null&&noaa?.solar_flux?.value!==undefined?"sfu":"");measurement(dl,"Солнечные пятна",solar.sunspots===undefined?"Нет данных":val(solar.sunspots));el(activity,"p",`F10.7: ${noaa?.solar_flux?.value!==null&&noaa?.solar_flux?.value!==undefined?"NOAA":"HamQSL"}. Время измерения смотри в подробных данных.`,"muted");
+    const geo=el(fragment,"section",undefined,"result-card");el(geo,"h3","Геомагнитная обстановка");const gd=el(geo,"dl",undefined,"measurements");measurement(gd,"Индекс Kp NOAA",noaa?.kp?.value);measurement(gd,"Оценка HamQSL",solar.geomagfield===undefined?"Нет данных":val(solar.geomagfield));measurement(gd,"Индекс K HamQSL",solar.kindex===undefined?"Нет данных":val(solar.kindex));el(geo,"p","Глобальные показатели общей обстановки, а не прогноз прохождения на конкретной трассе.","muted");
+    if(payload?.hamqsl?.data?.solardata)bandsTable(fragment,solar);else{const missing=el(fragment,"section",undefined,"result-card");el(missing,"h3","Общие условия на КВ");el(missing,"p","HamQSL сейчас не передал данные об условиях по диапазонам.");}
     if(payload.drap){const d=el(fragment,"section",undefined,"result-card");el(d,"h3","Поглощение КВ-сигналов");el(d,"p","NOAA D-RAP моделирует поглощение в нижней части ионосферы. Это не измерение на антенне и не MUF.");el(d,"p",`Рентгеновское излучение: ${payload.drap.xray_message||"Нет данных"}`);el(d,"p",`Солнечные протоны: ${payload.drap.proton_message||"Нет данных"}`);el(d,"p",`Модель актуальна на: ${time(payload.drap.valid_at)}`,"muted");}
     el(fragment,"p",`HamQSL обновил данные: ${time(solar.updated)}. Ответ получен сервером: ${payload.retrieved_at||"время не указано"}.`,"muted");
     if(payload.cache?.hit)el(fragment,"p","Используется кэш сервера; запрос к HamQSL выполняется не чаще одного раза в 15 минут.","muted");
@@ -58,11 +57,11 @@
   function details(payload,noaa){
     const fragment=document.createDocumentFragment();const card=el(fragment,"section",undefined,"result-card");el(card,"h3","Измерения NOAA SWPC");el(card,"p","Данные NOAA показаны отдельно от HamQSL. Значения не усредняются: время и методы обработки могут различаться.","muted");const dl=el(card,"dl",undefined,"measurements observation-details");
     const labels=[["solar_flux","Солнечный поток F10.7"],["kp","Планетарный индекс Kp"],["solar_wind_speed","Скорость солнечного ветра"],["magnetic_field_bt","Полная сила магнитного поля Bt"],["magnetic_field_bz","Составляющая магнитного поля Bz"],["xray_flux","Поток рентгеновского излучения"]];
-    for(const [key,label] of labels){const m=noaa?.[key];measurement(dl,label,m?.value,m?.unit||"");if(m?.observed_at)el(dl,"dd",`Время измерения: ${m.observed_at}`);}
+    for(const [key,label] of labels){const m=noaa?.[key];const dd=measurement(dl,label,m?.value,m?.unit||"");if(m?.observed_at)dd.textContent+=`; время измерения: ${m.observed_at}`; }
     const solar=payload?.data?.solardata;
     if(solar&&typeof solar==="object"){
       const h=el(fragment,"section",undefined,"result-card");el(h,"h3","Показатели HamQSL");el(h,"p",`Время обновления по HamQSL: ${time(solar.updated)}`,"muted");const list=el(h,"dl",undefined,"measurements solar-measurements observation-details");
-      for(const [tag,title,explanation] of definitions){let value=val(solar[tag]);if(tag==="latdegree"&&value!=="Нет данных")value+="°";if(tag==="solarwind"&&value!=="Нет данных")value+=" км/с";measurement(list,title,value);help(list,explanation);}
+      for(const [tag,title,explanation] of definitions){let value=val(solar[tag]);if(tag==="latdegree"&&value!=="Нет данных")value+="°";if(tag==="solarwind"&&value!=="Нет данных")value+=" км/с";const dd=measurement(list,title,value);help(dd,explanation);}
       const c=el(fragment,"section",undefined,"result-card");el(c,"h3","Сопоставление показателей");el(c,"p","Похожие показатели показаны рядом, но не объединены. Различия могут быть связаны со временем, усреднением и методикой.","muted");
       const pairs=[["F10.7",solar.solarflux,noaa?.solar_flux],["K / Kp",solar.kindex,noaa?.kp],["Скорость солнечного ветра",solar.solarwind,noaa?.solar_wind_speed],["Магнитное поле Bz",solar.magneticfield,noaa?.magnetic_field_bz]].filter(([,a,b])=>raw(a)&&b?.value!==null&&b?.value!==undefined);
       if(pairs.length){const t=el(c,"table",undefined,"data-table");el(t,"caption","Значения источников без усреднения");const th=el(t,"thead");const hr=el(th,"tr");for(const s of ["Показатель","HamQSL","NOAA"])el(hr,"th",s).scope="col";const body=el(t,"tbody");for(const [name,a,b] of pairs){const r=el(body,"tr");el(r,"th",name).scope="row";el(r,"td",raw(a));el(r,"td",`${b.value} ${b.unit||""}`.trim());}}else el(c,"p","Пока нет показателей для сопоставления.");
