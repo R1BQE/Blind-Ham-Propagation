@@ -275,38 +275,45 @@ function formatValue(measurement) {
 
 function renderSolar(data) {
   solarReport.replaceChildren();
+
+  if (data.hamqsl && typeof window.renderHamqslMonitor === "function") {
+    window.renderHamqslMonitor(data.hamqsl, data.measurements || {}, solarReport);
+  }
+
   const section = document.createElement("section");
   section.className = "result-card";
-  addText(section, "h3", "Текущие показатели");
+  addText(section, "h3", "Измерения NOAA для сравнения");
+  addText(section, "p",
+    "NOAA и HamQSL — независимые источники. Значения могут отличаться из-за разного времени измерения и способов усреднения. Мы показываем их отдельно и не усредняем.",
+    "muted");
   const list = document.createElement("dl");
   list.className = "measurements";
   const labels = [
-    ["solar_flux", "Солнечный поток F10.7 — показатель радиоизлучения Солнца. Помогает оценивать состояние ионосферы."],
-    ["kp", "Индекс Kp — показывает, насколько возмущено магнитное поле Земли. Чем выше число, тем сильнее возмущение."],
-    ["solar_wind_speed", "Скорость солнечного ветра — скорость потока частиц от Солнца."],
-    ["magnetic_field_bt", "Магнитное поле Bt — общая сила межпланетного магнитного поля."],
-    ["magnetic_field_bz", "Направление Bz — важная составляющая магнитного поля. Отрицательное значение может способствовать усилению геомагнитных возмущений."],
-    ["xray_flux", "Рентгеновское излучение Солнца — вспышки могут усиливать поглощение коротких волн на освещённой стороне Земли."],
+    ["solar_flux", "Солнечный поток F10.7"],
+    ["kp", "Индекс геомагнитной активности Kp"],
+    ["solar_wind_speed", "Скорость солнечного ветра"],
+    ["magnetic_field_bt", "Полная сила межпланетного магнитного поля Bt"],
+    ["magnetic_field_bz", "Составляющая магнитного поля Bz"],
+    ["xray_flux", "Рентгеновское излучение"],
   ];
   for (const [key, label] of labels) {
     const measurement = data.measurements?.[key];
-    const [name, explanation] = label.split(" — ");
-    addText(list, "dt", name);
+    addText(list, "dt", label);
     const value = document.createElement("dd");
     value.textContent = formatValue(measurement);
-    if (explanation) value.append(document.createTextNode(`. ${explanation}`));
-    if (measurement?.observed_at) value.append(document.createTextNode(`; время измерения: ${formatObservationTime(measurement.observed_at)}`));
+    if (measurement?.observed_at) {
+      value.append(document.createTextNode(
+        `; время измерения: ${formatObservationTime(measurement.observed_at)}`
+      ));
+    }
     list.append(value);
   }
   section.append(list);
-  addText(section, "p", `Источник: ${data.source}. Получено: ${formatObservationTime(data.retrieved_at)}`, "muted");
-  if (data.errors && Object.keys(data.errors).length) {
-    const errors = document.createElement("ul");
-    addText(section, "h3", "Предупреждения источников");
-    for (const [name, message] of Object.entries(data.errors)) addText(errors, "li", `${name}: ${message}`);
-    section.append(errors);
-  }
+  addText(section, "p",
+    `Источник: ${data.source || "NOAA SWPC"}. Получено сервером: ${formatObservationTime(data.retrieved_at)}`,
+    "muted");
   solarReport.append(section);
+
   if (data.drap) {
     const drap = document.createElement("section");
     drap.className = "result-card";
@@ -318,20 +325,32 @@ function renderSolar(data) {
     addText(drap, "p", `Источник данных: ${data.drap.source}`, "muted");
     solarReport.append(drap);
   }
+
+  if (data.errors && Object.keys(data.errors).length) {
+    const errors = document.createElement("section");
+    errors.className = "result-card";
+    addText(errors, "h3", "Какие источники сейчас недоступны");
+    const errorList = document.createElement("ul");
+    for (const [name, message] of Object.entries(data.errors)) {
+      addText(errorList, "li", `${name}: ${message}`);
+    }
+    errors.append(errorList);
+    solarReport.append(errors);
+  }
 }
 
 async function loadSolar() {
   solarButton.disabled = true;
   solarReport.setAttribute("aria-busy", "true");
-  solarStatus.textContent = "Получаем данные NOAA…";
+  solarStatus.textContent = "Получаем данные NOAA и HamQSL…";
   try {
     const response = await fetch(`${API}/solar/activity`, { cache: "no-store" });
     if (!response.ok) throw new Error("Сервер вернул ошибку.");
     const data = await response.json();
     renderSolar(data);
     solarStatus.textContent = data.status === "partial"
-      ? "Получены не все данные. Ниже указано, какие источники сейчас недоступны."
-      : "Данные о Солнце и магнитном поле Земли обновлены.";
+      ? "Часть источников временно недоступна. Доступные данные показаны ниже."
+      : "Данные солнечной активности обновлены. Время измерения указано рядом с показателями.";
   } catch (error) {
     solarStatus.textContent = `Не удалось получить данные: ${error.message}`;
   } finally {
