@@ -796,6 +796,7 @@ localForm.addEventListener("submit", async (event) => {
 });
 
 solarButton.addEventListener("click", loadSolar);
+void loadSolar();
 regionalRefresh.addEventListener("click", loadRegionalReport);
 loadSettings();
 try {
