@@ -429,51 +429,74 @@ function renderBandSummary(parent, rows) {
   parent.append(table);
 }
 
-function renderRegionalDirection(parent, title, description, data) {
+function formatDistanceFromQth(value) {
+  return value === null || value === undefined
+    ? "Расстояние не определено: нет координат станции."
+    : `${Number(value).toLocaleString("ru-RU")} км от твоего QTH`;
+}
+
+function formatStation(call, grid) {
+  return grid ? `${call} (локатор ${grid})` : call;
+}
+
+function renderRegionalDirection(parent, title, description, data, roles) {
   const section = document.createElement("section");
   section.className = "result-card";
   addText(section, "h3", title);
   addText(section, "p", description);
+
   const summary = document.createElement("dl");
   summary.className = "measurements";
   for (const [label, value] of [
-    ["Всего наблюдений", String(data.spots)],
-    ["Уникальных местных станций", String(data.unique_local_stations)],
-    ["Последнее наблюдение", formatObservationTime(data.last_seen)],
+    ["Всего декодирований", String(data.spots)],
+    ["Разных станций в твоём районе", String(data.unique_local_stations)],
+    ["Последнее декодирование", formatObservationTime(data.last_seen)],
   ]) {
     addText(summary, "dt", label);
     addText(summary, "dd", value);
   }
   section.append(summary);
   renderBandSummary(section, data.by_band);
+
   if (data.latest?.length) {
-    addText(section, "h4", "Последние наблюдения");
+    addText(section, "h4", "Последние декодированные передачи");
     const list = document.createElement("ol");
     list.className = "observation-list";
+
     for (const item of data.latest) {
-      const local = `${item.local_call}${item.local_grid ? ` (${item.local_grid})` : ""}`;
-      const remote = `${item.remote_call}${item.remote_grid ? ` (${item.remote_grid})` : ""}`;
-      const distance = item.distance_km === null
-        ? "расстояние до удалённой станции неизвестно"
-        : `удалённая станция — ${item.distance_km} км от QTH`;
-      const localDistance = item.local_distance_km === null
-        ? ""
-        : `; местная станция — ${item.local_distance_km} км от QTH`;
-      const bearing = item.bearing
-        ? `, направление на удалённую станцию ${item.bearing} (${item.bearing_degrees}°)`
-        : "";
-      const snr = item.snr_db === null || item.snr_db === undefined
-        ? ""
-        : `, сигнал ${item.snr_db} дБ`;
-      addText(
-        list,
-        "li",
-        `${formatObservationTime(item.observed_at)}; ${item.band} ${item.mode}; местная станция: ${local}; удалённая станция: ${remote}; ${distance}${bearing}${localDistance}${snr}.`
-      );
+      const entry = document.createElement("li");
+      const details = document.createElement("dl");
+      details.className = "measurements";
+
+      addText(entry, "h4", `${item.band} · ${item.mode}`);
+      const rows = [
+        [roles.localTitle, formatStation(item.local_call, item.local_grid)],
+        [`${roles.localTitle}: расстояние от твоего QTH`, formatDistanceFromQth(item.local_distance_km)],
+        [roles.remoteTitle, formatStation(item.remote_call, item.remote_grid)],
+        [`${roles.remoteTitle}: расстояние от твоего QTH`, formatDistanceFromQth(item.distance_km)],
+      ];
+
+      if (item.bearing) {
+        rows.push([
+          "Направление от твоего QTH на удалённую станцию",
+          `${item.bearing} (${item.bearing_degrees}°)`,
+        ]);
+      }
+      if (item.snr_db !== null && item.snr_db !== undefined) {
+        rows.push(["Уровень принятого сигнала", `${item.snr_db} дБ`]);
+      }
+      rows.push(["Время декодирования", formatObservationTime(item.observed_at)]);
+
+      for (const [label, value] of rows) {
+        addText(details, "dt", label);
+        addText(details, "dd", value);
+      }
+      entry.append(details);
+      list.append(entry);
     }
     section.append(list);
   } else {
-    addText(section, "p", "За выбранный период наблюдений этого типа в указанной области нет.");
+    addText(section, "p", "За выбранный период таких декодирований в указанной области не было.");
   }
   parent.append(section);
 }
@@ -483,23 +506,30 @@ function renderRegionalReport(data) {
   const info = document.createElement("p");
   info.className = "muted";
   info.textContent =
-    `Локатор: ${data.locator}; радиус: ${data.radius_km} км; период: ${data.period_hours} ч. Диапазоны: ${(data.bands || []).length ? (data.bands || []).join(", ") : "все"}; режимы: ${(data.modes || []).length ? (data.modes || []).join(", ") : "все"}. Центр квадрата: ${data.latitude}, ${data.longitude}. Проверено записей в хранилище: ${data.stored_spots_scanned}. Сформировано: ${formatObservationTime(data.generated_at)}.`;
+    `Твой QTH: ${data.locator}. Радиус поиска: ${data.radius_km} км. Период: последние ${data.period_hours} ч. Диапазоны: ${(data.bands || []).length ? (data.bands || []).join(", ") : "все"}; режимы: ${(data.modes || []).length ? (data.modes || []).join(", ") : "все"}. В отчёт вошли декодирования, сохранённые в базе к моменту обновления.`;
   regionalReport.append(info);
-  renderRegionalDirection(
-    regionalReport,
-    "TX: местные передатчики услышаны снаружи",
-    data.explanation.tx,
-    data.tx
-  );
-  renderRegionalDirection(
-    regionalReport,
-    "RX: местные приёмники услышали удалённые станции",
-    data.explanation.rx,
-    data.rx
-  );
-  addText(regionalReport, "p", data.explanation.distance, "muted");
-}
 
+  renderRegionalDirection(
+    regionalReport,
+    "Передачи станций рядом с тобой услышали в других местах",
+    "Здесь перечислены передачи радиолюбителей из выбранного радиуса вокруг твоего QTH. Их сигналы приняли удалённые станции.",
+    data.tx,
+    {
+      localTitle: "Кто передавал рядом с тобой",
+      remoteTitle: "Какая удалённая станция приняла передачу",
+    }
+  );
+  renderRegionalDirection(
+    regionalReport,
+    "Приёмники рядом с тобой услышали станции из других мест",
+    "Здесь перечислены удалённые радиолюбители, чьи передачи приняли станции-приёмники в выбранном радиусе вокруг твоего QTH.",
+    data.rx,
+    {
+      localTitle: "Какая станция принимала рядом с тобой",
+      remoteTitle: "Кто передавал издалека",
+    }
+  );
+}
 async function loadRegionalReport() {
   regionalRefresh.disabled = true;
   regionalReport.setAttribute("aria-busy", "true");
