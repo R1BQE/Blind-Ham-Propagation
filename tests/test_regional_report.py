@@ -134,7 +134,9 @@ def test_invalid_radius_is_rejected_even_when_store_is_empty():
 
 def test_regional_report_accepts_periods_up_to_24_hours():
     store = MemoryStore([])
-    report = build_regional_report("KO59XX", hours=24, store=store, now=10_000)
+    # Keep the 24-hour cutoff above the Unix epoch (Windows does not
+    # support negative timestamps in datetime.fromtimestamp()).
+    report = build_regional_report("KO59XX", hours=24, store=store, now=200_000)
     assert report["period_hours"] == 24
 
 
