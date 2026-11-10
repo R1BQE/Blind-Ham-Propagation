@@ -720,9 +720,6 @@ async function loadLocalDashboard(locator) {
   localReport.setAttribute("aria-busy", "true");
   localReport.replaceChildren();
   try {
-    if (pskReporterSocket?.readyState === WebSocket.OPEN) {
-      await applyPskSubscriptions();
-    }
     const params = new URLSearchParams({
       locator,
       radius_km: String(userSettings.radiusKm),
