@@ -473,7 +473,7 @@ function renderRegionalDirection(parent, title, description, data, roles) {
       addText(entry, "h4", `${item.band} · ${item.mode}`);
       const rows = [
         [roles.localTitle, formatStation(item.local_call, item.local_grid)],
-        [`${roles.localTitle}: расстояние от твоего QTH`, formatDistanceFromQth(item.local_distance_km)],
+        [`${roles.localTitle}: расстояние от твоего локатора`, formatDistanceFromQth(item.local_distance_km)],
         [roles.remoteTitle, formatStation(item.remote_call, item.remote_grid)],
         [`${roles.remoteTitle}: расстояние от твоего QTH`, formatDistanceFromQth(item.distance_km)],
         ["Расстояние непосредственно между станциями", item.station_distance_km === null || item.station_distance_km === undefined
@@ -514,13 +514,13 @@ function renderRegionalReport(data) {
   const info = document.createElement("p");
   info.className = "muted";
   info.textContent =
-    `Твой QTH: ${data.locator}. Радиус поиска: ${data.radius_km} км. Период: последние ${data.period_hours} ч. Диапазоны: ${(data.bands || []).length ? (data.bands || []).join(", ") : "все"}; режимы: ${(data.modes || []).length ? (data.modes || []).join(", ") : "все"}. В отчёт вошли декодирования, сохранённые в базе к моменту обновления.`;
+    `Твой локатор: ${data.locator}. Радиус поиска: ${data.radius_km} км. Период: последние ${data.period_hours} ч. Диапазоны: ${(data.bands || []).length ? (data.bands || []).join(", ") : "все"}; режимы: ${(data.modes || []).length ? (data.modes || []).join(", ") : "все"}. В отчёт вошли записи о приёме сигналов, сохранённые к моменту обновления.`;
   regionalReport.append(info);
 
   renderRegionalDirection(
     regionalReport,
     "Передачи станций рядом с тобой услышали в других местах",
-    "Здесь перечислены передачи радиолюбителей из выбранного радиуса вокруг твоего QTH. Их сигналы приняли удалённые станции.",
+    "Здесь перечислены передачи радиолюбителей из выбранного радиуса вокруг твоего локатора. Их сигналы приняли удалённые станции.",
     data.tx,
     {
       localTitle: "Кто передавал рядом с тобой",
@@ -614,7 +614,7 @@ localForm.addEventListener("submit", async (event) => {
   localReport.replaceChildren();
   const locator = locatorInput.value.trim().toUpperCase();
   if (!locator) {
-    locatorError.textContent = "Введи QTH-локатор.";
+    locatorError.textContent = "Введи радиолюбительский локатор Maidenhead.";
     locatorInput.focus();
     return;
   }
