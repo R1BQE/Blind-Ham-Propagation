@@ -431,14 +431,20 @@ function renderBandSummary(parent, rows) {
   parent.append(table);
 }
 
-function formatDistanceFromQth(value) {
+function formatDistanceFromLocator(value) {
   return value === null || value === undefined
-    ? "Расстояние не определено: нет координат станции."
-    : `${Number(value).toLocaleString("ru-RU")} км от твоего локатора`;
+    ? "Неизвестно: нет координат станции."
+    : `${Number(value).toLocaleString("ru-RU")} км`;
 }
 
-function formatStation(call, grid) {
-  return grid ? `${call} (локатор ${grid})` : call;
+function addObservationRows(parent, rows) {
+  const list = document.createElement("dl");
+  list.className = "measurements observation-details";
+  for (const [label, value] of rows) {
+    addText(list, "dt", label);
+    addText(list, "dd", value);
+  }
+  parent.append(list);
 }
 
 function renderRegionalDirection(parent, title, description, data, roles) {
@@ -447,64 +453,60 @@ function renderRegionalDirection(parent, title, description, data, roles) {
   addText(section, "h3", title);
   addText(section, "p", description);
 
-  const summary = document.createElement("dl");
-  summary.className = "measurements";
-  for (const [label, value] of [
-    ["Всего записей о принятом сигнале", String(data.spots)],
-    ["Разных станций в твоём районе", String(data.unique_local_stations)],
-    ["Последняя запись о принятом сигнале", formatObservationTime(data.last_seen)],
-  ]) {
-    addText(summary, "dt", label);
-    addText(summary, "dd", value);
-  }
-  section.append(summary);
+  addObservationRows(section, [
+    ["Всего приёмов", String(data.spots)],
+    ["Станций рядом", String(data.unique_local_stations)],
+    ["Последний приём", formatObservationTime(data.last_seen)],
+  ]);
   renderBandSummary(section, data.by_band);
 
   if (data.latest?.length) {
-    addText(section, "h4", "Последние передачи, которые удалось принять");
+    addText(section, "h4", "Последние принятые передачи");
     const list = document.createElement("ol");
     list.className = "observation-list";
 
     for (const item of data.latest) {
       const entry = document.createElement("li");
-      const details = document.createElement("dl");
-      details.className = "measurements";
-
       addText(entry, "h4", `${item.band} · ${item.mode}`);
-      const rows = [
-        [roles.localTitle, formatStation(item.local_call, item.local_grid)],
-        [`${roles.localTitle}: расстояние от твоего локатора`, formatDistanceFromQth(item.local_distance_km)],
-        [roles.remoteTitle, formatStation(item.remote_call, item.remote_grid)],
-        [`${roles.remoteTitle}: расстояние от твоего QTH`, formatDistanceFromQth(item.distance_km)],
-        ["Расстояние непосредственно между станциями", item.station_distance_km === null || item.station_distance_km === undefined
-          ? "Не удалось рассчитать: у одной из станций нет локатора."
-          : `${Number(item.station_distance_km).toLocaleString("ru-RU")} км`],
-        ["Направление от передающей станции к принимающей (азимут)", item.station_azimuth
-          ? `${item.station_azimuth} (${item.station_azimuth_degrees}°)`
-          : "Не удалось рассчитать: у одной из станций нет локатора."],
-      ];
 
+      addText(entry, "h5", roles.localTitle);
+      addObservationRows(entry, [
+        ["Позывной", item.local_call || "Не указан"],
+        ["Локатор", item.local_grid || "Не указан"],
+        ["От твоего локатора", formatDistanceFromLocator(item.local_distance_km)],
+      ]);
+
+      addText(entry, "h5", roles.remoteTitle);
+      addObservationRows(entry, [
+        ["Позывной", item.remote_call || "Не указан"],
+        ["Локатор", item.remote_grid || "Не указан"],
+        ["От твоего локатора", formatDistanceFromLocator(item.distance_km)],
+      ]);
+
+      const pathRows = [
+        ["Между станциями", item.station_distance_km === null || item.station_distance_km === undefined
+          ? "Неизвестно: нет локатора одной из станций."
+          : `${Number(item.station_distance_km).toLocaleString("ru-RU")} км`],
+        ["Направление передачи", item.station_azimuth
+          ? `${item.station_azimuth} (${item.station_azimuth_degrees}°)`
+          : "Неизвестно: нет локатора одной из станций."],
+      ];
       if (item.bearing) {
-        rows.push([
-          "Направление от твоего локатора до удалённой станции (азимут)",
+        pathRows.push([
+          "Направление от твоего локатора до удалённой станции",
           `${item.bearing} (${item.bearing_degrees}°)`,
         ]);
       }
       if (item.snr_db !== null && item.snr_db !== undefined) {
-        rows.push(["Уровень принятого сигнала", `${item.snr_db} дБ`]);
+        pathRows.push(["Уровень сигнала", `${item.snr_db} дБ`]);
       }
-      rows.push(["Время приёма сигнала", formatObservationTime(item.observed_at)]);
-
-      for (const [label, value] of rows) {
-        addText(details, "dt", label);
-        addText(details, "dd", value);
-      }
-      entry.append(details);
+      pathRows.push(["Время приёма", formatObservationTime(item.observed_at)]);
+      addObservationRows(entry, pathRows);
       list.append(entry);
     }
     section.append(list);
   } else {
-    addText(section, "p", "За выбранный период таких записей о приёме сигналов в указанном районе нет.");
+    addText(section, "p", "За выбранный период приёмов в указанном районе нет.");
   }
   parent.append(section);
 }
@@ -523,18 +525,18 @@ function renderRegionalReport(data) {
     "Здесь перечислены передачи радиолюбителей из выбранного радиуса вокруг твоего локатора. Их сигналы приняли удалённые станции.",
     data.tx,
     {
-      localTitle: "Кто передавал рядом с тобой",
-      remoteTitle: "Какая удалённая станция приняла передачу",
+      localTitle: "Передатчик рядом с тобой",
+      remoteTitle: "Удалённый приёмник",
     }
   );
   renderRegionalDirection(
     regionalReport,
     "Приёмники рядом с тобой услышали станции из других мест",
-    "Здесь перечислены удалённые радиолюбители, чьи передачи приняли станции-приёмники в выбранном радиусе вокруг твоего QTH.",
+    "Здесь перечислены удалённые радиолюбители, чьи передачи приняли станции в выбранном радиусе вокруг твоего локатора.",
     data.rx,
     {
-      localTitle: "Какая станция принимала рядом с тобой",
-      remoteTitle: "Кто передавал издалека",
+      localTitle: "Приёмник рядом с тобой",
+      remoteTitle: "Удалённый передатчик",
     }
   );
 }
