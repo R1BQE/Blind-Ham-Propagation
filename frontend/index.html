@@ -61,7 +61,7 @@
               placeholder="KO59XX" required>
           </div>
           <p id="locator-error" class="field-error" role="alert"></p>
-          <button type="submit" id="local-submit">Рассчитать условия для локатора</button>
+          <button type="submit" id="local-submit">Показать условия в районе моей станции</button>
         </form>
         <p id="local-status" class="status" role="status" aria-live="polite">Локатор ещё не указан.</p>
         <div id="local-report" class="report" aria-live="polite" aria-busy="false"></div>
@@ -71,27 +71,27 @@
     <section class="tab-panel" id="panel-spots" role="tabpanel" aria-labelledby="tab-spots" tabindex="0" hidden>
       <section class="panel" aria-labelledby="spots-heading">
         <h2 id="spots-heading">Какие станции сейчас слышат друг друга</h2>
-        <p>Здесь показано, какие передачи станций рядом с твоим QTH услышали в других местах и какие удалённые станции услышали приёмники рядом с тобой. Все расстояния в отчёте считаются от твоего QTH.</p>
-        <button type="button" id="psk-status-refresh">Проверить подключение PSK Reporter</button>
+        <p>Здесь показано, какие передачи станций рядом с твоим QTH услышали в других местах и какие удалённые станции услышали приёмники рядом с тобой. Для каждой пары станций отдельно указаны расстояние от твоего QTH до каждой станции, расстояние между самими станциями и направление радиотрассы от передатчика к приёмнику.</p>
+        <button type="button" id="psk-status-refresh">Проверить получение радионаблюдений</button>
         <p id="psk-status" class="status" role="status" aria-live="polite">Состояние сборщика ещё не проверено.</p>
         <div id="psk-report" class="report" aria-live="polite" aria-busy="false"></div>
         <section class="result-card" aria-labelledby="regional-heading">
-          <h3 id="regional-heading">Наблюдения в районе моего QTH</h3>
+          <h3 id="regional-heading">Что услышали станции рядом с моим QTH</h3>
           <form id="regional-locator-form" novalidate>
             <div class="form-row">
-              <label for="regional-locator">Локатор Maidenhead</label>
+              <label for="regional-locator">Мой радиолюбительский локатор</label>
               <input id="regional-locator" name="locator" type="text" inputmode="text"
                 autocomplete="off" autocapitalize="characters" spellcheck="false"
                 maxlength="12" minlength="2" aria-describedby="regional-locator-help regional-locator-error"
                 placeholder="KP50DB" required>
             </div>
             <div class="form-row">
-              <label for="regional-radius">Радиус поиска, км</label>
+              <label for="regional-radius">Радиус поиска вокруг моего QTH, км</label>
               <input id="regional-radius" name="radius" type="number" min="1" max="1000"
                 step="1" value="100" required>
             </div>
             <div class="form-row">
-              <label for="regional-period">Период наблюдений</label>
+              <label for="regional-period">За какое время показать наблюдения</label>
               <select id="regional-period" name="period-hours">
                 <option value="3">Последние 3 часа</option>
                 <option value="6" selected>Последние 6 часов</option>
@@ -146,12 +146,12 @@
                 <label><input type="checkbox" name="regional-mode" value="WSPR"> WSPR</label>
               </div>
             </fieldset>
-            <p id="regional-locator-help" class="muted">По умолчанию используются все диапазоны и режимы. Если выбрать «Настроить», появятся дополнительные флажки. Для каждой выбранной пары будет создана MQTT-подписка. Период отчёта выбирается от 3 до 24 часов.</p>
+            <p id="regional-locator-help" class="muted">По умолчанию учитываются все диапазоны и цифровые режимы. Если выбрать «Настроить», можно отметить нужные. Период показывает, за какое время искать записи: от 3 до 24 часов.</p>
             <p id="regional-locator-error" class="field-error" role="alert"></p>
-            <button type="submit" id="regional-locator-submit">Применить фильтры и проверить</button>
+            <button type="submit" id="regional-locator-submit">Применить настройки и показать наблюдения</button>
           </form>
           <p id="regional-description">Область поиска: локатор KP50DB, радиус 100 км. Период — последние 6 часов.</p>
-          <button type="button" id="regional-refresh">Обновить региональные наблюдения</button>
+          <button type="button" id="regional-refresh">Обновить список наблюдений</button>
           <p id="regional-status" class="status" role="status" aria-live="polite">Региональные данные ещё не загружены.</p>
           <div id="regional-report" class="report" aria-live="polite" aria-busy="false"></div>
         </section>
@@ -169,7 +169,7 @@
 
     <section class="tab-panel" id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" tabindex="0" hidden>
       <section class="panel" aria-labelledby="settings-heading">
-        <h2 id="settings-heading">Настройки твоей станции</h2>
+        <h2 id="settings-heading">Настройки моей станции</h2>
         <p>Укажи свой локатор и радиус вокруг него. Эти данные нужны, чтобы находить передачи и приёмники рядом с тобой. Настройки сохраняются в этом браузере.</p>
         <form id="settings-form">
           <div class="form-row">
@@ -188,7 +188,7 @@
           <button type="submit" id="settings-save">Сохранить настройки</button>
         </form>
         <p id="settings-status" class="status" role="status" aria-live="polite">Используются значения по умолчанию: KP50DB и 100 км.</p>
-        <p class="muted">Параметры передающей станции для расчётной модели: 100 Вт, обычный диполь, высота подвеса 10 метров. Они пока не влияют на статистику PSK Reporter.</p>
+        <p class="muted">Для будущих расчётов указаны мощность 100 Вт, дипольная антенна и высота подвеса 10 метров. Пока эти параметры не влияют на список реальных радионаблюдений.</p>
       </section>
     </section>
   </main>
