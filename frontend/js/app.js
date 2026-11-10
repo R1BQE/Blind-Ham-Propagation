@@ -323,8 +323,8 @@ async function loadSolar() {
     const data = await response.json();
     renderSolar(data);
     solarStatus.textContent = data.status === "partial"
-      ? "Данные загружены частично. Список недоступных источников приведён ниже."
-      : "Данные солнечной активности обновлены.";
+      ? "Получены не все данные. Ниже указано, какие источники сейчас недоступны."
+      : "Данные о Солнце и магнитном поле Земли обновлены.";
   } catch (error) {
     solarStatus.textContent = `Не удалось получить данные: ${error.message}`;
   } finally {
@@ -338,30 +338,30 @@ function renderPskStatus(data) {
   const section = document.createElement("section");
   section.className = "result-card";
   const stateLabels = {
-    disabled: "Сборщик выключен",
-    idle: "Ожидает запуска",
-    connecting: "Подключается к брокеру",
-    connected: "Подключён, получает поток",
-    reconnecting: "Потеряно соединение, выполняется переподключение",
-    error: "Ошибка сборщика",
-    stopped: "Сборщик остановлен",
-    not_started: "Сборщик ещё не запущен",
+    disabled: "Приём наблюдений отключён",
+    idle: "Ожидает открытия раздела радионаблюдений",
+    connecting: "Подключается к службе приёма наблюдений",
+    connected: "Связь установлена, поступают новые наблюдения",
+    reconnecting: "Связь прервалась. Сервис пытается подключиться снова",
+    error: "Не удалось получать наблюдения",
+    stopped: "Приём наблюдений остановлен",
+    not_started: "Приём наблюдений ещё не запускался",
   };
   addText(section, "h3", stateLabels[data.state] || data.state || "Состояние неизвестно");
   const list = document.createElement("dl");
   list.className = "measurements";
   const rows = [
-    ["Брокер", data.broker ? `${data.broker}:${data.port}` : "Не задан"],
-    ["Защищённое соединение", data.transport || "Неизвестно"],
-    ["Подписки", (data.topic_filters || []).join(", ") || "Нет"],
-    ["Получено MQTT-сообщений", String(data.messages_received ?? 0)],
-    ["Сохранено новых спотов", String(data.spots_saved ?? 0)],
-    ["Сейчас в хранилище", String(data.stored_spots ?? 0)],
-    ["Повторных сообщений", String(data.duplicates ?? 0)],
-    ["Некорректных сообщений", String(data.invalid_messages ?? 0)],
-    ["Ошибок", String(data.errors ?? 0)],
-    ["Последнее MQTT-сообщение", data.last_message_at || "Пока не поступало"],
-    ["Время последнего спота", data.last_spot_at || "Пока не поступало"],
+    ["Сервер, откуда поступают наблюдения", data.broker ? `${data.broker}:${data.port}` : "Не указан"],
+    ["Тип защищённого соединения", data.transport || "Неизвестно"],
+    ["Какие диапазоны и режимы отслеживаются", (data.topic_filters || []).length ? String(data.topic_filters.length) : "Пока ничего не отслеживается"],
+    ["Получено сообщений от службы наблюдений", String(data.messages_received ?? 0)],
+    ["Найдено новых записей о приёме сигналов", String(data.spots_saved ?? 0)],
+    ["Записей сейчас хранится на сервере", String(data.stored_spots ?? 0)],
+    ["Повторно получено уже известных записей", String(data.duplicates ?? 0)],
+    ["Сообщений, которые не удалось разобрать", String(data.invalid_messages ?? 0)],
+    ["Количество ошибок приёма", String(data.errors ?? 0)],
+    ["Последнее сообщение от службы наблюдений", data.last_message_at ? formatObservationTime(data.last_message_at) : "Пока не поступало"],
+    ["Последняя запись о принятом сигнале", data.last_spot_at ? formatObservationTime(data.last_spot_at) : "Пока не поступала"],
   ];
   for (const [label, value] of rows) {
     addText(list, "dt", label);
@@ -382,10 +382,10 @@ async function loadPskStatus() {
     const data = await response.json();
     renderPskStatus(data);
     pskStatus.textContent = data.state === "connected"
-      ? "Соединение с PSK Reporter установлено."
+      ? "Связь со службой наблюдений установлена. Новые записи могут поступать."
       : data.state === "disabled"
-        ? "Сборщик выключен. Для теста его нужно включить переменной окружения."
-        : "Состояние сборщика обновлено.";
+        ? "Приём наблюдений отключён в настройках сервера."
+        : "Состояние приёма наблюдений обновлено.";
   } catch (error) {
     pskStatus.textContent = `Не удалось получить состояние: ${error.message}`;
   } finally {
@@ -559,7 +559,7 @@ async function loadRegionalReport() {
     if (!response.ok) throw new Error(data.detail || "Не удалось получить региональные данные.");
     renderRegionalReport(data);
     regionalStatus.textContent =
-      `Региональный отчёт готов. TX: ${data.tx.spots} наблюдений; RX: ${data.rx.spots} наблюдений.`;
+      `Отчёт готов. Передачи станций рядом с тобой услышали ${data.tx.spots} раз; приёмники рядом с тобой услышали удалённые станции ${data.rx.spots} раз.`;
   } catch (error) {
     regionalStatus.textContent = error.message;
   } finally {
