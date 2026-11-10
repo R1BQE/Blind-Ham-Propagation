@@ -38,7 +38,10 @@
       <section class="panel" aria-labelledby="solar-heading">
         <h2 id="solar-heading">Что сейчас происходит на Солнце и вокруг Земли</h2>
         <p>Эти данные помогают оценить солнечные и геомагнитные условия, которые могут влиять на КВ-связь. Для просмотра не нужен твой локатор.</p>
-        <button type="button" id="solar-refresh">Обновить данные солнечной активности</button>
+        <div class="solar-controls">
+          <label><input type="checkbox" id="solar-show-hints" checked> Показывать пояснения к показателям</label>
+          <button type="button" id="solar-refresh">Обновить данные солнечной активности</button>
+        </div>
         <p id="solar-status" class="status" role="status" aria-live="polite">Данные ещё не загружены.</p>
         <div id="solar-report" class="report" aria-live="polite" aria-busy="false"></div>
       </section>
@@ -199,6 +202,7 @@
       <p><a href="https://blind-ham.ru/">Blind-Ham.ru</a></p>
     </div>
   </footer>
+  <script src="./js/solar-monitor.js" defer></script>
   <script src="./js/app.js" defer></script>
 </body>
 </html>
