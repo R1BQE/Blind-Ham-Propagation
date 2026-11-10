@@ -62,8 +62,8 @@ def build_regional_report(
     center_lat, center_lon = locator_to_center(normalized_locator)
     if not math.isfinite(radius_km) or radius_km <= 0:
         raise ValueError("Радиус области наблюдения должен быть положительным числом.")
-    if not 1 <= hours <= 6:
-        raise ValueError("Период должен быть от 1 до 6 часов.")
+    if hours not in {3, 6, 9, 12, 15, 18, 21, 24}:
+        raise ValueError("Период должен быть от 3 до 24 часов с шагом 3 часа.")
     if details_limit < 1 or details_limit > 100:
         raise ValueError("Лимит подробных записей должен быть от 1 до 100.")
 
