@@ -89,6 +89,9 @@ def test_report_contains_bearing_distance_and_band_summary():
     assert latest["local_distance_km"] == 0.0
     assert latest["bearing"] is not None
     assert latest["bearing_degrees"] is not None
+    assert latest["station_distance_km"] > 100
+    assert latest["station_azimuth"] is not None
+    assert latest["station_azimuth_degrees"] is not None
     assert report["tx"]["by_band"] == [{
         "band": "20m",
         "mode": "FT8",
@@ -139,3 +142,17 @@ def test_regional_report_rejects_period_outside_selector_values():
     store = MemoryStore([])
     with pytest.raises(ValueError, match="шагом 3 часа"):
         build_regional_report("KO59XX", hours=7, store=store, now=10_000)
+
+
+
+def test_radio_path_azimuth_is_always_from_transmitter_to_receiver():
+    store = MemoryStore([
+        spot("R1BQE", "W1ABC", "KO59XX", "FN31PR"),
+    ])
+    report = build_regional_report("KO59XX", store=store, now=10_100)
+    tx_item = report["tx"]["latest"][0]
+    rx_item = report["rx"]["latest"][0]
+
+    assert tx_item["station_distance_km"] == rx_item["station_distance_km"]
+    assert tx_item["station_azimuth_degrees"] == rx_item["station_azimuth_degrees"]
+    assert tx_item["station_azimuth"] == rx_item["station_azimuth"]
