@@ -220,8 +220,15 @@ function activateTab(tab, moveFocus = false) {
     panel.hidden = !selected;
   }
   if (moveFocus) tab.focus();
-  if (tab.id === "tab-spots") startPskReporterSession();
-  else if (previousTab?.id === "tab-spots") stopPskReporterSession();
+  const sessionTabs = ["tab-local", "tab-spots"];
+  if (sessionTabs.includes(tab.id)) {
+    startPskReporterSession();
+    if (tab.id === "tab-local" && pskReporterSocket?.readyState === WebSocket.OPEN) {
+      void loadLocalDashboard(locatorInput.value.trim().toUpperCase());
+    }
+  } else if (sessionTabs.includes(previousTab?.id)) {
+    stopPskReporterSession();
+  }
 }
 
 tabList.addEventListener("click", (event) => {
@@ -570,7 +577,7 @@ async function loadRegionalReport() {
   }
 }
 
-function renderLocal(data) {
+function renderLocal(data, weather, regional, errors = {}) {
   localReport.replaceChildren();
   const section = document.createElement("section");
   section.className = "result-card";
@@ -608,33 +615,168 @@ function renderLocal(data) {
   } else if (data.drap?.status === "unavailable") {
     addText(localReport, "p", data.drap.error, "muted");
   }
+
+  const activity = document.createElement("section");
+  activity.className = "result-card";
+  addText(activity, "h3", "Какие диапазоны сейчас наиболее активны рядом с тобой");
+  addText(activity, "p",
+    `Учитываются радионаблюдения за последние ${regional?.period_hours ?? userSettings.periodHours ?? 6} ч в радиусе ${regional?.radius_km ?? userSettings.radiusKm} км от локатора ${data.locator}. Считаются реальные записи PSK Reporter, а не расчётная вероятность связи.`);
+  if (regional) {
+    renderLocalBandActivity(activity, regional);
+  } else {
+    addText(activity, "p", errors.regional || "Пока не удалось получить радионаблюдения.", "muted");
+  }
+  localReport.append(activity);
+
+  const comparison = document.createElement("section");
+  comparison.className = "result-card";
+  addText(comparison, "h3", "Солнечная активность и условия прохождения");
+  if (weather) {
+    const measurements = weather.measurements || {};
+    const solarRows = [
+      ["Солнечный поток F10.7", formatValue(measurements.solar_flux)],
+      ["Геомагнитный индекс Kp", formatValue(measurements.kp)],
+      ["Скорость солнечного ветра", formatValue(measurements.solar_wind_speed)],
+      ["Межпланетное магнитное поле Bz", formatValue(measurements.magnetic_field_bz)],
+      ["Рентгеновское излучение Солнца", formatValue(measurements.xray_flux)],
+    ];
+    addObservationRows(comparison, solarRows);
+    addText(comparison, "p",
+      "Эти показатели описывают общие условия в околоземном пространстве. Вместе с освещённостью и оценкой поглощения они помогают понять фоновые условия, но сами по себе не определяют, какой диапазон откроется именно между двумя станциями.");
+    addText(comparison, "p", `Солнечные данные получены: ${formatObservationTime(weather.retrieved_at)}`, "muted");
+  } else {
+    addText(comparison, "p", errors.weather || "Не удалось получить свежие данные солнечной активности.", "muted");
+  }
+  if (regional) {
+    addText(comparison, "p",
+      "Сопоставление с радионаблюдениями: диапазоны выше отсортированы по числу зарегистрированных приёмов рядом с твоим локатором. Это фактические подтверждения отдельных приёмов, а не гарантия устойчивой связи.");
+  }
+  localReport.append(comparison);
+}
+
+function renderLocalBandActivity(parent, regional) {
+  const totals = new Map();
+  for (const [direction, label] of [["tx", "Передачи рядом услышали удалённые станции"], ["rx", "Приёмники рядом услышали удалённые станции"]]) {
+    for (const row of regional[direction]?.by_band || []) {
+      const band = String(row.band || "Неизвестно");
+      if (!totals.has(band)) {
+        totals.set(band, { band, tx: 0, rx: 0, lastSeen: null });
+      }
+      const item = totals.get(band);
+      item[direction] += Number(row.spots) || 0;
+      if (row.last_seen && (!item.lastSeen || Date.parse(row.last_seen) > Date.parse(item.lastSeen))) {
+        item.lastSeen = row.last_seen;
+      }
+    }
+  }
+  const rows = [...totals.values()].sort((a, b) =>
+    (b.tx + b.rx) - (a.tx + a.rx)
+    || (Date.parse(b.lastSeen || 0) - Date.parse(a.lastSeen || 0))
+    || a.band.localeCompare(b.band, "ru")
+  );
+  if (!rows.length) {
+    addText(parent, "p",
+      "За выбранный период пока нет записей о приёме сигналов рядом с твоим локатором. Если сбор наблюдений только что включился, подожди несколько минут и обнови данные.");
+    return;
+  }
+  const top = rows[0];
+  addText(parent, "p",
+    `Чаще всего в наблюдениях встречается диапазон ${top.band}: ${top.tx + top.rx} записей. Из них ${top.tx} — передачи местных станций, услышанные в других местах; ${top.rx} — передачи удалённых станций, услышанные местными приёмниками.`);
+  const table = document.createElement("table");
+  table.className = "data-table";
+  const caption = document.createElement("caption");
+  caption.textContent = "Активность диапазонов по радионаблюдениям";
+  table.append(caption);
+  const thead = document.createElement("thead");
+  const header = document.createElement("tr");
+  for (const label of ["Диапазон", "Местные передачи услышали", "Местные приёмники услышали", "Всего записей", "Последний приём"]) {
+    const th = addText(header, "th", label);
+    th.scope = "col";
+  }
+  thead.append(header);
+  table.append(thead);
+  const tbody = document.createElement("tbody");
+  for (const row of rows) {
+    const tr = document.createElement("tr");
+    for (const value of [
+      row.band,
+      String(row.tx),
+      String(row.rx),
+      String(row.tx + row.rx),
+      row.lastSeen ? formatObservationTime(row.lastSeen) : "Нет данных",
+    ]) addText(tr, "td", value);
+    tbody.append(tr);
+  }
+  table.append(tbody);
+  parent.append(table);
+  addText(parent, "p",
+    "Важно: одна и та же передача может попасть в обе стороны, если обе станции находятся внутри выбранного радиуса. Поэтому сумма записей показывает активность наблюдений, а не число уникальных радиосвязей.", "muted");
+}
+
+async function loadLocalDashboard(locator) {
+  if (!locator) return;
+  localSubmit.disabled = true;
+  localStatus.textContent = "Собираем данные о Солнце, освещённости и радионаблюдениях…";
+  localReport.setAttribute("aria-busy", "true");
+  localReport.replaceChildren();
+  try {
+    if (pskReporterSocket?.readyState === WebSocket.OPEN) {
+      await applyPskSubscriptions();
+    }
+    const params = new URLSearchParams({
+      locator,
+      radius_km: String(userSettings.radiusKm),
+      hours: String(userSettings.periodHours || 6),
+      limit: "100",
+      bands: bandSelection === "all" ? "" : selectedBands.join(","),
+      modes: modeSelection === "all" ? "" : selectedModes.join(","),
+    });
+    const requests = await Promise.allSettled([
+      fetch(`${API}/local/report?locator=${encodeURIComponent(locator)}`, { cache: "no-store" }).then(async response => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || "Не удалось рассчитать условия для локатора.");
+        return data;
+      }),
+      fetch(`${API}/solar/activity`, { cache: "no-store" }).then(async response => {
+        const data = await response.json();
+        if (!response.ok) throw new Error("Не удалось получить данные солнечной активности.");
+        return data;
+      }),
+      fetch(`${API}/psk-reporter/regional?${params}`, { cache: "no-store" }).then(async response => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || "Не удалось получить радионаблюдения.");
+        return data;
+      }),
+    ]);
+    if (requests[0].status !== "fulfilled") throw requests[0].reason;
+    const weather = requests[1].status === "fulfilled" ? requests[1].value : null;
+    const regional = requests[2].status === "fulfilled" ? requests[2].value : null;
+    renderLocal(requests[0].value, weather, regional, {
+      weather: requests[1].status === "rejected" ? requests[1].reason.message : "",
+      regional: requests[2].status === "rejected" ? requests[2].reason.message : "",
+    });
+    const observationCount = regional ? (regional.tx.spots + regional.rx.spots) : null;
+    localStatus.textContent = regional
+      ? `Отчёт готов. Найдено ${observationCount} записей о приёме за выбранный период. Солнечные данные ${weather ? "получены" : "временно недоступны"}.`
+      : "Условия для локатора рассчитаны. Радионаблюдения временно недоступны.";
+  } catch (error) {
+    localStatus.textContent = error.message || "Не удалось загрузить данные для локатора.";
+  } finally {
+    localSubmit.disabled = false;
+    localReport.setAttribute("aria-busy", "false");
+  }
 }
 
 localForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   locatorError.textContent = "";
-  localReport.replaceChildren();
   const locator = locatorInput.value.trim().toUpperCase();
   if (!locator) {
     locatorError.textContent = "Введи радиолюбительский локатор Maidenhead.";
     locatorInput.focus();
     return;
   }
-  localSubmit.disabled = true;
-  localStatus.textContent = "Рассчитываем локальные условия…";
-  localReport.setAttribute("aria-busy", "true");
-  try {
-    const response = await fetch(`${API}/local/report?locator=${encodeURIComponent(locator)}`, { cache: "no-store" });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || "Не удалось обработать локатор.");
-    renderLocal(data);
-    localStatus.textContent = "Локальный отчёт готов.";
-  } catch (error) {
-    localStatus.textContent = error.message;
-  } finally {
-    localSubmit.disabled = false;
-    localReport.setAttribute("aria-busy", "false");
-  }
+  await loadLocalDashboard(locator);
 });
 
 solarButton.addEventListener("click", loadSolar);
@@ -715,7 +857,11 @@ function startPskReporterSession() {
     void (async () => {
       await applyPskSubscriptions();
       await loadPskStatus();
-      await loadRegionalReport();
+      if (document.querySelector("#tab-local").getAttribute("aria-selected") === "true") {
+        await loadLocalDashboard(locatorInput.value.trim().toUpperCase());
+      } else {
+        await loadRegionalReport();
+      }
     })();
   });
   socket.addEventListener("close", () => {
