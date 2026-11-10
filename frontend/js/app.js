@@ -409,7 +409,7 @@ function renderBandSummary(parent, rows) {
   table.append(caption);
   const thead = document.createElement("thead");
   const header = document.createElement("tr");
-  for (const label of ["Диапазон", "Режим", "Спотов", "Станций", "Последнее наблюдение"]) {
+  for (const label of ["Диапазон", "Режим", "Записей о приёме", "Разных станций", "Последнее наблюдение"]) {
     const th = addText(header, "th", label);
     th.scope = "col";
   }
@@ -434,7 +434,7 @@ function renderBandSummary(parent, rows) {
 function formatDistanceFromQth(value) {
   return value === null || value === undefined
     ? "Расстояние не определено: нет координат станции."
-    : `${Number(value).toLocaleString("ru-RU")} км от твоего QTH`;
+    : `${Number(value).toLocaleString("ru-RU")} км от твоего локатора`;
 }
 
 function formatStation(call, grid) {
@@ -450,9 +450,9 @@ function renderRegionalDirection(parent, title, description, data, roles) {
   const summary = document.createElement("dl");
   summary.className = "measurements";
   for (const [label, value] of [
-    ["Всего декодирований", String(data.spots)],
+    ["Всего записей о принятом сигнале", String(data.spots)],
     ["Разных станций в твоём районе", String(data.unique_local_stations)],
-    ["Последнее декодирование", formatObservationTime(data.last_seen)],
+    ["Последняя запись о принятом сигнале", formatObservationTime(data.last_seen)],
   ]) {
     addText(summary, "dt", label);
     addText(summary, "dd", value);
@@ -461,7 +461,7 @@ function renderRegionalDirection(parent, title, description, data, roles) {
   renderBandSummary(section, data.by_band);
 
   if (data.latest?.length) {
-    addText(section, "h4", "Последние декодированные передачи");
+    addText(section, "h4", "Последние передачи, которые удалось принять");
     const list = document.createElement("ol");
     list.className = "observation-list";
 
@@ -479,21 +479,21 @@ function renderRegionalDirection(parent, title, description, data, roles) {
         ["Расстояние непосредственно между станциями", item.station_distance_km === null || item.station_distance_km === undefined
           ? "Не удалось рассчитать: у одной из станций нет локатора."
           : `${Number(item.station_distance_km).toLocaleString("ru-RU")} км`],
-        ["Азимут радиотрассы от передатчика к приёмнику", item.station_azimuth
+        ["Направление от передающей станции к принимающей (азимут)", item.station_azimuth
           ? `${item.station_azimuth} (${item.station_azimuth_degrees}°)`
           : "Не удалось рассчитать: у одной из станций нет локатора."],
       ];
 
       if (item.bearing) {
         rows.push([
-          "Азимут от твоего QTH до удалённой станции",
+          "Направление от твоего локатора до удалённой станции (азимут)",
           `${item.bearing} (${item.bearing_degrees}°)`,
         ]);
       }
       if (item.snr_db !== null && item.snr_db !== undefined) {
         rows.push(["Уровень принятого сигнала", `${item.snr_db} дБ`]);
       }
-      rows.push(["Время декодирования", formatObservationTime(item.observed_at)]);
+      rows.push(["Время приёма сигнала", formatObservationTime(item.observed_at)]);
 
       for (const [label, value] of rows) {
         addText(details, "dt", label);
@@ -504,7 +504,7 @@ function renderRegionalDirection(parent, title, description, data, roles) {
     }
     section.append(list);
   } else {
-    addText(section, "p", "За выбранный период таких декодирований в указанной области не было.");
+    addText(section, "p", "За выбранный период таких записей о приёме сигналов в указанном районе нет.");
   }
   parent.append(section);
 }
