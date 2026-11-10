@@ -147,7 +147,8 @@ def test_regional_report_rejects_period_outside_selector_values():
 
 def test_radio_path_azimuth_is_always_from_transmitter_to_receiver():
     store = MemoryStore([
-        spot("R1BQE", "W1ABC", "KO59XX", "FN31PR"),
+        spot("R1BQE", "W1ABC", "KO59XX", "FN31PR", observed_at=10_000),
+        spot("W1ABC", "R1BQE", "FN31PR", "KO59XX", observed_at=9_999),
     ])
     report = build_regional_report("KO59XX", store=store, now=10_100)
     tx_item = report["tx"]["latest"][0]
