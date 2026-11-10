@@ -175,3 +175,15 @@ button:disabled { cursor: wait; opacity: .7; }
 .observation-list h5 + .observation-details {
   margin-block-end: .35rem;
 }
+
+/* Solar monitor controls and screen-reader-friendly data tables. */
+.solar-controls { display: grid; justify-items: start; gap: .35rem; margin-block: .75rem; }
+.solar-controls label { display: inline-flex; align-items: center; gap: .55rem; min-height: 2.5rem; }
+.solar-controls input[type="checkbox"] {
+  width: 1.25rem; min-height: 1.25rem; height: 1.25rem; margin: 0;
+  padding: 0; accent-color: var(--accent); text-transform: none; letter-spacing: normal;
+}
+.solar-help { margin-block: .2rem .75rem; font-weight: 400; }
+.solar-measurements dd { margin-block-end: .6rem; }
+.solar-vhf-list li { margin-block: .6rem; }
+.solar-vhf-list strong { display: block; }
