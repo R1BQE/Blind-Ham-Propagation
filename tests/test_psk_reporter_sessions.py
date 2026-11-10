@@ -33,7 +33,9 @@ def test_shared_collector_stops_only_after_last_viewer():
         assert collector.stops == 0
 
         await sessions.disconnect(2)
-        await asyncio.sleep(0.03)
+        stop_task = sessions._stop_task
+        assert stop_task is not None
+        await asyncio.wait_for(stop_task, timeout=1)
         assert collector.stops == 1
 
     asyncio.run(scenario())
