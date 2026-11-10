@@ -274,19 +274,21 @@ function renderSolar(data) {
   const list = document.createElement("dl");
   list.className = "measurements";
   const labels = [
-    ["solar_flux", "Солнечный поток F10.7"],
-    ["kp", "Планетарный индекс Kp"],
-    ["solar_wind_speed", "Скорость солнечного ветра"],
-    ["magnetic_field_bt", "Магнитное поле Bt"],
-    ["magnetic_field_bz", "Компонента Bz GSM"],
-    ["xray_flux", "Рентгеновский поток GOES"],
+    ["solar_flux", "Солнечный поток F10.7 — показатель радиоизлучения Солнца. Помогает оценивать состояние ионосферы."],
+    ["kp", "Индекс Kp — показывает, насколько возмущено магнитное поле Земли. Чем выше число, тем сильнее возмущение."],
+    ["solar_wind_speed", "Скорость солнечного ветра — скорость потока частиц от Солнца."],
+    ["magnetic_field_bt", "Магнитное поле Bt — общая сила межпланетного магнитного поля."],
+    ["magnetic_field_bz", "Направление Bz — важная составляющая магнитного поля. Отрицательное значение может способствовать усилению геомагнитных возмущений."],
+    ["xray_flux", "Рентгеновское излучение Солнца — вспышки могут усиливать поглощение коротких волн на освещённой стороне Земли."],
   ];
   for (const [key, label] of labels) {
     const measurement = data.measurements?.[key];
-    addText(list, "dt", label);
+    const [name, explanation] = label.split(" — ");
+    addText(list, "dt", name);
     const value = document.createElement("dd");
     value.textContent = formatValue(measurement);
-    if (measurement?.observed_at) value.append(document.createTextNode(`; наблюдение: ${measurement.observed_at}`));
+    if (explanation) value.append(document.createTextNode(`. ${explanation}`));
+    if (measurement?.observed_at) value.append(document.createTextNode(`; время измерения: ${formatObservationTime(measurement.observed_at)}`));
     list.append(value);
   }
   section.append(list);
@@ -301,12 +303,12 @@ function renderSolar(data) {
   if (data.drap) {
     const drap = document.createElement("section");
     drap.className = "result-card";
-    addText(drap, "h3", "D-RAP: поглощение HF в D-области");
-    addText(drap, "p", data.drap.description || "Модель NOAA для оценки поглощения радиоволн.");
-    addText(drap, "p", `Состояние рентгеновского фона: ${data.drap.xray_message || "Нет данных"}`);
-    addText(drap, "p", `Состояние протонного фона: ${data.drap.proton_message || "Нет данных"}`);
-    addText(drap, "p", `Время актуальности модели: ${data.drap.valid_at || "Не указано"}`);
-    addText(drap, "p", `Источник: ${data.drap.source}`, "muted");
+    addText(drap, "h3", "Поглощение коротких волн в нижней части ионосферы");
+    addText(drap, "p", "Модель оценивает, насколько сильно нижние слои ионосферы могут ослаблять КВ-сигналы. Это оценка модели, а не измерение сигнала на твоей антенне.");
+    addText(drap, "p", `Влияние солнечного рентгеновского излучения: ${data.drap.xray_message || "Нет данных"}`);
+    addText(drap, "p", `Влияние солнечных протонов: ${data.drap.proton_message || "Нет данных"}`);
+    addText(drap, "p", `Данные модели обновлены: ${formatObservationTime(data.drap.valid_at)}`);
+    addText(drap, "p", `Источник данных: ${data.drap.source}`, "muted");
     solarReport.append(drap);
   }
 }
@@ -570,35 +572,35 @@ function renderLocal(data) {
   localReport.replaceChildren();
   const section = document.createElement("section");
   section.className = "result-card";
-  addText(section, "h3", `Локальная информация для ${data.locator}`);
+  addText(section, "h3", `Солнечные условия в районе ${data.locator}`);
   const list = document.createElement("dl");
   list.className = "measurements";
   for (const [label, value] of [
-    ["Широта центра квадрата", `${data.latitude}°`],
-    ["Долгота центра квадрата", `${data.longitude}°`],
-    ["Местное среднее солнечное время", data.solar.local_mean_solar_time],
-    ["Положение Солнца", data.solar.illumination],
-    ["Высота Солнца над горизонтом", `${data.solar.solar_elevation_degrees}°`],
+    ["Что сейчас с освещением", data.solar.illumination],
+    ["Насколько высоко Солнце над горизонтом", `${data.solar.solar_elevation_degrees}°`],
+    ["Расчётное солнечное время в этом районе", data.solar.local_mean_solar_time],
+    ["Широта центра квадрата локатора", `${data.latitude}°`],
+    ["Долгота центра квадрата локатора", `${data.longitude}°`],
   ]) {
     addText(list, "dt", label);
     addText(list, "dd", value);
   }
   section.append(list);
-  addText(section, "p", data.solar.calculation, "muted");
-  addText(section, "p", data.interpretation);
-  addText(section, "p", `Рассчитано: ${data.generated_at}`, "muted");
+  addText(section, "p", "Это расчёт положения Солнца по координатам локатора и времени UTC. Он показывает освещение твоего района, но сам по себе не измеряет состояние ионосферы.");
+  addText(section, "p", "Днём солнечное излучение поддерживает нижнюю часть ионосферы. Она может сильнее поглощать некоторые КВ-сигналы. Ночью это поглощение обычно ослабевает. Для оценки конкретной радиотрассы нужны координаты обеих станций и отдельная модель прохождения.");
+  addText(section, "p", `Время расчёта: ${formatObservationTime(data.generated_at)}`, "muted");
   localReport.append(section);
   if (data.drap?.nearest_cell) {
     const drap = document.createElement("section");
     drap.className = "result-card";
-    addText(drap, "h3", "D-RAP для района QTH");
+    addText(drap, "h3", "Оценка поглощения радиосигналов в твоём районе");
     const cell = data.drap.nearest_cell;
     addText(drap, "p", cell.frequency_mhz === null
-      ? "Для ближайшей ячейки нет числового значения."
-      : `Частота: ${cell.frequency_mhz} МГц.`);
-    addText(drap, "p", `Центр ближайшей ячейки модели: широта ${cell.latitude}°, долгота ${cell.longitude}°.`);
-    addText(drap, "p", cell.meaning);
-    addText(drap, "p", `Модель актуальна на: ${data.drap.valid_at || "не указано"}; разрешение сетки около 2° по широте и 4° по долготе.`, "muted");
+      ? "Модель не вернула числовую оценку. Это не означает нулевое поглощение."
+      : `По оценке модели пороговая частота составляет ${cell.frequency_mhz} МГц.`);
+    addText(drap, "p", `Расчёт относится к ближайшему участку сетки модели: широта ${cell.latitude}°, долгота ${cell.longitude}°.`);
+    addText(drap, "p", "Это модельная оценка поглощения в нижней части ионосферы. Она не показывает максимальную рабочую частоту КВ и не является прогнозом MUF.");
+    addText(drap, "p", `Время обновления модели: ${formatObservationTime(data.drap.valid_at)}. Сетка модели довольно крупная, поэтому оценка приблизительная.`, "muted");
     addText(drap, "p", data.drap.description, "muted");
     localReport.append(drap);
   } else if (data.drap?.status === "unavailable") {
