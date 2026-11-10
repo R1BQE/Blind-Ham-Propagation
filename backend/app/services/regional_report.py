@@ -106,6 +106,9 @@ def build_regional_report(
             remote_distance = None
             bearing_degrees = None
             bearing_direction = None
+            station_distance = None
+            station_azimuth_degrees = None
+            station_azimuth_direction = None
             if isinstance(remote_grid, str) and remote_grid.strip():
                 try:
                     remote_lat, remote_lon = locator_to_center(remote_grid)
@@ -114,6 +117,27 @@ def build_regional_report(
                     )
                     bearing_degrees, bearing_direction = _bearing(
                         center_lat, center_lon, remote_lat, remote_lon
+                    )
+                except (ValueError, TypeError):
+                    pass
+
+            # Radio-path distance and azimuth, always directed TX -> RX.
+            if (isinstance(local_grid, str) and local_grid.strip()
+                    and isinstance(remote_grid, str) and remote_grid.strip()):
+                try:
+                    local_lat, local_lon = locator_to_center(local_grid)
+                    remote_lat, remote_lon = locator_to_center(remote_grid)
+                    station_distance = distance_between_locators(local_grid, remote_grid)
+                    tx_lat, tx_lon = (
+                        (local_lat, local_lon) if direction == "tx"
+                        else (remote_lat, remote_lon)
+                    )
+                    rx_lat, rx_lon = (
+                        (remote_lat, remote_lon) if direction == "tx"
+                        else (local_lat, local_lon)
+                    )
+                    station_azimuth_degrees, station_azimuth_direction = _bearing(
+                        tx_lat, tx_lon, rx_lat, rx_lon
                     )
                 except (ValueError, TypeError):
                     pass
@@ -134,6 +158,9 @@ def build_regional_report(
                 ),
                 "bearing_degrees": bearing_degrees,
                 "bearing": bearing_direction,
+                "station_distance_km": round(float(station_distance), 1) if station_distance is not None else None,
+                "station_azimuth_degrees": station_azimuth_degrees,
+                "station_azimuth": station_azimuth_direction,
                 "snr_db": spot.get("snr_db"),
                 "frequency_hz": spot.get("frequency_hz"),
                 "observed_at": _iso_utc(observed_at),
@@ -165,8 +192,9 @@ def build_regional_report(
             "tx": "Передатчики внутри области QTH были услышаны удалёнными приёмниками.",
             "rx": "Приёмники внутри области QTH услышали удалённые передатчики.",
             "distance": (
-                "Расстояние и направление показывают удалённую станцию относительно QTH. "
-                "Отдельно указано расстояние до местной станции внутри области."
+                "Расстояния от QTH считаются от центра твоего локатора. "
+                "Расстояние между станциями считается отдельно по их локаторам. "
+                "Азимут радиотрассы направлен от передатчика к приёмнику."
             ),
         },
     }
