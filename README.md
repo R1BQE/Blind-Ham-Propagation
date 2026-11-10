@@ -1,92 +1,92 @@
 # Blind-Ham Propagation
 
-Accessible amateur-radio propagation and space-weather monitoring.
+Доступный веб-сервис для радиолюбителей: мониторинг солнечной и геомагнитной активности, контекст для QTH и региональные наблюдения PSK Reporter.
 
-The service has two deliberately separate report areas:
+## Что уже реализовано
 
-1. **Solar and geomagnetic activity** — global measurements that do not depend on a user's QTH locator.
-2. **My QTH conditions** — geographic context calculated for a supplied Maidenhead locator. The QTH report includes coordinates, local mean solar time, geometric solar elevation and the nearest NOAA D-RAP grid cell. It does not present these model values as direct measurements or as an HF propagation forecast.
+- NOAA SWPC: глобальные показатели солнечной и геомагнитной активности.
+- NOAA D-RAP: оценка поглощения в D-слое; для QTH выбирается ближайшая опубликованная ячейка сетки.
+- HamQSL: XML-монитор солнечных показателей, расчётных условий на КВ-диапазонах и VHF-явлений.
+- Сравнение части общих показателей NOAA и HamQSL без искусственного усреднения.
+- Maidenhead: проверка локатора и расчёт координат.
+- Локальный отчёт: геометрия Солнца и ближайшая ячейка D-RAP.
+- PSK Reporter: MQTT/TLS-сборщик, ограниченное SQLite-хранилище и отдельные региональные TX/RX-наблюдения.
 
-## Project status
+Текущий этап и оставшиеся задачи описаны в [дорожной карте](docs/roadmap.md). Проект развивается: наличие источника данных не означает, что уже реализован полноценный прогноз радиосвязи.
 
-**Stage 4 — regional PSK Reporter observations.** The application includes a controlled MQTT/TLS collector for 20 m FT8, bounded SQLite storage, reconnect handling, an accessible collector-status panel and a regional report. The report independently counts local transmitters heard by remote receivers (TX) and local receivers hearing remote transmitters (RX), with a configurable QTH locator and radius. Collector settings are stored in the untracked project-root `settings.ini`: Windows and the VDS installer create it enabled by default; collection itself is started only while the observations tab is open. The application also includes NOAA SWPC global measurements, NOAA D-RAP absorption data and locator-specific solar geometry.
+## Быстрый запуск на Windows
 
-## Planned stack
+Запусти `run-windows.bat`. Скрипт обновит код, подготовит виртуальное окружение, запустит локальный backend и откроет приложение в браузере.
 
-- Python 3.11+
-- FastAPI and Uvicorn
-- HTML, CSS and vanilla JavaScript
-- Progressive Web App (PWA)
-- pytest
-- SQLite for bounded PSK Reporter spot history
-- Apache2 reverse proxy under `/prop/`
+Подробности: [разработка и развёртывание](docs/development-and-deployment.md).
 
-## Development
+## Разработка вручную
 
-On Windows, run `run-windows.bat` to pull the latest code, create/update the virtual environment and open the local application in a browser. See [Windows and VDS setup](docs/development-and-deployment.md) for details.
-
-
-Create a virtual environment and install dependencies:
+Требуется Python 3.11 или новее.
 
 ```bash
 python -m venv .venv
+# Windows PowerShell:
+.\.venv\Scripts\Activate.ps1
+# Debian/Linux:
 source .venv/bin/activate
-pip install -e ".[dev]"
-pytest
+python -m pip install -e ".[dev]"
+python -m pytest tests -q
 ```
 
-Run the API:
+Запуск API вручную:
 
 ```bash
-uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+uvicorn backend.app.main:app --host 127.0.0.1 --port 8765
 ```
 
-API endpoints:
+Локальный запуск через `run-windows.bat` предпочтительнее для обычной проверки: он настраивает дополнительные механизмы жизненного цикла локального приложения.
 
-- `GET /api/v1/health` — service health.
-- `GET /api/v1/psk-reporter/status` — MQTT collector connection and storage counters.
-- `GET /api/v1/psk-reporter/regional?locator=KP50DB&radius_km=100&hours=6` — regional TX/RX observations, grouped by band and mode, with distances, bearings and latest spots.
-- `GET /api/v1/solar/activity` — global NOAA solar and geomagnetic measurements plus D-RAP model status.
-- `GET /api/v1/local/report?locator=KO59XX` — local solar geometry and the nearest D-RAP grid cell.
-- `POST /api/v1/locator/validate` — validate a locator and return the center coordinates.
+## Основные API-маршруты
 
-## NOAA data
+Базовый префикс: `/api/v1`.
 
-The first collector uses public JSON products from NOAA SWPC. No API key is required for these endpoints:
+- `GET /health` — состояние сервиса.
+- `GET /solar/activity` — NOAA, D-RAP и HamQSL.
+- `GET /local/report?locator=KP50DB` — географический контекст локатора и D-RAP.
+- `POST /locator/validate` — проверка Maidenhead-локатора.
+- `GET /psk-reporter/status` — состояние MQTT-сборщика.
+- `GET /psk-reporter/regional?locator=KP50DB&radius_km=100&hours=6` — региональные TX/RX-наблюдения.
+- `POST /psk-reporter/subscriptions` — изменение фильтров сборщика.
+- `WS /psk-reporter/session` — сессия активного просмотра радионаблюдений.
 
-- F10.7 cm solar radio flux.
-- Planetary Kp index.
-- Solar-wind proton speed.
-- Interplanetary magnetic field Bt and Bz (GSM).
-- GOES X-ray flux.\n\nThe report also includes NOAA D-RAP tabular values. For a supplied QTH, the service selects the nearest published grid cell (no interpolation) and reports the modelled highest frequency affected by at least 1 dB of D-region absorption. The product grid is approximately 2° latitude by 4° longitude. This is an absorption estimate, not MUF, a band-opening forecast or a direct measurement of link quality. Product documentation: https://www.swpc.noaa.gov/products/d-region-absorption-predictions-d-rap
+Подробные параметры, ограничения и ошибки: [API](docs/api.md).
 
-Each feed is fetched independently. A failed feed is reported in the API response instead of causing the entire solar report to fail. Each measurement includes its observation timestamp; the response also includes retrieval time and source errors.
+## Источники и точность данных
 
-NOAA changed several JSON formats in 2026. The collector accepts both object-based rows and the older header/value array format. Official data catalogue: https://services.swpc.noaa.gov/json/ and https://services.swpc.noaa.gov/products/.
+- [NOAA SWPC](https://services.swpc.noaa.gov/json/) — глобальные измерения и индексы.
+- [NOAA D-RAP](https://www.swpc.noaa.gov/products/d-region-absorption-predictions-d-rap) — модель поглощения в D-слое.
+- [HamQSL](https://www.hamqsl.com/solarxml.php) — сводный XML-монитор.
+- [PSK Reporter](https://www.mqtt.pskreporter.info/) — фактические отчёты о приёме от участвующих станций.
 
-## GIRO / ionosonde data\n\nGIRO/DIDBase is not currently queried by this public service. Lowell DIDBase numerical access requires a read-only account, and its published rules limit free online access to educational and non-commercial research purposes. Data-provider acknowledgement requirements also apply. Any integration must first establish appropriate access and use conditions; no credentials are embedded in this repository. Rules: https://ulcar.uml.edu/DIDB/RulesOfTheRoadForDIDBase.htm\n\n## Deployment layout
+Измерения, модельные оценки, геометрические расчёты и реальные отчёты о приёме нельзя смешивать. Каждое значение должно сохранять источник, единицу измерения и время наблюдения. D-RAP не является MUF. Глобальные индексы не являются прогнозом конкретной радиотрассы. Отсутствие PSK Reporter spots не доказывает, что диапазон закрыт.
 
-The intended public application URL is `https://blind-ham.ru/prop/`. Apache2 serves the files from `frontend/` under that URL and proxies `/prop/api/` to the local Uvicorn process.
+См. [описание источников и их ограничений](docs/data-sources.md).
 
-Keep runtime data in the Git-ignored `data/` and `logs/` directories. Keep secrets outside the repository. Never commit API keys or personal user data.
+## Доступность
 
-## Accessibility principles
+Интерфейс разрабатывается с приоритетом клавиатуры и программ чтения с экрана: семантическая HTML-разметка, подписи элементов, видимый фокус, текстовые результаты и сообщения о состоянии. Карты и цвет не должны быть единственным способом получить информацию.
 
-- Semantic HTML and correctly associated form labels.
-- Full keyboard operation without a mouse.
-- Visible keyboard focus.
-- Results announced through status/live regions.
-- No information conveyed by colour alone.
-- Text-first reports; maps are optional and never the only way to access information.
-- Respect reduced-motion preferences.
+## Документация разработчика и ИИ
 
-## Data quality principles
+Перед изменением кода прочитай [AGENTS.md](AGENTS.md). Далее используй [руководство по разработке с ИИ](docs/ai-development-guide.md), [архитектуру](docs/architecture.md), [API](docs/api.md), [источники данных](docs/data-sources.md) и [инструкцию по тестированию](docs/testing.md).
 
-Every measurement must identify its source, observation time, retrieval time and freshness status. Missing or stale data must be reported as such. Forecasts, model estimates, geometric calculations and real reception reports must be clearly distinguished. Do not infer local ionospheric conditions from global indices alone.
+Другие документы:
+- [Дорожная карта](docs/roadmap.md).
+- [Разработка и развёртывание](docs/development-and-deployment.md).
+- [Лицензирование и сторонние компоненты](docs/licensing.md).
 
-## License
+## Развёртывание
 
-License has not yet been selected. Until one is added, do not assume that the source code is licensed for redistribution or reuse.
+Публичный адрес приложения планируется: `https://blind-ham.ru/prop/`. Backend должен слушать loopback-интерфейс; наружу его публикует Apache reverse proxy. Не открывай Uvicorn напрямую в интернет.
 
+Не добавляй в Git секреты, локальный `settings.ini`, пользовательские данные, рабочую базу SQLite или журналы.
 
-The PSK Reporter collector starts on demand when a visitor opens the observations tab and stops 20 seconds after the last visitor leaves. It is shared across visitors and stores observations in the bounded six-hour history.
+## Лицензия
+
+Исходный код проекта распространяется на условиях GNU GPL версии 3 или более поздней. Полный текст находится в [LICENSE](LICENSE). Лицензии и условия использования внешних данных и сторонних компонентов могут отличаться; см. [docs/licensing.md](docs/licensing.md).
