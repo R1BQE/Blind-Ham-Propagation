@@ -1,254 +1,77 @@
 (() => {
   "use strict";
-
-  const hintsControl = document.querySelector("#solar-show-hints");
-
-  const translations = {
-    "Poor": "Плохо",
-    "Fair": "Средне",
-    "Good": "Хорошо",
-    "Excellent": "Отлично",
-    "Band Closed": "Закрыт",
-    "Band Open": "Открыт",
-    "VR QUIET": "Очень спокойно",
-    "QUIET": "Спокойно",
-    "UNSETTLED": "Неустойчиво",
-    "ACTIVE": "Активно",
-    "MINOR STORM": "Небольшая магнитная буря",
-    "MAJOR STORM": "Сильная магнитная буря",
-    "SEVERE STORM": "Очень сильная магнитная буря",
-    "NoRpt": "Нет отчёта",
-    "No Report": "Нет отчёта"
-  };
-
-  const indexDefinitions = [
-    ["solarflux", "Солнечный поток F10.7", "Показывает радиоизлучение Солнца на длине волны 10,7 см. Это один из показателей, по которым оценивают состояние ионосферы. Более высокие значения часто помогают работе на верхних КВ-диапазонах, но сами по себе не гарантируют хорошего прохождения."],
-    ["sunspots", "Солнечные пятна", "Количество видимых групп и пятен на Солнце. Это ещё один показатель солнечной активности. По одному этому числу нельзя точно определить, будет ли открыта конкретная трасса."],
-    ["aindex", "Индекс A", "Показывает усреднённую геомагнитную активность за сутки. Чем меньше значение, тем спокойнее в среднем было магнитное поле Земли."],
-    ["kindex", "Индекс K", "Оценивает возмущение магнитного поля за последние три часа. Низкие значения обычно соответствуют более спокойной геомагнитной обстановке."],
-    ["xray", "Рентгеновское излучение", "Сильные вспышки увеличивают ионизацию нижней части ионосферы на освещённой стороне Земли. Это может усиливать поглощение КВ-сигналов, особенно на нижних диапазонах."],
-    ["magneticfield", "Межпланетное магнитное поле Bz", "Показывает направление одной из составляющих магнитного поля солнечного ветра. Отрицательное Bz может облегчать передачу энергии от солнечного ветра магнитосфере Земли и усиливать возмущения. Важны также сила поля и длительность такого состояния."],
-    ["solarwind", "Скорость солнечного ветра", "Скорость потока заряженных частиц от Солнца. Высокая скорость сама по себе ещё не означает магнитную бурю: важны также направление и сила межпланетного магнитного поля."],
-    ["protonflux", "Поток солнечных протонов", "Показывает количество быстрых протонов. Во время сильных солнечных событий они могут вызывать поглощение радиоволн в полярных областях Земли."],
-    ["electonflux", "Поток электронов", "Показатель потока электронов высокой энергии. Он помогает следить за радиационной обстановкой около Земли. Это не прямое измерение уровня шума на твоём приёмнике."],
-    ["heliumline", "Линия гелия", "Показатель излучения Солнца в линии гелия. Он связан с ультрафиолетовой активностью Солнца и используется как дополнительный индикатор состояния ионосферы."],
-    ["aurora", "Индекс авроры", "Оценка активности полярных сияний. Сильная авроральная активность может затруднять обычную КВ-связь на трассах через полярные широты, но иногда позволяет проводить специальные связи отражением от сияния."],
-    ["latdegree", "Широта границы аврорального овала", "Показывает положение границы области полярных сияний в геомагнитных широтах. Если граница смещается к югу, авроральные явления могут затрагивать более низкие широты."],
-    ["geomagfield", "Состояние магнитного поля Земли", "Сводная текстовая оценка геомагнитной обстановки от HamQSL."],
-    ["signalnoise", "Оценка уровня радиошума", "Текстовая оценка фонового радиошума, переданная источником. Это не измерение шума непосредственно на твоей антенне."],
-    ["muf", "MUF — максимально применимая частота", "Оценка самой высокой частоты, которая может вернуться к Земле при заданных условиях распространения. HamQSL передаёт это значение без однозначного указания точки расчёта в данном ответе, поэтому его нельзя считать MUF именно для локатора KP50DB."]
+  const hints = document.querySelector("#solar-show-hints");
+  const translations = {"Poor":"Плохо","Fair":"Средне","Good":"Хорошо","Excellent":"Отлично","Band Closed":"Закрыт","Band Open":"Открыт","VR QUIET":"Очень спокойно","QUIET":"Спокойно","UNSETTLED":"Неустойчиво","ACTIVE":"Активно","MINOR STORM":"Небольшая магнитная буря","MAJOR STORM":"Сильная магнитная буря","SEVERE STORM":"Очень сильная магнитная буря","NoRpt":"Нет отчёта","No Report":"Нет отчёта"};
+  const definitions = [
+    ["solarflux","Солнечный поток F10.7","Радиоизлучение Солнца на длине волны 10,7 см. Один из показателей солнечной активности."],
+    ["sunspots","Солнечные пятна","Количество видимых групп и пятен на Солнце. Само по себе число не показывает, открыта ли конкретная трасса."],
+    ["aindex","Индекс A","Средняя геомагнитная активность за сутки."],
+    ["kindex","Индекс K HamQSL","Оценка возмущения магнитного поля за трёхчасовой интервал. NOAA Kp приводится отдельно."],
+    ["xray","Рентгеновское излучение","Сильные вспышки могут усиливать поглощение КВ-сигналов на освещённой стороне Земли."],
+    ["magneticfield","Межпланетное магнитное поле Bz","Отрицательное Bz при определённых условиях может усиливать передачу энергии магнитосфере Земли."],
+    ["solarwind","Скорость солнечного ветра","Высокая скорость сама по себе не означает магнитную бурю."],
+    ["protonflux","Поток солнечных протонов","Во время сильных событий протоны могут вызывать поглощение радиоволн в полярных областях."],
+    ["electonflux","Поток электронов","Дополнительный показатель радиационной обстановки, а не измерение шума на приёмнике."],
+    ["heliumline","Линия гелия","Дополнительный индикатор солнечного ультрафиолетового излучения."],
+    ["aurora","Индекс авроры","Оценка активности полярных сияний, влияющей на трассы через полярные широты."],
+    ["latdegree","Широта границы аврорального овала","Положение границы области полярных сияний в геомагнитных широтах."],
+    ["geomagfield","Состояние магнитного поля Земли","Сводная текстовая оценка геомагнитной обстановки от HamQSL."],
+    ["signalnoise","Оценка уровня радиошума","Оценка источника, а не измерение шума непосредственно на твоей антенне."],
+    ["muf","MUF — максимально применимая частота","HamQSL не указывает однозначно точку расчёта. Это нельзя считать MUF именно для KP50DB."]
   ];
-
-  const vhfNames = {
-    "vhf-aurora": "Авроральное прохождение",
-    "E-Skip": "Спорадический слой E",
-    "northern_hemi": "Северное полушарие",
-    "europe": "Европа",
-    "north_america": "Северная Америка",
-    "europe_6m": "Европа, диапазон 50 МГц (6 метров)",
-    "europe_4m": "Европа, диапазон 70 МГц (4 метра)"
-  };
-
-  function element(parent, tag, text, className) {
-    const node = document.createElement(tag);
-    if (text !== undefined && text !== null) node.textContent = String(text);
-    if (className) node.className = className;
-    parent.append(node);
-    return node;
+  const vhfNames={"vhf-aurora":"Авроральное прохождение","E-Skip":"Спорадический слой E","northern_hemi":"Северное полушарие","europe":"Европа","north_america":"Северная Америка","europe_6m":"Европа, диапазон 50 МГц","europe_4m":"Европа, диапазон 70 МГц"};
+  function el(parent,tag,text,cls){const n=document.createElement(tag);if(text!==undefined&&text!==null)n.textContent=String(text);if(cls)n.className=cls;parent.append(n);return n;}
+  function raw(v){if(v===undefined||v===null)return "";if(Array.isArray(v))return raw(v[0]);if(typeof v==="object")return raw(v["#text"]);return String(v).trim();}
+  function rows(v){return v==null?[]:Array.isArray(v)?v:[v];}
+  function val(v){const s=raw(v);return !s||s==="NoRpt"||s==="No Report"?"Нет данных":(translations[s]||s);}
+  function time(v){return raw(v)||"время не указано";}
+  function measurement(dl,label,value,unit=""){el(dl,"dt",label);el(dl,"dd",value===null||value===undefined||value===""?"Нет данных":`${value}${unit?" "+unit:""}`);}
+  function help(parent,text){const p=el(parent,"p",text,"solar-help muted");p.hidden=!hints?.checked;}
+  function bandsTable(parent,solar){
+    const source=rows(solar?.calculatedconditions?.band);
+    const card=el(parent,"section",undefined,"result-card");el(card,"h3","Общие условия на КВ");
+    el(card,"p","Оценка HamQSL отдельно для дневного и ночного времени. Это не прогноз для конкретной пары станций.","muted");
+    if(!source.length){el(card,"p","HamQSL не передал оценку по диапазонам.");return;}
+    const map=new Map();
+    for(const r of source){if(!r||typeof r!=="object")continue;const name=r["@name"]||"Без названия";const period=String(r["@time"]||"").toLowerCase();if(!map.has(name))map.set(name,{day:"Нет данных",night:"Нет данных"});if(period==="day")map.get(name).day=val(r);if(period==="night")map.get(name).night=val(r);}
+    const table=el(card,"table",undefined,"data-table");el(table,"caption","Оценка HamQSL по диапазонам");const head=el(table,"thead");const tr=el(head,"tr");for(const t of ["Диапазон","Днём","Ночью"])el(tr,"th",t).scope="col";const body=el(table,"tbody");
+    for(const [name,v] of map){const row=el(body,"tr");el(row,"th",name.toUpperCase()).scope="row";el(row,"td",v.day);el(row,"td",v.night);}
   }
-
-  function xmlText(value) {
-    if (value === undefined || value === null) return "";
-    if (Array.isArray(value)) return xmlText(value[0]);
-    if (typeof value === "object") return xmlText(value["#text"]);
-    return String(value).trim();
+  function renderVhf(parent,solar){
+    const phenomena=rows(solar?.calculatedvhfconditions?.phenomenon);const card=el(parent,"section",undefined,"result-card");el(card,"h3","Условия для УКВ");el(card,"p","Оценки отдельных механизмов дальнего УКВ-прохождения. Они не гарантируют проведение связи.","muted");
+    if(!phenomena.length){el(card,"p","HamQSL не передал данные об УКВ-условиях.");return;}
+    const list=el(card,"ul",undefined,"solar-vhf-list");
+    for(const r of phenomena){if(!r||typeof r!=="object")continue;const name=vhfNames[r["@name"]]||r["@name"]||"Явление";const loc=vhfNames[r["@location"]]||r["@location"]||"Регион не указан";const li=el(list,"li");el(li,"strong",`${name}. Регион: ${loc}. Статус: ${val(r)}.`);help(li,"Спорадический слой E и авроральное прохождение иногда позволяют проводить УКВ-связи дальше обычной прямой видимости. Условия быстро меняются.");}
   }
-
-  function xmlRows(value) {
-    if (value === undefined || value === null) return [];
-    return Array.isArray(value) ? value : [value];
+  function overview(payload,noaa){
+    const fragment=document.createDocumentFragment();const solar=payload?.data?.solardata;
+    if(!solar||typeof solar!=="object"){el(fragment,"section","HamQSL не передал данные. Подробности доступны во вкладке «Подробные данные».","result-card");return fragment;}
+    const activity=el(fragment,"section",undefined,"result-card");el(activity,"h3","Солнечная активность");const dl=el(activity,"dl",undefined,"measurements");
+    const flux=noaa?.solar_flux?.value??(raw(solar.solarflux)||null);measurement(dl,"Поток F10.7",flux,noaa?.solar_flux?.value!==null&&noaa?.solar_flux?.value!==undefined?"sfu":"");measurement(dl,"Солнечные пятна",val(solar.sunspots));el(activity,"p",`F10.7: ${noaa?.solar_flux?.value!==null&&noaa?.solar_flux?.value!==undefined?"NOAA":"HamQSL"}. Время измерения смотри в подробных данных.`,"muted");
+    const geo=el(fragment,"section",undefined,"result-card");el(geo,"h3","Геомагнитная обстановка");const gd=el(geo,"dl",undefined,"measurements");measurement(gd,"Индекс Kp NOAA",noaa?.kp?.value);measurement(gd,"Оценка HamQSL",val(solar.geomagfield));measurement(gd,"Индекс K HamQSL",val(solar.kindex));el(geo,"p","Глобальные показатели общей обстановки, а не прогноз прохождения на конкретной трассе.","muted");
+    bandsTable(fragment,solar);
+    if(payload.drap){const d=el(fragment,"section",undefined,"result-card");el(d,"h3","Поглощение КВ-сигналов");el(d,"p","NOAA D-RAP моделирует поглощение в нижней части ионосферы. Это не измерение на антенне и не MUF.");el(d,"p",`Рентгеновское излучение: ${payload.drap.xray_message||"Нет данных"}`);el(d,"p",`Солнечные протоны: ${payload.drap.proton_message||"Нет данных"}`);el(d,"p",`Модель актуальна на: ${time(payload.drap.valid_at)}`,"muted");}
+    el(fragment,"p",`HamQSL обновил данные: ${time(solar.updated)}. Ответ получен сервером: ${payload.retrieved_at||"время не указано"}.`,"muted");
+    if(payload.cache?.hit)el(fragment,"p","Используется кэш сервера; запрос к HamQSL выполняется не чаще одного раза в 15 минут.","muted");
+    return fragment;
   }
-
-  function displayValue(value, suffix = "") {
-    const text = xmlText(value);
-    if (!text || text === "NoRpt" || text === "No Report") return "Нет данных";
-    return `${translations[text] || text}${suffix}`;
+  function details(payload,noaa){
+    const fragment=document.createDocumentFragment();const card=el(fragment,"section",undefined,"result-card");el(card,"h3","Измерения NOAA SWPC");el(card,"p","Данные NOAA показаны отдельно от HamQSL. Значения не усредняются: время и методы обработки могут различаться.","muted");const dl=el(card,"dl",undefined,"measurements observation-details");
+    const labels=[["solar_flux","Солнечный поток F10.7"],["kp","Планетарный индекс Kp"],["solar_wind_speed","Скорость солнечного ветра"],["magnetic_field_bt","Полная сила магнитного поля Bt"],["magnetic_field_bz","Составляющая магнитного поля Bz"],["xray_flux","Поток рентгеновского излучения"]];
+    for(const [key,label] of labels){const m=noaa?.[key];measurement(dl,label,m?.value,m?.unit||"");if(m?.observed_at)el(dl,"dd",`Время измерения: ${m.observed_at}`);}
+    const solar=payload?.data?.solardata;
+    if(solar&&typeof solar==="object"){
+      const h=el(fragment,"section",undefined,"result-card");el(h,"h3","Показатели HamQSL");el(h,"p",`Время обновления по HamQSL: ${time(solar.updated)}`,"muted");const list=el(h,"dl",undefined,"measurements solar-measurements observation-details");
+      for(const [tag,title,explanation] of definitions){let value=val(solar[tag]);if(tag==="latdegree"&&value!=="Нет данных")value+="°";if(tag==="solarwind"&&value!=="Нет данных")value+=" км/с";measurement(list,title,value);help(list,explanation);}
+      const c=el(fragment,"section",undefined,"result-card");el(c,"h3","Сопоставление показателей");el(c,"p","Похожие показатели показаны рядом, но не объединены. Различия могут быть связаны со временем, усреднением и методикой.","muted");
+      const pairs=[["F10.7",solar.solarflux,noaa?.solar_flux],["K / Kp",solar.kindex,noaa?.kp],["Скорость солнечного ветра",solar.solarwind,noaa?.solar_wind_speed],["Магнитное поле Bz",solar.magneticfield,noaa?.magnetic_field_bz]].filter(([,a,b])=>raw(a)&&b?.value!==null&&b?.value!==undefined);
+      if(pairs.length){const t=el(c,"table",undefined,"data-table");el(t,"caption","Значения источников без усреднения");const th=el(t,"thead");const hr=el(th,"tr");for(const s of ["Показатель","HamQSL","NOAA"])el(hr,"th",s).scope="col";const body=el(t,"tbody");for(const [name,a,b] of pairs){const r=el(body,"tr");el(r,"th",name).scope="row";el(r,"td",raw(a));el(r,"td",`${b.value} ${b.unit||""}`.trim());}}else el(c,"p","Пока нет показателей для сопоставления.");
+      renderVhf(fragment,solar);
+    }else el(fragment,"section","HamQSL не передал данные. Остальные источники могут быть доступны независимо.","result-card");
+    if(payload?.drap){const d=el(fragment,"section",undefined,"result-card");el(d,"h3","NOAA D-RAP — модель поглощения");el(d,"p",payload.drap.description||"Модельная оценка поглощения в D-области. Это не MUF.");el(d,"p",`Рентгеновское излучение: ${payload.drap.xray_message||"Нет данных"}`);el(d,"p",`Солнечные протоны: ${payload.drap.proton_message||"Нет данных"}`);el(d,"p",`Время актуальности: ${payload.drap.valid_at||"не указано"}; получено сервером: ${payload.drap.retrieved_at||"не указано"}`,"muted");}
+    if(payload?.errors&&Object.keys(payload.errors).length){const e=el(fragment,"section",undefined,"result-card");el(e,"h3","Недоступные источники");const ul=el(e,"ul");for(const [name,msg] of Object.entries(payload.errors))el(ul,"li",`${name}: ${msg}`);}
+    return fragment;
   }
-
-  function help(parent, text) {
-    const node = element(parent, "p", text, "solar-help muted");
-    node.hidden = !hintsControl?.checked;
-  }
-
-  function formatUpdated(value) {
-    const raw = xmlText(value);
-    if (!raw) return "время обновления не указано";
-    return raw.replace(/(\\d{2})(\\d{2}) GMT$/, "$1:$2 GMT");
-  }
-
-  function numeric(value) {
-    const match = xmlText(value).replace(",", ".").match(/-?\\d+(?:\\.\\d+)?/);
-    return match ? Number(match[0]) : null;
-  }
-
-  function renderIndexes(parent, solarData) {
-    const section = element(parent, "section", undefined, "result-card");
-    element(section, "h3", "Солнечные и геомагнитные показатели");
-    element(section, "p",
-      "Это данные HamQSL. Под каждым показателем есть короткое пояснение. Если пояснения мешают, их можно скрыть переключателем выше.",
-      "muted");
-
-    const list = element(section, "dl", undefined, "measurements solar-measurements");
-    for (const [tag, title, explanation] of indexDefinitions) {
-      element(list, "dt", title);
-      const value = element(list, "dd");
-      let shown = displayValue(solarData[tag]);
-      if (tag === "latdegree" && shown !== "Нет данных") shown += "°";
-      if (tag === "solarwind" && shown !== "Нет данных") shown += " км/с";
-      if (tag === "xray" && shown !== "Нет данных") {
-        // The source already supplies the flare class, for example C1.2.
-      }
-      if (tag === "kindex" && shown !== "Нет данных") {
-        const k = numeric(solarData[tag]);
-        const state = k === null ? "" : k <= 1 ? " — очень спокойно" : k <= 3 ? " — спокойно" : k === 4 ? " — неустойчиво" : " — магнитная буря";
-        shown += state;
-      }
-      value.textContent = shown;
-      help(value, explanation);
-    }
-    const updated = element(section, "p",
-      `Время обновления по HamQSL: ${formatUpdated(solarData.updated)}. Время получения сервером показывается отдельно.`,
-      "muted");
-    updated.setAttribute("aria-label", updated.textContent);
-    return section;
-  }
-
-  function renderBands(parent, solarData) {
-    const rows = xmlRows(solarData.calculatedconditions?.band);
-    const section = element(parent, "section", undefined, "result-card");
-    element(section, "h3", "Оценка прохождения на КВ");
-    element(section, "p",
-      "HamQSL отдельно оценивает условия для дневного и ночного времени. Это общая оценка источника, а не гарантия связи между двумя конкретными станциями.",
-      "muted");
-
-    if (!rows.length) {
-      element(section, "p", "Источник не передал таблицу условий по КВ.");
-      return;
-    }
-
-    const bands = new Map();
-    for (const row of rows) {
-      if (!row || typeof row !== "object") continue;
-      const name = row["@name"] || "Диапазон без названия";
-      const time = String(row["@time"] || "").toLowerCase();
-      if (!bands.has(name)) bands.set(name, { day: "Нет данных", night: "Нет данных" });
-      if (time === "day") bands.get(name).day = displayValue(row);
-      if (time === "night") bands.get(name).night = displayValue(row);
-    }
-
-    const table = element(section, "table", undefined, "data-table");
-    element(table, "caption", "Условия прохождения по диапазонам, оценка HamQSL");
-    const head = element(table, "thead");
-    const header = element(head, "tr");
-    for (const label of ["Диапазон", "Днём", "Ночью"]) {
-      const th = element(header, "th", label);
-      th.scope = "col";
-    }
-    const body = element(table, "tbody");
-    for (const [name, values] of bands) {
-      const tr = element(body, "tr");
-      element(tr, "th", name.toUpperCase()).scope = "row";
-      element(tr, "td", values.day);
-      element(tr, "td", values.night);
-    }
-  }
-
-  function renderVhf(parent, solarData) {
-    const rows = xmlRows(solarData.calculatedvhfconditions?.phenomenon);
-    const section = element(parent, "section", undefined, "result-card");
-    element(section, "h3", "Условия для УКВ");
-    element(section, "p",
-      "Здесь показаны оценки отдельных механизмов дальнего УКВ-прохождения. Они не означают, что связь гарантированно состоится.",
-      "muted");
-    if (!rows.length) {
-      element(section, "p", "Источник не передал данные об УКВ-условиях.");
-      return;
-    }
-
-    const list = element(section, "ul", undefined, "solar-vhf-list");
-    for (const row of rows) {
-      if (!row || typeof row !== "object") continue;
-      const name = vhfNames[row["@name"]] || row["@name"] || "Явление";
-      const location = vhfNames[row["@location"]] || row["@location"] || "Регион не указан";
-      const item = element(list, "li");
-      element(item, "strong", `${name}. Регион: ${location}. Статус: ${displayValue(row)}.`);
-      help(item, "Спорадический слой E и авроральное прохождение могут позволять проводить УКВ-связи дальше обычной прямой видимости. Условия быстро меняются.");
-    }
-  }
-
-  function renderComparison(parent, solarData, noaa) {
-    const pairs = [
-      ["Солнечный поток F10.7", solarData.solarflux, noaa.solar_flux],
-      ["Индекс K", solarData.kindex, noaa.kp],
-      ["Скорость солнечного ветра", solarData.solarwind, noaa.solar_wind_speed],
-      ["Магнитное поле Bz", solarData.magneticfield, noaa.magnetic_field_bz]
-    ].filter(([, ham, other]) => xmlText(ham) && other && other.value !== null && other.value !== undefined);
-
-    if (!pairs.length) return;
-    const section = element(parent, "section", undefined, "result-card");
-    element(section, "h3", "Сверка HamQSL и NOAA");
-    element(section, "p",
-      "Здесь рядом показаны совпадающие показатели двух источников. Разница не означает автоматически, что один источник ошибается: время измерения и усреднение могут отличаться.",
-      "muted");
-    const table = element(section, "table", undefined, "data-table");
-    element(table, "caption", "Сравнение значений без усреднения");
-    const head = element(table, "thead");
-    const trHead = element(head, "tr");
-    for (const label of ["Показатель", "HamQSL", "NOAA"]) {
-      element(trHead, "th", label).scope = "col";
-    }
-    const body = element(table, "tbody");
-    for (const [label, ham, noaaValue] of pairs) {
-      const tr = element(body, "tr");
-      element(tr, "th", label).scope = "row";
-      element(tr, "td", xmlText(ham));
-      element(tr, "td", `${noaaValue.value} ${noaaValue.unit || ""}`.trim());
-    }
-  }
-
-  function renderMonitor(payload, noaaMeasurements, target) {
-    const solarData = payload?.data?.solardata;
-    if (!solarData || typeof solarData !== "object") {
-      const error = element(target, "section", undefined, "result-card");
-      element(error, "h3", "HamQSL не передал данные");
-      element(error, "p", "Ответ источника получен, но в нём не найдена секция solardata.");
-      return;
-    }
-
-    const intro = element(target, "section", undefined, "result-card");
-    element(intro, "h3", "Монитор радиопрохождения HamQSL");
-    element(intro, "p",
-      "Ниже перенесены показатели и таблицы из прежнего монитора. Значения передаются источником HamQSL; сервис не подменяет их собственными догадками.",
-      "muted");
-    element(intro, "p",
-      `Данные источника обновлены: ${formatUpdated(solarData.updated)}. Получены сервером: ${payload.retrieved_at || "время не указано"}.`);
-    if (payload.cache?.hit) {
-      element(intro, "p", "Ответ взят из серверного кэша. Обновление источника запрашивается не чаще одного раза в 15 минут.", "muted");
-    }
-
-    renderIndexes(target, solarData);
-    renderComparison(target, solarData, noaaMeasurements || {});
-    renderBands(target, solarData);
-    renderVhf(target, solarData);
-  }
-
-  if (hintsControl) {
-    hintsControl.addEventListener("change", () => {
-      document.querySelectorAll(".solar-help").forEach((node) => {
-        node.hidden = !hintsControl.checked;
-      });
-    });
-  }
-
-  window.renderHamqslMonitor = renderMonitor;
+  if(hints)hints.addEventListener("change",()=>document.querySelectorAll(".solar-help").forEach(n=>n.hidden=!hints.checked));
+  window.renderSolarOverview=overview;window.renderSolarDetails=details;
 })();
