@@ -16,7 +16,7 @@
     <div class="container">
       <p class="eyebrow">Радиолюбительский мониторинг</p>
       <h1>Blind-Ham Propagation</h1>
-      <p class="lead">Солнечная активность и условия радиосвязи — от общей картины до твоей станции.</p>
+      <p class="lead">Узнай, что происходит с Солнцем, как это может влиять на радиосвязь и какие станции сейчас слышат друг друга.</p>
     </div>
   </header>
   <main id="main" class="container">
@@ -35,8 +35,8 @@
 
     <section class="tab-panel" id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" tabindex="0">
       <section class="panel" aria-labelledby="solar-heading">
-        <h2 id="solar-heading">Солнечная и геомагнитная активность</h2>
-        <p>Общая космическая погода. Локатор для просмотра этого раздела не требуется.</p>
+        <h2 id="solar-heading">Что сейчас происходит на Солнце и вокруг Земли</h2>
+        <p>Эти данные помогают оценить солнечные и геомагнитные условия, которые могут влиять на КВ-связь. Для просмотра не нужен твой локатор.</p>
         <button type="button" id="solar-refresh">Обновить данные солнечной активности</button>
         <p id="solar-status" class="status" role="status" aria-live="polite">Данные ещё не загружены.</p>
         <div id="solar-report" class="report" aria-live="polite" aria-busy="false"></div>
@@ -44,14 +44,14 @@
       <section class="panel" aria-labelledby="service-heading">
         <h2 id="service-heading">Состояние сервиса</h2>
         <p id="service-status" role="status">Проверяем доступность сервера…</p>
-        <p class="muted">У каждого показателя будут указаны источник и время наблюдения. Измерения и расчётные оценки показываются отдельно.</p>
+        <p class="muted">Рядом с каждым показателем указано, что он означает, откуда получены данные и когда они обновлялись. Измерения не смешиваются с расчётами.</p>
       </section>
     </section>
 
     <section class="tab-panel" id="panel-local" role="tabpanel" aria-labelledby="tab-local" tabindex="0" hidden>
       <section class="panel" aria-labelledby="local-heading">
-        <h2 id="local-heading">Условия для моего QTH</h2>
-        <p id="locator-help">Введи локатор Maidenhead. Здесь отображаются географически привязанные расчёты для твоего местоположения.</p>
+        <h2 id="local-heading">Что сейчас происходит в районе моей станции</h2>
+        <p id="locator-help">Укажи свой радиолюбительский локатор. Мы покажем положение Солнца над твоим районом и доступные данные о поглощении радиосигналов.</p>
         <form id="locator-form" novalidate>
           <div class="form-row">
             <label for="locator">QTH-локатор</label>
@@ -70,7 +70,7 @@
 
     <section class="tab-panel" id="panel-spots" role="tabpanel" aria-labelledby="tab-spots" tabindex="0" hidden>
       <section class="panel" aria-labelledby="spots-heading">
-        <h2 id="spots-heading">Радионаблюдения PSK Reporter</h2>
+        <h2 id="spots-heading">Какие станции сейчас слышат друг друга</h2>
         <p>Здесь показано, какие передачи станций рядом с твоим QTH услышали в других местах и какие удалённые станции услышали приёмники рядом с тобой. Все расстояния в отчёте считаются от твоего QTH.</p>
         <button type="button" id="psk-status-refresh">Проверить подключение PSK Reporter</button>
         <p id="psk-status" class="status" role="status" aria-live="polite">Состояние сборщика ещё не проверено.</p>
@@ -155,22 +155,22 @@
           <p id="regional-status" class="status" role="status" aria-live="polite">Региональные данные ещё не загружены.</p>
           <div id="regional-report" class="report" aria-live="polite" aria-busy="false"></div>
         </section>
-        <p class="muted">Спот означает, что конкретная передача была декодирована. Это не прогноз прохождения и не гарантия связи с твоей станцией. Отсутствие спотов не означает, что диапазон закрыт.</p>
+        <p class="muted">Каждая запись означает, что приёмная станция смогла принять и расшифровать конкретную передачу. Это подтверждение одного успешного приёма, но не гарантия, что ты сможешь связаться с этой станцией. Если записей нет, это ещё не значит, что диапазон не работает.</p>
       </section>
     </section>
 
     <section class="tab-panel" id="panel-details" role="tabpanel" aria-labelledby="tab-details" tabindex="0" hidden>
       <section class="panel" aria-labelledby="details-heading">
-        <h2 id="details-heading">Подробные технические данные</h2>
-        <p>В этом разделе будут доступны исходные значения показателей, единицы измерения, графики, история изменений, источники и время обновления.</p>
-        <p class="muted">Пока подробные значения доступны в общей обстановке. Отдельное представление и история ещё не реализованы.</p>
+        <h2 id="details-heading">Что означают показатели</h2>
+        <p>Здесь будут простыми словами объяснены солнечные, геомагнитные и радиолюбительские показатели, которые использует сервис.</p>
+        <p class="muted">Подробные пояснения и история показателей пока находятся в разработке.</p>
       </section>
     </section>
 
     <section class="tab-panel" id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" tabindex="0" hidden>
       <section class="panel" aria-labelledby="settings-heading">
-        <h2 id="settings-heading">Настройки станции и наблюдения</h2>
-        <p>Локатор и радиус используются для региональной статистики PSK Reporter и локального отчёта. Настройки сохраняются в этом браузере.</p>
+        <h2 id="settings-heading">Настройки твоей станции</h2>
+        <p>Укажи свой локатор и радиус вокруг него. Эти данные нужны, чтобы находить передачи и приёмники рядом с тобой. Настройки сохраняются в этом браузере.</p>
         <form id="settings-form">
           <div class="form-row">
             <label for="settings-locator">Мой QTH-локатор Maidenhead</label>
@@ -179,11 +179,11 @@
               aria-describedby="settings-help" value="KP50DB" required>
           </div>
           <div class="form-row">
-            <label for="settings-radius">Радиус области наблюдения, км</label>
+            <label for="settings-radius">Как далеко от моей станции искать, км</label>
             <input id="settings-radius" name="radius" type="number" min="1" max="1000"
               step="1" value="100" required>
           </div>
-          <p id="settings-help" class="muted">Координаты берутся из центра квадрата локатора, а не из точного адреса. Расстояния приблизительные.</p>
+          <p id="settings-help" class="muted">Для расчётов используется центр квадрата локатора. Поэтому расстояния приблизительные, а не до точного места установки антенны.</p>
           <p id="settings-error" class="field-error" role="alert"></p>
           <button type="submit" id="settings-save">Сохранить настройки</button>
         </form>
