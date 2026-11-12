@@ -37,7 +37,7 @@ The `GET /api/v1/solar/activity` route composes independent source results:
 
 A provider error is recorded without discarding other successful provider results. The frontend presents the HamQSL monitor and a comparison for selected overlapping NOAA/HamQSL quantities.
 
-The sources are not interchangeable. Preserve original values, units, observation times, retrieval times and product semantics. Do not average values merely to produce one number. A preferred source can be selected only after documented comparison of definition, unit, time, geographic scope and quality. If values are not comparable, show them separately.
+The sources are not interchangeable. Preserve original values, units, observation times, retrieval times and product semantics. Do not average values merely to produce one number. The current frontend displays NOAA and HamQSL measurements separately and does not automatically compare similarly named fields: K and Kp, for example, are not interchangeable, and a Bz component is not the same quantity as total magnetic-field strength. A preferred source can be selected only after documented comparison of definition, unit, time, geographic scope and quality. If values are not comparable, show them separately.
 
 ## QTH report
 
