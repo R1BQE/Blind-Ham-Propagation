@@ -32,7 +32,7 @@ The service fetches the XML feed through the backend. The current client uses a 
 Important interpretation rules:
 - Keep the original field name and provider metadata available during normalization.
 - Do not assume that every field describes the user's QTH or a selected radio path.
-- A value called MUF is not automatically a local or path-specific MUF. Establish the feed's calculation location and definition before presenting it as such.
+- The HamQSL solar page identifies Lowell GIRO Data Center (LGDC) as the source of its MUF data. The XML `muf` field does not, by itself, identify a station, calculation point or radio path. Do not present it as the MUF for the user's Maidenhead locator unless that geographic relationship is independently established. The frontend labels it as a HamQSL-provided MUF value and states this limitation.
 - Calculated band condition labels are provider assessments, not guaranteed contact success.
 - Preserve the feed update time separately from the backend retrieval time.
 - If the provider is unavailable, show the NOAA data that did arrive and identify the missing provider.
