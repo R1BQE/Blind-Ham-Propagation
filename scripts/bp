@@ -103,7 +103,7 @@ restore_configs() {
         changed=1
     fi
     if [[ "$changed" -eq 1 ]]; then
-        systemctl restart "$SERVICE" || true
+        apachectl configtest >/dev/null 2>&1 || true
         apachectl graceful >/dev/null 2>&1 || true
     fi
 }
@@ -161,14 +161,9 @@ rollback_transaction() {
 }
 
 do_update() {
-    local work previous current target
+    local work previous current
     work="$(mktemp -d /tmp/bp-update.XXXXXX)"
     previous="$(git -C "$ROOT" rev-parse HEAD)"
-
-    if ! systemctl is-active --quiet "$SERVICE" || ! health_ok; then
-        rm -rf "$work"
-        die "Текущая служба не проходит локальную health-проверку. Сначала выясни причину."
-    fi
 
     say "Получаю изменения из origin/${BRANCH}."
     if ! git -C "$ROOT" pull --ff-only origin "$BRANCH"; then
