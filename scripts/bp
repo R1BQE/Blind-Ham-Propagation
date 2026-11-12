@@ -133,9 +133,6 @@ save_environment_snapshot() {
     local temporary="${destination}.tmp.$"
 
     install -d -o root -g root -m 0750 "$STATE_DIR" || return 1
-    if [[ -s "$destination" ]]; then
-        return 0
-    fi
     "${ROOT}/.venv/bin/python" -m pip freeze > "$temporary" || {
         rm -f "$temporary"
         return 1
@@ -308,7 +305,7 @@ do_rollback() {
         git -C "$ROOT" reset --hard "$current" || true
         restore_configs "$work"
         if ! git -C "$ROOT" diff --quiet "$target" "$current" -- requirements-vds.lock; then
-            "${ROOT}/.venv/bin/python" -m pip install -r "${ROOT}/requirements-vds.lock" || true
+            restore_dependencies "$current" || true
         fi
         systemctl restart "$SERVICE" || true
         rm -rf "$work"
