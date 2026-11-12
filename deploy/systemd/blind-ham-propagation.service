@@ -1,22 +1,43 @@
 [Unit]
-Description=Blind-Ham Propagation API
+Description=Blind-Ham Propagation API (FastAPI)
+Documentation=https://github.com/R1BQE/Blind-Ham-Propagation
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-User=www-data
-Group=www-data
-WorkingDirectory=/var/www/blind-ham-propagation
-EnvironmentFile=-/etc/blind-ham-propagation.env
-ExecStart=/var/www/blind-ham-propagation/.venv/bin/uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+User=blindham-prop
+Group=blindham-prop
+WorkingDirectory=/var/www/html/blind-prop
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/var/www/html/blind-prop/.venv/bin/uvicorn backend.app.main:app \
+    --host 127.0.0.1 --port 8765 --workers 1 \
+    --proxy-headers --forwarded-allow-ips 127.0.0.1 \
+    --no-server-header
 Restart=on-failure
 RestartSec=5
+TimeoutStopSec=20
+KillSignal=SIGTERM
+
+# Ограничения
 NoNewPrivileges=true
 PrivateTmp=true
+PrivateDevices=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/blind-ham-propagation /var/log/blind-ham-propagation /var/www/blind-ham-propagation/data
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=false
+ReadWritePaths=/var/www/html/blind-prop/data /var/www/html/blind-prop/logs
+ReadOnlyPaths=/var/www/html/blind-prop
+
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target

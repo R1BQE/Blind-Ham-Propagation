@@ -1,72 +1,47 @@
-# Local development and VDS deployment
+# Production updates on the Debian VDS
 
-## Windows local launch
+The production installation stays in its existing directory:
 
-Run `run-windows.bat` from Explorer or PowerShell. The launcher:
-1. Runs `git pull --ff-only`.
-2. Creates `.venv` when it does not exist.
-3. Updates pip and dependencies from `requirements.txt`.
-4. Checks whether an existing local instance supports the regional PSK Reporter API; it reuses a compatible instance or restarts an outdated one.
-5. Starts FastAPI on `127.0.0.1:8765` when needed.
-6. Opens `http://127.0.0.1:8765/` in the default browser.
+`/var/www/html/blind-prop`
 
-The local server runs as `backend.run_local`. The browser uses a WebSocket session; after the last local tab closes, the server exits after a grace period. Logs are written under `%TEMP%\blind-ham-propagation\`. Local-only shutdown endpoints are not registered in the production application.
+There is no release directory tree, no `current` symlink, and no separate virtual environment per version. The existing `.venv`, database, settings file, logs, Apache VirtualHost and service account remain in place.
 
-For tests and manual development commands, see [testing.md](testing.md).
+## Install the updater once
 
-## Debian VDS
-
-Run as root from the repository checkout:
+After reviewing and merging the updater changes, install the script as root:
 
 ```sh
-bash scripts/install_vds.sh
+ln -s /var/www/html/blind-prop/scripts/bp /usr/local/sbin/bp
 ```
 
-The installer fast-forwards the checkout, prepares `.venv`, installs requirements, creates a restricted service account and configures the systemd service. By default Uvicorn listens on `127.0.0.1:8765`. The installer does not configure Apache or expose Uvicorn publicly.
+This creates the `bp` command as a symlink to the repository script. Future Git updates automatically update the command implementation; no separate updater copy needs to be refreshed. It does not modify the running application or server configuration.
 
-Useful commands:
+## Commands
 
-- `systemctl status blind-ham-propagation`
-- `journalctl -u blind-ham-propagation -f`
-- `systemctl restart blind-ham-propagation`
-- `systemctl stop blind-ham-propagation`
+- `bp status` — show the checked-out commit, service state, local health and saved rollback commit.
+- `bp update` — fast-forward from `origin/main`, install pinned dependencies only when `requirements-vds.lock` changes, run tests, validate changed systemd/Apache files, restart and check health.
+- `bp rollback` — return to the previous successfully deployed commit and restore the matching dependencies/configuration.
 
-Set `BLIND_HAM_PROPAGATION_PORT` when running the installer to select another backend port.
+Run commands as root. The updater takes an exclusive lock and refuses to run if tracked files have local modifications or the checkout is not on `main`. It never stashes or discards local changes.
 
-## PSK Reporter MQTT pilot
+## What is updated
 
-Collector settings are stored in the untracked project-root `settings.ini`:
+- Backend and frontend: `git pull --ff-only origin main`.
+- Python dependencies: installed from `requirements-vds.lock` only when that file changes.
+- systemd: updated only when the tracked unit template differs from the installed unit; checked with `systemd-analyze verify`.
+- Apache: updated only when the tracked fragment differs from the installed fragment; checked with `apachectl configtest` and gracefully reloaded only when changed.
+- The existing HTTPS VirtualHost, certificates, DNS, firewall and unrelated Apache configuration are not changed.
 
-```ini
-[psk_reporter]
-enabled = true
-topics = pskr/filter/v2/20m/FT8/#
-```
+The updater runs `pytest` before restarting. A successful local check is required at `http://127.0.0.1:8765/api/v1/health`. The public health URL is checked afterward for information but a temporary external failure does not undo a healthy local deployment.
 
-First-run setup creates this file with collection enabled. MQTT connects only while at least one visitor has the observations tab open. Existing settings are not overwritten. The file is excluded from Git.
+## Rollback and data
 
-Multiple topic filters can be separated by commas. Only filters beginning with `pskr/filter/v2/` are accepted. Environment variables `PSK_REPORTER_ENABLED` and `PSK_REPORTER_TOPICS` can override settings; broker host, port and keepalive are also configurable.
+Before changing code or configuration, the updater remembers the previous Git commit and keeps copies of any replaced Apache/systemd files under `backups/`. If dependency installation, tests, configuration validation, restart or local health check fails, it returns to the previous commit and restores changed configuration files.
 
-Status endpoint: `http://127.0.0.1:8765/api/v1/psk-reporter/status`.
+The PSK Reporter SQLite database is a temporary bounded cache, not durable user data. It can be rebuilt from new observations and is deliberately not backed up or restored by the updater. Ordinary code rollback leaves the current database file alone; it does not replace it with an older snapshot. The application itself limits the cache to 50,000 records and applies its configured age retention.
 
-## Regional PSK Reporter API
+The updater does not overwrite `settings.ini`, `data/` or `logs/`. Old config backups are retained; cleanup is a separate manual task.
 
-Example:
+## Important
 
-`GET /api/v1/psk-reporter/regional?locator=KP50DB&radius_km=100&hours=6&limit=30`
-
-Parameters:
-- `locator`: QTH Maidenhead locator (default `KP50DB`).
-- `radius_km`: radius from the locator-cell centre, greater than 0 and at most 1000 km (default 100).
-- `hours`: observation window, 3–24 hours (default 6).
-- `limit`: maximum detail rows in each direction, 1–100 (default 30).
-- `bands`: optional comma-separated band filter.
-- `modes`: optional comma-separated mode filter.
-
-TX counts reports where the transmitting station is inside the region and was heard remotely. RX counts reports where the receiving station is inside the region and heard a remote transmitter. These are different directions and must not be combined. Distances and bearings use Maidenhead cell centres, not exact antenna coordinates. API times are UTC.
-
-## Collector lifecycle
-
-The MQTT collector starts when the first browser opens the “Радионаблюдения” tab. It remains active while at least one browser keeps that tab open. After the last viewer leaves, the backend waits 20 seconds before stopping MQTT. A new viewer during this grace period cancels the pending stop. Observations remain in the bounded SQLite history after MQTT disconnects.
-
-This coordination is in-process. Run a single Uvicorn worker so all viewers share the same collector and viewer count.
+The existing `/usr/local/sbin/bp-update` is the old updater and must not be used for production updates. Install and use the new `bp` command instead. The repository installer `scripts/install_vds.sh` is for initial installation only; it is not an update command.

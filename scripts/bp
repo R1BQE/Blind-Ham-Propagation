@@ -1,0 +1,337 @@
+#!/usr/bin/env bash
+# Simple in-place updater for the existing Debian VDS installation.
+set -Eeuo pipefail
+
+ROOT="/var/www/html/blind-prop"
+BRANCH="main"
+SERVICE="blind-ham-propagation"
+SERVICE_FILE="/etc/systemd/system/${SERVICE}.service"
+APACHE_FILE="/etc/apache2/conf-available/blind-ham-propagation.conf"
+HEALTH_URL="http://127.0.0.1:8765/api/v1/health"
+STATE_DIR="/var/lib/blind-ham-propagation"
+LAST_GOOD="${STATE_DIR}/last-good"
+LOCK_FILE="/run/lock/blind-ham-propagation-update.lock"
+
+say() { printf '[bp] %s\n' "$*"; }
+die() { say "ОШИБКА: $*" >&2; exit 1; }
+
+require_root() {
+    [[ "$EUID" -eq 0 ]] || die "Команду нужно запускать от root."
+}
+
+require_installation() {
+    [[ -d "${ROOT}/.git" ]] || die "Не найден Git-репозиторий: ${ROOT}"
+    [[ -x "${ROOT}/.venv/bin/python" ]] || die "Не найдено виртуальное окружение: ${ROOT}/.venv"
+    [[ -f "${ROOT}/requirements-vds.lock" ]] || die "Не найден requirements-vds.lock"
+    command -v git >/dev/null || die "Не установлен git."
+    command -v curl >/dev/null || die "Не установлен curl."
+    command -v flock >/dev/null || die "Не установлен flock."
+    command -v systemctl >/dev/null || die "Не найден systemctl."
+    command -v systemd-analyze >/dev/null || die "Не найден systemd-analyze."
+    command -v apachectl >/dev/null || die "Не найден apachectl."
+}
+
+check_clean_checkout() {
+    if ! git -C "$ROOT" diff --quiet || ! git -C "$ROOT" diff --cached --quiet; then
+        die "В отслеживаемых файлах есть локальные изменения. Сначала разберись с ними; updater их не перезаписывает."
+    fi
+    local branch
+    branch="$(git -C "$ROOT" branch --show-current)"
+    [[ "$branch" == "$BRANCH" ]] || die "Ожидается ветка ${BRANCH}, сейчас: ${branch:-detached HEAD}."
+}
+
+health_ok() {
+    curl --silent --show-error --fail --max-time 5 "$HEALTH_URL" 2>/dev/null \
+        | grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"'
+}
+
+wait_for_health() {
+    local attempt
+    for attempt in $(seq 1 25); do
+        if systemctl is-active --quiet "$SERVICE" && health_ok; then
+            return 0
+        fi
+        sleep 1
+    done
+    return 1
+}
+
+restore_config_file() {
+    local live="$1" backup="$2"
+    if [[ -f "$backup" ]]; then
+        install -o root -g root -m 0644 "$backup" "$live"
+    fi
+}
+
+apply_configs() {
+    local commit="$1" work="$2"
+    local unit_candidate="$work/unit.candidate"
+    local apache_candidate="$work/apache.candidate"
+
+    git -C "$ROOT" show "${commit}:deploy/systemd/blind-ham-propagation.service" > "$unit_candidate" \
+        || { say "В коммите ${commit} нет systemd-шаблона."; return 1; }
+    git -C "$ROOT" show "${commit}:deploy/apache/blind-ham-propagation.conf" > "$apache_candidate" \
+        || { say "В коммите ${commit} нет Apache-шаблона."; return 1; }
+
+    if ! cmp -s "$unit_candidate" "$SERVICE_FILE"; then
+        [[ -f "$SERVICE_FILE" ]] || { say "Не найден действующий unit: ${SERVICE_FILE}"; return 1; }
+        cp -a "$SERVICE_FILE" "$work/unit.before" || { say "Не удалось сохранить действующий systemd unit."; return 1; }
+        touch "$work/unit.changed"
+        install -o root -g root -m 0644 "$unit_candidate" "$SERVICE_FILE" || { say "Не удалось установить systemd unit."; return 1; }
+        systemd-analyze verify "$SERVICE_FILE" || return 1
+        systemctl daemon-reload || return 1
+    fi
+
+    if ! cmp -s "$apache_candidate" "$APACHE_FILE"; then
+        [[ -f "$APACHE_FILE" ]] || { say "Не найден действующий Apache-файл: ${APACHE_FILE}"; return 1; }
+        cp -a "$APACHE_FILE" "$work/apache.before" || { say "Не удалось сохранить действующую конфигурацию Apache."; return 1; }
+        touch "$work/apache.changed"
+        install -o root -g root -m 0644 "$apache_candidate" "$APACHE_FILE" || { say "Не удалось установить конфигурацию Apache."; return 1; }
+        apachectl configtest || return 1
+    fi
+}
+
+restore_configs() {
+    local work="$1"
+    local changed=0
+    if [[ -f "$work/unit.changed" ]]; then
+        restore_config_file "$SERVICE_FILE" "$work/unit.before"
+        systemctl daemon-reload || true
+        changed=1
+    fi
+    if [[ -f "$work/apache.changed" ]]; then
+        restore_config_file "$APACHE_FILE" "$work/apache.before"
+        apachectl configtest || true
+        changed=1
+    fi
+    if [[ -f "$work/apache.changed" ]]; then
+        apachectl configtest >/dev/null 2>&1 || true
+        apachectl graceful >/dev/null 2>&1 || true
+    fi
+}
+
+save_config_backups() {
+    local work="$1"
+    local stamp destination
+    if [[ ! -f "$work/unit.changed" && ! -f "$work/apache.changed" ]]; then
+        return 0
+    fi
+    stamp="$(date +%Y%m%d-%H%M%S-%N)"
+    destination="${ROOT}/backups/config-${stamp}"
+    install -d -o root -g root -m 0700 "$destination" || return 1
+    if [[ -f "$work/unit.before" ]]; then
+        install -o root -g root -m 0600 "$work/unit.before" "$destination/blind-ham-propagation.service" || return 1
+    fi
+    if [[ -f "$work/apache.before" ]]; then
+        install -o root -g root -m 0600 "$work/apache.before" "$destination/blind-ham-propagation.conf" || return 1
+    fi
+    say "Старые конфигурации сохранены в ${destination}"
+}
+
+install_dependencies_if_changed() {
+    local from="$1" to="$2"
+    if ! git -C "$ROOT" diff --quiet "$from" "$to" -- requirements-vds.lock; then
+        say "Изменился requirements-vds.lock — устанавливаю зафиксированные зависимости."
+        "${ROOT}/.venv/bin/python" -m pip install -r "${ROOT}/requirements-vds.lock"
+    else
+        say "requirements-vds.lock не менялся — Python-зависимости не трогаю."
+    fi
+}
+
+run_tests() {
+    say "Запускаю тесты."
+    "${ROOT}/.venv/bin/python" -m pytest
+}
+
+restart_and_check() {
+    say "Перезапускаю службу."
+    systemctl restart "$SERVICE"
+    wait_for_health
+}
+
+rollback_transaction() {
+    local previous="$1" work="$2" current="$3"
+    say "Откатываю исходный код к ${previous}."
+    git -C "$ROOT" reset --hard "$previous" || true
+    restore_configs "$work"
+    if ! git -C "$ROOT" diff --quiet "$current" "$previous" -- requirements-vds.lock; then
+        say "Возвращаю зависимости предыдущей версии."
+        "${ROOT}/.venv/bin/python" -m pip install -r "${ROOT}/requirements-vds.lock" || true
+    fi
+    systemctl restart "$SERVICE" || true
+    if wait_for_health; then
+        say "Предыдущая версия снова отвечает."
+    else
+        say "ВНИМАНИЕ: автоматический откат выполнен, но health check не прошёл. Проверь journalctl -u ${SERVICE}."
+    fi
+}
+
+do_update() {
+    local work previous current
+    work="$(mktemp -d /tmp/bp-update.XXXXXX)"
+    previous="$(git -C "$ROOT" rev-parse HEAD)"
+
+    say "Получаю изменения из origin/${BRANCH}."
+    if ! git -C "$ROOT" pull --ff-only origin "$BRANCH"; then
+        rm -rf "$work"
+        die "git pull не выполнен. Рабочая версия не изменена."
+    fi
+    current="$(git -C "$ROOT" rev-parse HEAD)"
+    if [[ "$current" == "$previous" ]]; then
+        rm -rf "$work"
+        say "Уже установлена последняя версия: ${current:0:12}"
+        return 0
+    fi
+
+    if ! install_dependencies_if_changed "$previous" "$current"; then
+        rollback_transaction "$previous" "$work" "$current"
+        rm -rf "$work"
+        die "Не удалось обновить Python-зависимости; выполнен откат."
+    fi
+
+    if ! run_tests; then
+        rollback_transaction "$previous" "$work" "$current"
+        rm -rf "$work"
+        die "Тесты не прошли; выполнен откат."
+    fi
+
+    if ! apply_configs "$current" "$work"; then
+        rollback_transaction "$previous" "$work" "$current"
+        rm -rf "$work"
+        die "Не удалось применить или проверить конфигурацию; выполнен откат."
+    fi
+
+    if ! save_config_backups "$work"; then
+        rollback_transaction "$previous" "$work" "$current"
+        rm -rf "$work"
+        die "Не удалось сохранить резервные копии конфигурации; выполнен откат."
+    fi
+
+    if [[ -f "$work/apache.changed" ]] && ! apachectl graceful; then
+        rollback_transaction "$previous" "$work" "$current"
+        rm -rf "$work"
+        die "Apache не удалось перезагрузить; выполнен откат."
+    fi
+
+    if ! restart_and_check; then
+        rollback_transaction "$previous" "$work" "$current"
+        rm -rf "$work"
+        die "Служба не прошла health-проверку; выполнен откат."
+    fi
+
+    install -d -o root -g root -m 0750 "$STATE_DIR"
+    printf '%s\n' "$previous" > "${LAST_GOOD}.tmp"
+    chmod 0600 "${LAST_GOOD}.tmp"
+    mv -f "${LAST_GOOD}.tmp" "$LAST_GOOD"
+    rm -rf "$work"
+
+    say "Обновление завершено: ${previous:0:12} -> ${current:0:12}"
+    if curl --silent --show-error --fail --max-time 10 https://blind-ham.ru/prop/api/v1/health >/dev/null; then
+        say "Публичный health endpoint отвечает."
+    else
+        say "Публичный health endpoint сейчас не ответил; локальная проверка успешна."
+    fi
+}
+
+do_rollback() {
+    local work current target
+    [[ -s "$LAST_GOOD" ]] || die "Нет сохранённой предыдущей версии для отката."
+    target="$(cat "$LAST_GOOD")"
+    [[ "$target" =~ ^[0-9a-f]{40}$ ]] || die "Файл last-good содержит некорректный commit SHA."
+    git -C "$ROOT" cat-file -e "${target}^{commit}" 2>/dev/null || die "Коммит для отката отсутствует в локальном Git."
+    current="$(git -C "$ROOT" rev-parse HEAD)"
+    [[ "$current" != "$target" ]] || die "Уже установлена версия, указанная для отката."
+
+    work="$(mktemp -d /tmp/bp-rollback.XXXXXX)"
+    if ! git -C "$ROOT" reset --hard "$target"; then
+        rm -rf "$work"
+        die "Не удалось переключить код."
+    fi
+    if ! install_dependencies_if_changed "$current" "$target" || ! run_tests || ! apply_configs "$target" "$work"; then
+        say "Откат не прошёл проверку. Возвращаю ${current:0:12}."
+        git -C "$ROOT" reset --hard "$current" || true
+        restore_configs "$work"
+        if ! git -C "$ROOT" diff --quiet "$target" "$current" -- requirements-vds.lock; then
+            "${ROOT}/.venv/bin/python" -m pip install -r "${ROOT}/requirements-vds.lock" || true
+        fi
+        systemctl restart "$SERVICE" || true
+        rm -rf "$work"
+        die "Откат не завершён; исходная версия восстановлена насколько это возможно."
+    fi
+    if ! save_config_backups "$work"; then
+        git -C "$ROOT" reset --hard "$current" || true
+        restore_configs "$work"
+        if ! git -C "$ROOT" diff --quiet "$target" "$current" -- requirements-vds.lock; then
+            "${ROOT}/.venv/bin/python" -m pip install -r "${ROOT}/requirements-vds.lock" || true
+        fi
+        systemctl restart "$SERVICE" || true
+        rm -rf "$work"
+        die "Не удалось сохранить копии конфигурации; исходная версия восстановлена."
+    fi
+    if [[ -f "$work/apache.changed" ]] && ! apachectl graceful; then
+        git -C "$ROOT" reset --hard "$current" || true
+        restore_configs "$work"
+        if ! git -C "$ROOT" diff --quiet "$target" "$current" -- requirements-vds.lock; then
+            "${ROOT}/.venv/bin/python" -m pip install -r "${ROOT}/requirements-vds.lock" || true
+        fi
+        systemctl restart "$SERVICE" || true
+        rm -rf "$work"
+        die "Apache не перезагрузился; исходная версия восстановлена."
+    fi
+    if ! restart_and_check; then
+        git -C "$ROOT" reset --hard "$current" || true
+        restore_configs "$work"
+        if ! git -C "$ROOT" diff --quiet "$target" "$current" -- requirements-vds.lock; then
+            "${ROOT}/.venv/bin/python" -m pip install -r "${ROOT}/requirements-vds.lock" || true
+        fi
+        systemctl restart "$SERVICE" || true
+        rm -rf "$work"
+        die "Новая версия не прошла health check; исходная версия восстановлена."
+    fi
+
+    printf '%s\n' "$current" > "${LAST_GOOD}.tmp"
+    chmod 0600 "${LAST_GOOD}.tmp"
+    mv -f "${LAST_GOOD}.tmp" "$LAST_GOOD"
+    rm -rf "$work"
+    say "Откат завершён: ${current:0:12} -> ${target:0:12}"
+}
+
+do_status() {
+    local commit branch
+    commit="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || echo unknown)"
+    branch="$(git -C "$ROOT" branch --show-current 2>/dev/null || echo unknown)"
+    printf 'Проект: %s\nВетка: %s\nКоммит: %s\nСлужба: ' "$ROOT" "$branch" "$commit"
+    systemctl is-active "$SERVICE" 2>/dev/null || true
+    printf 'Локальный health: '
+    if health_ok; then echo OK; else echo FAIL; fi
+    printf 'Предыдущая версия для отката: '
+    if [[ -s "$LAST_GOOD" ]]; then cat "$LAST_GOOD"; else echo 'не задана'; fi
+}
+
+main() {
+    require_root
+    require_installation
+    install -d -m 0755 /run/lock
+    exec 9>"$LOCK_FILE"
+    flock -n 9 || die "Другая операция bp уже выполняется."
+
+    case "${1:-status}" in
+        update)
+            check_clean_checkout
+            do_update
+            ;;
+        rollback)
+            check_clean_checkout
+            do_rollback
+            ;;
+        status)
+            do_status
+            ;;
+        *)
+            echo "Использование: bp {update|rollback|status}" >&2
+            exit 2
+            ;;
+    esac
+}
+
+main "$@"

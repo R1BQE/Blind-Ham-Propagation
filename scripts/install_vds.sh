@@ -33,8 +33,22 @@ if ! python3 -m venv --help >/dev/null 2>&1; then
     fi
 fi
 
-echo "==> Обновление репозитория: ${ROOT}"
-git -C "${ROOT}" pull --ff-only
+if systemctl cat "${SERVICE_NAME}.service" >/dev/null 2>&1; then
+    echo "Служба ${SERVICE_NAME} уже установлена." >&2
+    echo "Этот скрипт предназначен только для первоначальной установки." >&2
+    echo "Обновление существующей установки этим установщиком не выполняется." >&2
+    echo "Для обновления существующей установки используй команду bp update." >&2
+    echo "Сначала установи scripts/bp в /usr/local/sbin/bp, если команда ещё не установлена." >&2
+    exit 1
+fi
+
+if [[ ! -d "${ROOT}/.git" ]]; then
+    echo "Каталог ${ROOT} не является Git checkout." >&2
+    echo "Сначала клонируй репозиторий на нужный коммит." >&2
+    exit 1
+fi
+
+echo "==> Первоначальная установка из checkout: ${ROOT}"
 
 if ! getent group "${SERVICE_GROUP}" >/dev/null 2>&1; then
     groupadd --system "${SERVICE_GROUP}"
@@ -57,9 +71,16 @@ if ! "${ROOT}/.venv/bin/python" -m pip --version >/dev/null 2>&1; then
     "${ROOT}/.venv/bin/python" -m ensurepip --upgrade
 fi
 
-echo "==> Обновление Python-зависимостей"
-"${ROOT}/.venv/bin/python" -m pip install --upgrade pip
-"${ROOT}/.venv/bin/python" -m pip install --upgrade -r "${ROOT}/requirements.txt"
+if [[ ! -f "${ROOT}/requirements-vds.lock" ]]; then
+    echo "Не найден requirements-vds.lock. Отказ от установки без зафиксированных зависимостей." >&2
+    exit 1
+fi
+
+echo "==> Установка зафиксированных Python-зависимостей"
+"${ROOT}/.venv/bin/python" -m pip install -r "${ROOT}/requirements-vds.lock"
+
+echo "==> Установка приложения из текущего checkout"
+"${ROOT}/.venv/bin/python" -m pip install --no-deps --no-build-isolation "${ROOT}"
 
 install -d -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" -m 0750 "${ROOT}/data" "${ROOT}/logs"
 if [[ ! -f "${ROOT}/settings.ini" ]]; then
