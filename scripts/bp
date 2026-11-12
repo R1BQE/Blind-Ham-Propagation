@@ -130,9 +130,10 @@ save_config_backups() {
 save_environment_snapshot() {
     local commit="$1"
     local destination="${STATE_DIR}/requirements-${commit}.txt"
-    local temporary="${destination}.tmp.$"
+    local temporary
 
     install -d -o root -g root -m 0750 "$STATE_DIR" || return 1
+    temporary="$(mktemp "${destination}.tmp.XXXXXX")" || return 1
     "${ROOT}/.venv/bin/python" -m pip freeze > "$temporary" || {
         rm -f "$temporary"
         return 1
@@ -315,7 +316,7 @@ do_rollback() {
         git -C "$ROOT" reset --hard "$current" || true
         restore_configs "$work"
         if ! git -C "$ROOT" diff --quiet "$target" "$current" -- requirements-vds.lock; then
-            "${ROOT}/.venv/bin/python" -m pip install -r "${ROOT}/requirements-vds.lock" || true
+            restore_dependencies "$current" || true
         fi
         systemctl restart "$SERVICE" || true
         rm -rf "$work"
