@@ -1,4 +1,4 @@
-"""HamQSL solar XML collector with a shared 15-minute cache."""
+"""HamQSL solar XML collector with a shared one-hour cache."""
 from __future__ import annotations
 
 import asyncio
@@ -10,7 +10,7 @@ from xml.etree import ElementTree
 import httpx
 
 URL = "https://www.hamqsl.com/solarxml.php"
-CACHE_TTL_SECONDS = 900
+CACHE_TTL_SECONDS = 3600
 _TIMEOUT = httpx.Timeout(10.0, connect=5.0)
 
 _cache: dict[str, Any] | None = None
@@ -58,7 +58,7 @@ def parse_solar_xml(xml_text: str) -> dict[str, Any]:
 
 
 async def get_hamqsl_data() -> dict[str, Any]:
-    """Return HamQSL data, reusing one cached response for 15 minutes."""
+    """Return HamQSL data, reusing one cached response for 60 minutes."""
     global _cache, _cache_expires_at
     now = time.monotonic()
     if _cache is not None and now < _cache_expires_at:
