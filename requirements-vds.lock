@@ -1,6 +1,7 @@
 # Exact dependency versions captured from the production VDS Python 3.11 environment.
 # The application itself is installed separately from the checked-out release.
 # Update this file deliberately and validate the resulting release before deployment.
+pip==26.3
 annotated-doc==0.0.5
 annotated-types==0.8.0
 anyio==4.16.0
