@@ -75,7 +75,7 @@ apply_configs() {
 
     if ! cmp -s "$unit_candidate" "$SERVICE_FILE"; then
         [[ -f "$SERVICE_FILE" ]] || { say "Не найден действующий unit: ${SERVICE_FILE}"; return 1; }
-        cp -a "$SERVICE_FILE" "$work/unit.before"
+        cp -a "$SERVICE_FILE" "$work/unit.before" || { say "Не удалось сохранить действующий systemd unit."; return 1; }
         touch "$work/unit.changed"
         install -o root -g root -m 0644 "$unit_candidate" "$SERVICE_FILE"
         systemd-analyze verify "$SERVICE_FILE" || return 1
@@ -84,7 +84,7 @@ apply_configs() {
 
     if ! cmp -s "$apache_candidate" "$APACHE_FILE"; then
         [[ -f "$APACHE_FILE" ]] || { say "Не найден действующий Apache-файл: ${APACHE_FILE}"; return 1; }
-        cp -a "$APACHE_FILE" "$work/apache.before"
+        cp -a "$APACHE_FILE" "$work/apache.before" || { say "Не удалось сохранить действующую конфигурацию Apache."; return 1; }
         touch "$work/apache.changed"
         install -o root -g root -m 0644 "$apache_candidate" "$APACHE_FILE"
         apachectl configtest || return 1
@@ -104,7 +104,7 @@ restore_configs() {
         apachectl configtest || true
         changed=1
     fi
-    if [[ "$changed" -eq 1 ]]; then
+    if [[ -f "$work/apache.changed" ]]; then
         apachectl configtest >/dev/null 2>&1 || true
         apachectl graceful >/dev/null 2>&1 || true
     fi
@@ -197,6 +197,12 @@ do_update() {
         die "Не удалось применить или проверить конфигурацию; выполнен откат."
     fi
 
+    if ! save_config_backups "$work"; then
+        rollback_transaction "$previous" "$work" "$current"
+        rm -rf "$work"
+        die "Не удалось сохранить резервные копии конфигурации; выполнен откат."
+    fi
+
     if [[ -f "$work/apache.changed" ]] && ! apachectl graceful; then
         rollback_transaction "$previous" "$work" "$current"
         rm -rf "$work"
@@ -213,7 +219,6 @@ do_update() {
     printf '%s\n' "$previous" > "${LAST_GOOD}.tmp"
     chmod 0600 "${LAST_GOOD}.tmp"
     mv -f "${LAST_GOOD}.tmp" "$LAST_GOOD"
-    save_config_backups "$work"
     rm -rf "$work"
 
     say "Обновление завершено: ${previous:0:12} -> ${current:0:12}"
