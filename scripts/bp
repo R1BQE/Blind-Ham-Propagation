@@ -74,18 +74,18 @@ apply_configs() {
     if ! cmp -s "$unit_candidate" "$SERVICE_FILE"; then
         [[ -f "$SERVICE_FILE" ]] || die "Не найден действующий unit: ${SERVICE_FILE}"
         cp -a "$SERVICE_FILE" "$work/unit.before"
+        touch "$work/unit.changed"
         install -o root -g root -m 0644 "$unit_candidate" "$SERVICE_FILE"
         systemd-analyze verify "$SERVICE_FILE" || return 1
         systemctl daemon-reload || return 1
-        touch "$work/unit.changed"
     fi
 
     if ! cmp -s "$apache_candidate" "$APACHE_FILE"; then
         [[ -f "$APACHE_FILE" ]] || die "Не найден действующий Apache-файл: ${APACHE_FILE}"
         cp -a "$APACHE_FILE" "$work/apache.before"
+        touch "$work/apache.changed"
         install -o root -g root -m 0644 "$apache_candidate" "$APACHE_FILE"
         apachectl configtest || return 1
-        touch "$work/apache.changed"
     fi
 }
 
@@ -200,6 +200,12 @@ do_update() {
         die "Не удалось применить или проверить конфигурацию; выполнен откат."
     fi
 
+    if [[ -f "$work/apache.changed" ]] && ! apachectl graceful; then
+        rollback_transaction "$previous" "$work" "$current"
+        rm -rf "$work"
+        die "Apache не удалось перезагрузить; выполнен откат."
+    fi
+
     if ! restart_and_check; then
         rollback_transaction "$previous" "$work" "$current"
         rm -rf "$work"
@@ -235,7 +241,7 @@ do_rollback() {
         rm -rf "$work"
         die "Не удалось переключить код."
     fi
-    if ! install_dependencies_if_changed "$current" "$target" || ! run_tests || ! apply_configs "$target" "$work" || ! restart_and_check; then
+    if ! install_dependencies_if_changed "$current" "$target" || ! run_tests || ! apply_configs "$target" "$work"; then
         say "Откат не прошёл проверку. Возвращаю ${current:0:12}."
         git -C "$ROOT" reset --hard "$current" || true
         restore_configs "$work"
