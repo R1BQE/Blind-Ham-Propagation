@@ -8,7 +8,7 @@
     ["aindex","Индекс A","Средняя геомагнитная активность за сутки."],
     ["kindex","Индекс K HamQSL","Оценка возмущения магнитного поля за трёхчасовой интервал. NOAA Kp приводится отдельно."],
     ["xray","Рентгеновское излучение","Сильные вспышки могут усиливать поглощение КВ-сигналов на освещённой стороне Земли."],
-    ["magneticfield","Межпланетное магнитное поле Bz","Отрицательное Bz при определённых условиях может усиливать передачу энергии магнитосфере Земли."],
+    ["magneticfield","Магнитное поле по данным HamQSL","HamQSL не уточняет в этом поле компоненту и систему координат. Не следует считать это значением Bz или напрямую сопоставлять с Bt/Bz NOAA."],
     ["solarwind","Скорость солнечного ветра","Высокая скорость сама по себе не означает магнитную бурю."],
     ["protonflux","Поток солнечных протонов","Во время сильных событий протоны могут вызывать поглощение радиоволн в полярных областях."],
     ["electonflux","Поток электронов","Дополнительный показатель радиационной обстановки, а не измерение шума на приёмнике."],
@@ -17,7 +17,7 @@
     ["latdegree","Широта границы аврорального овала","Положение границы области полярных сияний в геомагнитных широтах."],
     ["geomagfield","Состояние магнитного поля Земли","Сводная текстовая оценка геомагнитной обстановки от HamQSL."],
     ["signalnoise","Оценка уровня радиошума","Оценка источника, а не измерение шума непосредственно на твоей антенне."],
-    ["muf","MUF — максимально применимая частота","HamQSL не указывает однозначно точку расчёта. Это нельзя считать MUF именно для KP50DB."]
+    ["muf","MUF — максимально применимая частота","На сайте HamQSL источником MUF-данных указан Lowell GIRO Data Center. Само поле XML не подтверждает конкретную точку или трассу расчёта, поэтому это не MUF для локатора KP50DB."]
   ];
   const vhfNames={"vhf-aurora":"Авроральное прохождение","E-Skip":"Спорадический слой E","northern_hemi":"Северное полушарие","europe":"Европа","north_america":"Северная Америка","europe_6m":"Европа, диапазон 50 МГц","europe_4m":"Европа, диапазон 70 МГц"};
   function el(parent,tag,text,cls){const n=document.createElement(tag);if(text!==undefined&&text!==null)n.textContent=String(text);if(cls)n.className=cls;parent.append(n);return n;}
@@ -46,7 +46,7 @@
   function overview(payload,noaa){
     const fragment=document.createDocumentFragment();const solar=payload?.data?.solardata||{};
     const activity=el(fragment,"section",undefined,"result-card");el(activity,"h3","Солнечная активность");const dl=el(activity,"dl",undefined,"measurements");
-    const flux=noaa?.solar_flux?.value??(raw(solar.solarflux)||null);measurement(dl,"Поток F10.7",flux,noaa?.solar_flux?.value!==null&&noaa?.solar_flux?.value!==undefined?"sfu":"");measurement(dl,"Солнечные пятна",solar.sunspots===undefined?"Нет данных":val(solar.sunspots));el(activity,"p",`F10.7: ${noaa?.solar_flux?.value!==null&&noaa?.solar_flux?.value!==undefined?"NOAA":"HamQSL"}. Время измерения смотри в подробных данных.`,"muted");
+    const flux=noaa?.solar_flux?.value??(raw(solar.solarflux)||null);measurement(dl,"Поток F10.7",flux,"sfu");measurement(dl,"Солнечные пятна",solar.sunspots===undefined?"Нет данных":val(solar.sunspots));el(activity,"p",`F10.7: ${noaa?.solar_flux?.value!==null&&noaa?.solar_flux?.value!==undefined?"NOAA":"HamQSL"}. Время измерения смотри в подробных данных.`,"muted");
     const geo=el(fragment,"section",undefined,"result-card");el(geo,"h3","Геомагнитная обстановка");const gd=el(geo,"dl",undefined,"measurements");measurement(gd,"Индекс Kp NOAA",noaa?.kp?.value);measurement(gd,"Оценка HamQSL",solar.geomagfield===undefined?"Нет данных":val(solar.geomagfield));measurement(gd,"Индекс K HamQSL",solar.kindex===undefined?"Нет данных":val(solar.kindex));el(geo,"p","Глобальные показатели общей обстановки, а не прогноз прохождения на конкретной трассе.","muted");
     if(payload?.data?.solardata)bandsTable(fragment,solar);else{const missing=el(fragment,"section",undefined,"result-card");el(missing,"h3","Общие условия на КВ");el(missing,"p","HamQSL сейчас не передал данные об условиях по диапазонам.");}
     if(payload.drap){const d=el(fragment,"section",undefined,"result-card");el(d,"h3","Поглощение КВ-сигналов");el(d,"p","NOAA D-RAP моделирует поглощение в нижней части ионосферы. Это не измерение на антенне и не MUF.");el(d,"p",`Рентгеновское излучение: ${payload.drap.xray_message||"Нет данных"}`);el(d,"p",`Солнечные протоны: ${payload.drap.proton_message||"Нет данных"}`);el(d,"p",`Модель актуальна на: ${time(payload.drap.valid_at)}`,"muted");}
