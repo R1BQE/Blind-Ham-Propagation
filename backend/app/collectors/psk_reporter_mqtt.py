@@ -8,7 +8,6 @@ from __future__ import annotations
 import configparser
 import logging
 import os
-from pathlib import Path
 import threading
 import time
 import uuid
