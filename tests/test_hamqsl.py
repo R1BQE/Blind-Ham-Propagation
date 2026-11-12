@@ -1,4 +1,4 @@
-from backend.app.services.hamqsl import parse_solar_xml
+from backend.app.services.hamqsl import CACHE_TTL_SECONDS, parse_solar_xml
 
 
 def test_parse_solar_xml_preserves_values_attributes_and_repeated_rows():
@@ -28,3 +28,7 @@ def test_parse_solar_xml_rejects_invalid_xml():
     import pytest
     with pytest.raises(ValueError, match="некорректный XML"):
         parse_solar_xml("<solar>")
+
+
+def test_hamqsl_cache_ttl_is_one_hour():
+    assert CACHE_TTL_SECONDS == 60 * 60
