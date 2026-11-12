@@ -79,3 +79,14 @@ TX counts reports where the transmitting station is inside the region and was he
 The MQTT collector starts when the first browser opens the “Радионаблюдения” tab. It remains active while at least one browser keeps that tab open. After the last viewer leaves, the backend waits 20 seconds before stopping MQTT. A new viewer during this grace period cancels the pending stop. Observations remain in the bounded SQLite history after MQTT disconnects.
 
 This coordination is in-process. Run a single Uvicorn worker so all viewers share the same collector and viewer count.
+
+## Release-based production layout (preparation)
+
+The production templates in `deploy/systemd/` and `deploy/apache/` describe the intended release layout under `/var/www/html/blind-prop`:
+
+- `current` points to one immutable directory under `releases/<commit-sha>/`.
+- `data/`, `logs/`, `backups/`, and `settings.ini` remain outside releases.
+- systemd starts Uvicorn through `current/.venv` and passes stable data/settings paths through `BLIND_HAM_DATA_DIR` and `BLIND_HAM_SETTINGS_FILE`.
+- Apache serves the frontend through `current/frontend`; the existing `/prop/` redirect, API proxy, PSK Reporter WebSocket proxy, forwarded headers, and access-denial rules are retained.
+
+These templates are not a migration procedure and must not be copied over a live installation by hand. In particular, the `current` symlink, Apache path handling, systemd sandbox permissions, and health checks must be validated by the dedicated migration/release tooling before production use. The existing VDS remains on its current layout until that tooling is complete and explicitly deployed.
