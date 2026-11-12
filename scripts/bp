@@ -77,7 +77,7 @@ apply_configs() {
         [[ -f "$SERVICE_FILE" ]] || { say "Не найден действующий unit: ${SERVICE_FILE}"; return 1; }
         cp -a "$SERVICE_FILE" "$work/unit.before" || { say "Не удалось сохранить действующий systemd unit."; return 1; }
         touch "$work/unit.changed"
-        install -o root -g root -m 0644 "$unit_candidate" "$SERVICE_FILE"
+        install -o root -g root -m 0644 "$unit_candidate" "$SERVICE_FILE" || { say "Не удалось установить systemd unit."; return 1; }
         systemd-analyze verify "$SERVICE_FILE" || return 1
         systemctl daemon-reload || return 1
     fi
@@ -86,7 +86,7 @@ apply_configs() {
         [[ -f "$APACHE_FILE" ]] || { say "Не найден действующий Apache-файл: ${APACHE_FILE}"; return 1; }
         cp -a "$APACHE_FILE" "$work/apache.before" || { say "Не удалось сохранить действующую конфигурацию Apache."; return 1; }
         touch "$work/apache.changed"
-        install -o root -g root -m 0644 "$apache_candidate" "$APACHE_FILE"
+        install -o root -g root -m 0644 "$apache_candidate" "$APACHE_FILE" || { say "Не удалось установить конфигурацию Apache."; return 1; }
         apachectl configtest || return 1
     fi
 }
@@ -118,9 +118,13 @@ save_config_backups() {
     fi
     stamp="$(date +%Y%m%d-%H%M%S-%N)"
     destination="${ROOT}/backups/config-${stamp}"
-    install -d -o root -g root -m 0700 "$destination"
-    [[ ! -f "$work/unit.before" ]] || install -o root -g root -m 0600 "$work/unit.before" "$destination/blind-ham-propagation.service"
-    [[ ! -f "$work/apache.before" ]] || install -o root -g root -m 0600 "$work/apache.before" "$destination/blind-ham-propagation.conf"
+    install -d -o root -g root -m 0700 "$destination" || return 1
+    if [[ -f "$work/unit.before" ]]; then
+        install -o root -g root -m 0600 "$work/unit.before" "$destination/blind-ham-propagation.service" || return 1
+    fi
+    if [[ -f "$work/apache.before" ]]; then
+        install -o root -g root -m 0600 "$work/apache.before" "$destination/blind-ham-propagation.conf" || return 1
+    fi
     say "Старые конфигурации сохранены в ${destination}"
 }
 
