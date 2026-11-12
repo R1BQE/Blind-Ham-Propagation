@@ -14,12 +14,12 @@ The operator interface is three commands:
 
 1. Take an exclusive lock.
 2. Verify root privileges, the existing project, the virtual environment, branch `main`, and a clean tracked working tree.
-3. Verify the current service is active and its local health endpoint responds.
-4. Record the current full Git commit.
-5. Run `git pull --ff-only origin main`.
-6. If `requirements-vds.lock` changed, install the pinned dependencies into the existing `.venv`. Otherwise leave the environment untouched.
-7. Run the test suite.
-8. Compare tracked systemd and Apache templates with their live files. Only changed files are backed up, validated and installed.
+3. Record the current full Git commit.
+4. Run `git pull --ff-only origin main`.
+5. If `requirements-vds.lock` changed, install the pinned dependencies into the existing `.venv`. Otherwise leave the environment untouched.
+6. Run the test suite.
+7. Compare tracked systemd and Apache templates with their live files. Only changed files are backed up, validated and installed.
+8. Save copies of changed live configuration files before activation.
 9. Reload systemd/Apache only if their respective configuration changed.
 10. Restart the backend and require the local health endpoint to report `status=ok`.
 11. Save the previous commit as the manual rollback target.
