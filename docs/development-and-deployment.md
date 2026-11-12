@@ -22,7 +22,9 @@ Run as root from the repository checkout:
 bash scripts/install_vds.sh
 ```
 
-The installer fast-forwards the checkout, prepares `.venv`, installs requirements, creates a restricted service account and configures the systemd service. By default Uvicorn listens on `127.0.0.1:8765`. The installer does not configure Apache or expose Uvicorn publicly.
+The installer is for **initial installation only**. It does not run `git pull` and refuses to run when the systemd service already exists. Prepare the checkout at the intended commit before invoking it. It prepares `.venv`, installs requirements, creates a restricted service account and configures the systemd service. By default Uvicorn listens on `127.0.0.1:8765`. The installer does not configure Apache or expose Uvicorn publicly.
+
+Do not use this installer to update an existing production deployment. The production update procedure is being replaced by a transactional release-based updater; until that procedure is deployed and verified, update the VDS manually only under a separately prepared backup and rollback plan.
 
 Useful commands:
 
@@ -44,6 +46,13 @@ topics = pskr/filter/v2/20m/FT8/#
 ```
 
 First-run setup creates this file with collection enabled. MQTT connects only while at least one visitor has the observations tab open. Existing settings are not overwritten. The file is excluded from Git.
+
+For a release-based deployment, persistent paths must not be derived from the selected release directory. Set these systemd environment variables to stable paths shared by all releases:
+
+- `BLIND_HAM_DATA_DIR=/var/www/html/blind-prop/data`
+- `BLIND_HAM_SETTINGS_FILE=/var/www/html/blind-prop/settings.ini`
+
+If these variables are absent, local development continues to use the current checkout's `data/` and `settings.ini`.
 
 Multiple topic filters can be separated by commas. Only filters beginning with `pskr/filter/v2/` are accepted. Environment variables `PSK_REPORTER_ENABLED` and `PSK_REPORTER_TOPICS` can override settings; broker host, port and keepalive are also configurable.
 
