@@ -2,7 +2,7 @@
 
 ## Decision
 
-Use a simple in-place deployment. Keep the existing project directory, existing virtual environment, service account, Apache layout and runtime data paths. Do not introduce versioned release directories, symlinks, worktrees, containers or a second deployment environment.
+Use a simple in-place deployment. Keep the existing project directory, existing virtual environment, service account, Apache layout and runtime data paths. Do not introduce versioned release directories, a `current` symlink, worktrees, containers or a second deployment environment.
 
 The operator interface is three commands:
 
@@ -42,6 +42,7 @@ If the application later requires a schema migration, it must be implemented exp
 - `data/`: never overwritten or restored by update/rollback.
 - `logs/`: left in place.
 - `backups/`: stores only replaced systemd/Apache configuration snapshots; no database copies.
+- `/var/lib/blind-ham-propagation/`: stores one `pip freeze` snapshot per deployed commit so rollback also works for the pre-lock commit that existed before this updater was introduced.
 
 ## Scope and safety
 
