@@ -9,13 +9,15 @@ import time
 from pathlib import Path
 from typing import Any
 
+from backend.app.services.runtime_paths import data_directory
+
 DEFAULT_RETENTION_SECONDS = 6 * 60 * 60
 DEFAULT_MAX_RECORDS = 50_000
 
 
 def default_database_path() -> Path:
     """Return the repository data directory without creating it on import."""
-    return Path(__file__).resolve().parents[3] / "data" / "psk_reporter.sqlite3"
+    return data_directory() / "psk_reporter.sqlite3"
 
 
 class SpotStore:
