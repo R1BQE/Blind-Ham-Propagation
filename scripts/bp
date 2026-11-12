@@ -27,6 +27,8 @@ require_installation() {
     command -v curl >/dev/null || die "Не установлен curl."
     command -v flock >/dev/null || die "Не установлен flock."
     command -v systemctl >/dev/null || die "Не найден systemctl."
+    command -v systemd-analyze >/dev/null || die "Не найден systemd-analyze."
+    command -v apachectl >/dev/null || die "Не найден apachectl."
 }
 
 check_clean_checkout() {
@@ -67,12 +69,12 @@ apply_configs() {
     local apache_candidate="$work/apache.candidate"
 
     git -C "$ROOT" show "${commit}:deploy/systemd/blind-ham-propagation.service" > "$unit_candidate" \
-        || die "В коммите ${commit} нет systemd-шаблона."
+        || { say "В коммите ${commit} нет systemd-шаблона."; return 1; }
     git -C "$ROOT" show "${commit}:deploy/apache/blind-ham-propagation.conf" > "$apache_candidate" \
-        || die "В коммите ${commit} нет Apache-шаблона."
+        || { say "В коммите ${commit} нет Apache-шаблона."; return 1; }
 
     if ! cmp -s "$unit_candidate" "$SERVICE_FILE"; then
-        [[ -f "$SERVICE_FILE" ]] || die "Не найден действующий unit: ${SERVICE_FILE}"
+        [[ -f "$SERVICE_FILE" ]] || { say "Не найден действующий unit: ${SERVICE_FILE}"; return 1; }
         cp -a "$SERVICE_FILE" "$work/unit.before"
         touch "$work/unit.changed"
         install -o root -g root -m 0644 "$unit_candidate" "$SERVICE_FILE"
@@ -81,7 +83,7 @@ apply_configs() {
     fi
 
     if ! cmp -s "$apache_candidate" "$APACHE_FILE"; then
-        [[ -f "$APACHE_FILE" ]] || die "Не найден действующий Apache-файл: ${APACHE_FILE}"
+        [[ -f "$APACHE_FILE" ]] || { say "Не найден действующий Apache-файл: ${APACHE_FILE}"; return 1; }
         cp -a "$APACHE_FILE" "$work/apache.before"
         touch "$work/apache.changed"
         install -o root -g root -m 0644 "$apache_candidate" "$APACHE_FILE"
@@ -114,7 +116,7 @@ save_config_backups() {
     if [[ ! -f "$work/unit.changed" && ! -f "$work/apache.changed" ]]; then
         return 0
     fi
-    stamp="$(date +%Y%m%d-%H%M%S)"
+    stamp="$(date +%Y%m%d-%H%M%S-%N)"
     destination="${ROOT}/backups/config-${stamp}"
     install -d -o root -g root -m 0700 "$destination"
     [[ ! -f "$work/unit.before" ]] || install -o root -g root -m 0600 "$work/unit.before" "$destination/blind-ham-propagation.service"
