@@ -22,7 +22,6 @@ require_root() {
 require_installation() {
     [[ -d "${ROOT}/.git" ]] || die "Не найден Git-репозиторий: ${ROOT}"
     [[ -x "${ROOT}/.venv/bin/python" ]] || die "Не найдено виртуальное окружение: ${ROOT}/.venv"
-    [[ -f "${ROOT}/requirements-vds.lock" ]] || die "Не найден requirements-vds.lock"
     command -v git >/dev/null || die "Не установлен git."
     command -v curl >/dev/null || die "Не установлен curl."
     command -v flock >/dev/null || die "Не установлен flock."
@@ -128,11 +127,46 @@ save_config_backups() {
     say "Старые конфигурации сохранены в ${destination}"
 }
 
+save_environment_snapshot() {
+    local commit="$1"
+    local destination="${STATE_DIR}/requirements-${commit}.txt"
+    local temporary
+
+    install -d -o root -g root -m 0750 "$STATE_DIR" || return 1
+    temporary="$(mktemp "${destination}.tmp.XXXXXX")" || return 1
+    "${ROOT}/.venv/bin/python" -m pip freeze > "$temporary" || {
+        rm -f "$temporary"
+        return 1
+    }
+    chmod 0600 "$temporary" || return 1
+    mv -f "$temporary" "$destination" || return 1
+}
+
+restore_dependencies() {
+    local commit="$1"
+    local snapshot="${STATE_DIR}/requirements-${commit}.txt"
+
+    if [[ -f "${ROOT}/requirements-vds.lock" ]]; then
+        say "Восстанавливаю зависимости по lock-файлу версии ${commit:0:12}."
+        "${ROOT}/.venv/bin/python" -m pip install -r "${ROOT}/requirements-vds.lock"
+    elif [[ -s "$snapshot" ]]; then
+        say "Для старой версии lock-файла нет; восстанавливаю сохранённый pip freeze."
+        "${ROOT}/.venv/bin/python" -m pip install -r "$snapshot"
+    else
+        say "Нет lock-файла или сохранённого снимка зависимостей для ${commit}."
+        return 1
+    fi
+}
+
 install_dependencies_if_changed() {
     local from="$1" to="$2"
     if ! git -C "$ROOT" diff --quiet "$from" "$to" -- requirements-vds.lock; then
-        say "Изменился requirements-vds.lock — устанавливаю зафиксированные зависимости."
-        "${ROOT}/.venv/bin/python" -m pip install -r "${ROOT}/requirements-vds.lock"
+        if [[ -f "${ROOT}/requirements-vds.lock" ]]; then
+            say "Изменился requirements-vds.lock — устанавливаю зафиксированные зависимости."
+            "${ROOT}/.venv/bin/python" -m pip install -r "${ROOT}/requirements-vds.lock"
+        else
+            restore_dependencies "$to"
+        fi
     else
         say "requirements-vds.lock не менялся — Python-зависимости не трогаю."
     fi
@@ -156,7 +190,7 @@ rollback_transaction() {
     restore_configs "$work"
     if ! git -C "$ROOT" diff --quiet "$current" "$previous" -- requirements-vds.lock; then
         say "Возвращаю зависимости предыдущей версии."
-        "${ROOT}/.venv/bin/python" -m pip install -r "${ROOT}/requirements-vds.lock" || true
+        restore_dependencies "$previous" || say "ВНИМАНИЕ: зависимости автоматически восстановить не удалось."
     fi
     systemctl restart "$SERVICE" || true
     if wait_for_health; then
@@ -170,6 +204,10 @@ do_update() {
     local work previous current
     work="$(mktemp -d /tmp/bp-update.XXXXXX)"
     previous="$(git -C "$ROOT" rev-parse HEAD)"
+    save_environment_snapshot "$previous" || {
+        rm -rf "$work"
+        die "Не удалось сохранить снимок текущих Python-зависимостей."
+    }
 
     say "Получаю изменения из origin/${BRANCH}."
     if ! git -C "$ROOT" pull --ff-only origin "$BRANCH"; then
@@ -187,6 +225,12 @@ do_update() {
         rollback_transaction "$previous" "$work" "$current"
         rm -rf "$work"
         die "Не удалось обновить Python-зависимости; выполнен откат."
+    fi
+
+    if ! save_environment_snapshot "$current"; then
+        rollback_transaction "$previous" "$work" "$current"
+        rm -rf "$work"
+        die "Не удалось сохранить снимок зависимостей новой версии; выполнен откат."
     fi
 
     if ! run_tests; then
@@ -252,7 +296,7 @@ do_rollback() {
         git -C "$ROOT" reset --hard "$current" || true
         restore_configs "$work"
         if ! git -C "$ROOT" diff --quiet "$target" "$current" -- requirements-vds.lock; then
-            "${ROOT}/.venv/bin/python" -m pip install -r "${ROOT}/requirements-vds.lock" || true
+            restore_dependencies "$current" || true
         fi
         systemctl restart "$SERVICE" || true
         rm -rf "$work"
@@ -262,7 +306,7 @@ do_rollback() {
         git -C "$ROOT" reset --hard "$current" || true
         restore_configs "$work"
         if ! git -C "$ROOT" diff --quiet "$target" "$current" -- requirements-vds.lock; then
-            "${ROOT}/.venv/bin/python" -m pip install -r "${ROOT}/requirements-vds.lock" || true
+            restore_dependencies "$current" || true
         fi
         systemctl restart "$SERVICE" || true
         rm -rf "$work"
@@ -272,7 +316,7 @@ do_rollback() {
         git -C "$ROOT" reset --hard "$current" || true
         restore_configs "$work"
         if ! git -C "$ROOT" diff --quiet "$target" "$current" -- requirements-vds.lock; then
-            "${ROOT}/.venv/bin/python" -m pip install -r "${ROOT}/requirements-vds.lock" || true
+            restore_dependencies "$current" || true
         fi
         systemctl restart "$SERVICE" || true
         rm -rf "$work"
@@ -282,7 +326,7 @@ do_rollback() {
         git -C "$ROOT" reset --hard "$current" || true
         restore_configs "$work"
         if ! git -C "$ROOT" diff --quiet "$target" "$current" -- requirements-vds.lock; then
-            "${ROOT}/.venv/bin/python" -m pip install -r "${ROOT}/requirements-vds.lock" || true
+            restore_dependencies "$current" || true
         fi
         systemctl restart "$SERVICE" || true
         rm -rf "$work"
