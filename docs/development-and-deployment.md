@@ -11,10 +11,10 @@ There is no release directory tree, no `current` symlink, and no separate virtua
 After reviewing and merging the updater changes, install the script as root:
 
 ```sh
-install -o root -g root -m 0755 /var/www/html/blind-prop/scripts/bp /usr/local/sbin/bp
+ln -s /var/www/html/blind-prop/scripts/bp /usr/local/sbin/bp
 ```
 
-This creates the `bp` command. It does not modify the running application or server configuration.
+This creates the `bp` command as a symlink to the repository script. Future Git updates automatically update the command implementation; no separate updater copy needs to be refreshed. It does not modify the running application or server configuration.
 
 ## Commands
 
