@@ -254,6 +254,16 @@ do_rollback() {
         rm -rf "$work"
         die "Откат не завершён; исходная версия восстановлена насколько это возможно."
     fi
+    if ! save_config_backups "$work"; then
+        git -C "$ROOT" reset --hard "$current" || true
+        restore_configs "$work"
+        if ! git -C "$ROOT" diff --quiet "$target" "$current" -- requirements-vds.lock; then
+            "${ROOT}/.venv/bin/python" -m pip install -r "${ROOT}/requirements-vds.lock" || true
+        fi
+        systemctl restart "$SERVICE" || true
+        rm -rf "$work"
+        die "Не удалось сохранить копии конфигурации; исходная версия восстановлена."
+    fi
     if [[ -f "$work/apache.changed" ]] && ! apachectl graceful; then
         git -C "$ROOT" reset --hard "$current" || true
         restore_configs "$work"
@@ -278,7 +288,6 @@ do_rollback() {
     printf '%s\n' "$current" > "${LAST_GOOD}.tmp"
     chmod 0600 "${LAST_GOOD}.tmp"
     mv -f "${LAST_GOOD}.tmp" "$LAST_GOOD"
-    save_config_backups "$work"
     rm -rf "$work"
     say "Откат завершён: ${current:0:12} -> ${target:0:12}"
 }
