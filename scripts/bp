@@ -252,6 +252,23 @@ do_rollback() {
         rm -rf "$work"
         die "Откат не завершён; исходная версия восстановлена насколько это возможно."
     fi
+    if [[ -f "$work/apache.changed" ]] && ! apachectl graceful; then
+        git -C "$ROOT" reset --hard "$current" || true
+        restore_configs "$work"
+        systemctl restart "$SERVICE" || true
+        rm -rf "$work"
+        die "Apache не перезагрузился; исходная версия восстановлена."
+    fi
+    if ! restart_and_check; then
+        git -C "$ROOT" reset --hard "$current" || true
+        restore_configs "$work"
+        if ! git -C "$ROOT" diff --quiet "$target" "$current" -- requirements-vds.lock; then
+            "${ROOT}/.venv/bin/python" -m pip install -r "${ROOT}/requirements-vds.lock" || true
+        fi
+        systemctl restart "$SERVICE" || true
+        rm -rf "$work"
+        die "Новая версия не прошла health check; исходная версия восстановлена."
+    fi
 
     printf '%s\n' "$current" > "${LAST_GOOD}.tmp"
     chmod 0600 "${LAST_GOOD}.tmp"
