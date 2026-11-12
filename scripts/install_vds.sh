@@ -69,8 +69,16 @@ if ! "${ROOT}/.venv/bin/python" -m pip --version >/dev/null 2>&1; then
     "${ROOT}/.venv/bin/python" -m ensurepip --upgrade
 fi
 
-echo "==> Установка Python-зависимостей из requirements.txt"
-"${ROOT}/.venv/bin/python" -m pip install -r "${ROOT}/requirements.txt"
+if [[ ! -f "${ROOT}/requirements-vds.lock" ]]; then
+    echo "Не найден requirements-vds.lock. Отказ от установки без зафиксированных зависимостей." >&2
+    exit 1
+fi
+
+echo "==> Установка зафиксированных Python-зависимостей"
+"${ROOT}/.venv/bin/python" -m pip install -r "${ROOT}/requirements-vds.lock"
+
+echo "==> Установка приложения из текущего checkout"
+"${ROOT}/.venv/bin/python" -m pip install --no-deps --no-build-isolation "${ROOT}"
 
 install -d -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" -m 0750 "${ROOT}/data" "${ROOT}/logs"
 if [[ ! -f "${ROOT}/settings.ini" ]]; then
