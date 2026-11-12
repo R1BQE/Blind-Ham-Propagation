@@ -22,7 +22,7 @@ Run as root from the repository checkout:
 bash scripts/install_vds.sh
 ```
 
-The installer is for **initial installation only**. It does not run `git pull` and refuses to run when the systemd service already exists. Prepare the checkout at the intended commit before invoking it. It prepares `.venv`, installs requirements, creates a restricted service account and configures the systemd service. By default Uvicorn listens on `127.0.0.1:8765`. The installer does not configure Apache or expose Uvicorn publicly.
+The installer is for **initial installation only**. It does not run `git pull` and refuses to run when the systemd service already exists. Prepare the checkout at the intended commit before invoking it. It prepares `.venv`, installs the exact versions from `requirements-vds.lock`, installs the checked-out application without resolving a second set of dependencies, creates a restricted service account and configures the systemd service. By default Uvicorn listens on `127.0.0.1:8765`. The installer does not configure Apache or expose Uvicorn publicly.
 
 Do not use this installer to update an existing production deployment. The production update procedure is being replaced by a transactional release-based updater; until that procedure is deployed and verified, update the VDS manually only under a separately prepared backup and rollback plan.
 
@@ -45,7 +45,7 @@ enabled = true
 topics = pskr/filter/v2/20m/FT8/#
 ```
 
-First-run setup creates this file with collection enabled. MQTT connects only while at least one visitor has the observations tab open. Existing settings are not overwritten. The file is excluded from Git.
+First-run setup creates this file with collection enabled. MQTT connects only while at least one visitor has the observations tab open. Existing settings are not overwritten. The file is excluded from Git. Production VDS dependencies are pinned in `requirements-vds.lock`; update that lock deliberately and validate it in the dedicated CI job before deployment.
 
 For a release-based deployment, persistent paths must not be derived from the selected release directory. Set these systemd environment variables to stable paths shared by all releases:
 
