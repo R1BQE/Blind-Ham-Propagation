@@ -33,8 +33,20 @@ if ! python3 -m venv --help >/dev/null 2>&1; then
     fi
 fi
 
-echo "==> Обновление репозитория: ${ROOT}"
-git -C "${ROOT}" pull --ff-only
+if systemctl cat "${SERVICE_NAME}.service" >/dev/null 2>&1; then
+    echo "Служба ${SERVICE_NAME} уже установлена." >&2
+    echo "Этот скрипт предназначен только для первоначальной установки." >&2
+    echo "Для обновления используй штатный механизм bp-update." >&2
+    exit 1
+fi
+
+if [[ ! -d "${ROOT}/.git" ]]; then
+    echo "Каталог ${ROOT} не является Git checkout." >&2
+    echo "Сначала клонируй репозиторий на нужный коммит." >&2
+    exit 1
+fi
+
+echo "==> Первоначальная установка из checkout: ${ROOT}"
 
 if ! getent group "${SERVICE_GROUP}" >/dev/null 2>&1; then
     groupadd --system "${SERVICE_GROUP}"
@@ -57,9 +69,8 @@ if ! "${ROOT}/.venv/bin/python" -m pip --version >/dev/null 2>&1; then
     "${ROOT}/.venv/bin/python" -m ensurepip --upgrade
 fi
 
-echo "==> Обновление Python-зависимостей"
-"${ROOT}/.venv/bin/python" -m pip install --upgrade pip
-"${ROOT}/.venv/bin/python" -m pip install --upgrade -r "${ROOT}/requirements.txt"
+echo "==> Установка Python-зависимостей из requirements.txt"
+"${ROOT}/.venv/bin/python" -m pip install -r "${ROOT}/requirements.txt"
 
 install -d -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" -m 0750 "${ROOT}/data" "${ROOT}/logs"
 if [[ ! -f "${ROOT}/settings.ini" ]]; then
