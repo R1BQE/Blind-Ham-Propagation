@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from backend.app.services.psk_reporter import SpotFormatError, parse_spot
+from backend.app.services.runtime_paths import settings_file_path
 from backend.app.services.spot_store import SpotStore
 
 logger = logging.getLogger(__name__)
@@ -30,7 +31,7 @@ SUPPORTED_MODES = (
     "FT8", "FT4", "JS8", "JT65", "JT9", "MSK144",
     "PSK31", "PSK63", "RTTY", "OLIVIA", "MFSK", "WSPR",
 )
-SETTINGS_PATH = Path(__file__).resolve().parents[3] / "settings.ini"
+SETTINGS_PATH = settings_file_path()
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
