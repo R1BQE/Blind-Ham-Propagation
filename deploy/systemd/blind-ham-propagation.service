@@ -8,12 +8,10 @@ Wants=network-online.target
 Type=simple
 User=blindham-prop
 Group=blindham-prop
-WorkingDirectory=/var/www/html/blind-prop/current
+WorkingDirectory=/var/www/html/blind-prop
 Environment=PYTHONUNBUFFERED=1
 Environment=PYTHONDONTWRITEBYTECODE=1
-Environment=BLIND_HAM_DATA_DIR=/var/www/html/blind-prop/data
-Environment=BLIND_HAM_SETTINGS_FILE=/var/www/html/blind-prop/settings.ini
-ExecStart=/var/www/html/blind-prop/current/.venv/bin/uvicorn backend.app.main:app \
+ExecStart=/var/www/html/blind-prop/.venv/bin/uvicorn backend.app.main:app \
     --host 127.0.0.1 --port 8765 --workers 1 \
     --proxy-headers --forwarded-allow-ips 127.0.0.1 \
     --no-server-header
@@ -22,7 +20,7 @@ RestartSec=5
 TimeoutStopSec=20
 KillSignal=SIGTERM
 
-# Keep application releases read-only; only persistent runtime data is writable.
+# Ограничения
 NoNewPrivileges=true
 PrivateTmp=true
 PrivateDevices=true
@@ -36,7 +34,7 @@ RestrictNamespaces=true
 LockPersonality=true
 MemoryDenyWriteExecute=false
 ReadWritePaths=/var/www/html/blind-prop/data /var/www/html/blind-prop/logs
-ReadOnlyPaths=/var/www/html/blind-prop/releases
+ReadOnlyPaths=/var/www/html/blind-prop
 
 StandardOutput=journal
 StandardError=journal
