@@ -102,3 +102,12 @@ def test_required_fields_are_validated(tmp_path):
 def test_store_limits_must_be_positive(tmp_path, kwargs):
     with pytest.raises(ValueError):
         SpotStore(tmp_path / "spots.sqlite3", **kwargs)
+
+
+def test_default_database_path_uses_shared_data_directory(monkeypatch, tmp_path):
+    from backend.app.services import spot_store
+
+    shared = tmp_path / "persistent-data"
+    monkeypatch.setenv("BLIND_HAM_DATA_DIR", str(shared))
+
+    assert spot_store.default_database_path() == shared / "psk_reporter.sqlite3"
