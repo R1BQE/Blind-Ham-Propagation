@@ -51,7 +51,7 @@
     if(payload?.data?.solardata)bandsTable(fragment,solar);else{const missing=el(fragment,"section",undefined,"result-card");el(missing,"h3","Общие условия на КВ");el(missing,"p","HamQSL сейчас не передал данные об условиях по диапазонам.");}
     if(payload.drap){const d=el(fragment,"section",undefined,"result-card");el(d,"h3","Поглощение КВ-сигналов");el(d,"p","NOAA D-RAP моделирует поглощение в нижней части ионосферы. Это не измерение на антенне и не MUF.");el(d,"p",`Рентгеновское излучение: ${payload.drap.xray_message||"Нет данных"}`);el(d,"p",`Солнечные протоны: ${payload.drap.proton_message||"Нет данных"}`);el(d,"p",`Модель актуальна на: ${time(payload.drap.valid_at)}`,"muted");}
     el(fragment,"p",`HamQSL обновил данные: ${time(solar.updated)}. Ответ получен сервером: ${payload.retrieved_at||"время не указано"}.`,"muted");
-    if(payload.cache?.hit)el(fragment,"p","Используется кэш сервера; запрос к HamQSL выполняется не чаще одного раза в 15 минут.","muted");
+    if(payload.cache?.hit)el(fragment,"p","Используется кэш сервера; запрос к HamQSL выполняется не чаще одного раза в 60 минут.","muted");
     return fragment;
   }
   function details(payload,noaa){
@@ -62,9 +62,7 @@
     if(solar&&typeof solar==="object"){
       const h=el(fragment,"section",undefined,"result-card");el(h,"h3","Показатели HamQSL");el(h,"p",`Время обновления по HamQSL: ${time(solar.updated)}`,"muted");const list=el(h,"dl",undefined,"measurements solar-measurements observation-details");
       for(const [tag,title,explanation] of definitions){let value=val(solar[tag]);if(tag==="latdegree"&&value!=="Нет данных")value+="°";if(tag==="solarwind"&&value!=="Нет данных")value+=" км/с";const dd=measurement(list,title,value);help(dd,explanation);}
-      const c=el(fragment,"section",undefined,"result-card");el(c,"h3","Сопоставление показателей");el(c,"p","Похожие показатели показаны рядом, но не объединены. Различия могут быть связаны со временем, усреднением и методикой.","muted");
-      const pairs=[["F10.7",solar.solarflux,noaa?.solar_flux],["K / Kp",solar.kindex,noaa?.kp],["Скорость солнечного ветра",solar.solarwind,noaa?.solar_wind_speed],["Магнитное поле Bz",solar.magneticfield,noaa?.magnetic_field_bz]].filter(([,a,b])=>raw(a)&&b?.value!==null&&b?.value!==undefined);
-      if(pairs.length){const t=el(c,"table",undefined,"data-table");el(t,"caption","Значения источников без усреднения");const th=el(t,"thead");const hr=el(th,"tr");for(const s of ["Показатель","HamQSL","NOAA"])el(hr,"th",s).scope="col";const body=el(t,"tbody");for(const [name,a,b] of pairs){const r=el(body,"tr");el(r,"th",name).scope="row";el(r,"td",raw(a));el(r,"td",`${b.value} ${b.unit||""}`.trim());}}else el(c,"p","Пока нет показателей для сопоставления.");
+      const c=el(fragment,"section",undefined,"result-card");el(c,"h3","Сопоставление источников");el(c,"p","Показатели NOAA и HamQSL приведены раздельно. Автоматическое сравнение отключено: даже похожие названия не гарантируют одинаковые методику, период усреднения и географическую область. Индекс K HamQSL не подменяет планетарный Kp NOAA, а магнитное поле Bz нельзя сравнивать с полной силой поля или неопределённым полем magneticfield. Время и единицы каждого источника указаны отдельно.","muted");
       renderVhf(fragment,solar);
     }else el(fragment,"section","HamQSL не передал данные. Остальные источники могут быть доступны независимо.","result-card");
     if(payload?.drap){const d=el(fragment,"section",undefined,"result-card");el(d,"h3","NOAA D-RAP — модель поглощения");el(d,"p",payload.drap.description||"Модельная оценка поглощения в D-области. Это не MUF.");el(d,"p",`Рентгеновское излучение: ${payload.drap.xray_message||"Нет данных"}`);el(d,"p",`Солнечные протоны: ${payload.drap.proton_message||"Нет данных"}`);el(d,"p",`Время актуальности: ${payload.drap.valid_at||"не указано"}; получено сервером: ${payload.drap.retrieved_at||"не указано"}`,"muted");}
