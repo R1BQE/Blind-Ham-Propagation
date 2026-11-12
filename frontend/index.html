@@ -43,7 +43,7 @@
           <button type="button" id="solar-refresh">Обновить данные солнечной активности</button>
         </div>
         <p id="solar-status" class="status" role="status" aria-live="polite">Данные ещё не загружены.</p>
-        <div id="solar-report" class="report" aria-live="polite" aria-busy="false"></div>
+        <div id="solar-report" class="report" role="region" aria-label="Сводка солнечной активности" aria-busy="false"></div>
       </section>
       <section class="panel" aria-labelledby="service-heading">
         <h2 id="service-heading">Состояние сервиса</h2>
@@ -167,7 +167,7 @@
       <section class="panel" aria-labelledby="details-heading">
         <h2 id="details-heading">Что означают показатели</h2>
         <p>Здесь собраны исходные измерения, сравнение источников и пояснения. NOAA, HamQSL и D-RAP показаны раздельно: это разные данные и модели.</p>
-        <div id="solar-details-report" class="report" aria-live="polite" aria-busy="false">
+        <div id="solar-details-report" class="report" role="region" aria-label="Подробные показатели солнечной активности" aria-busy="false">
           <p class="muted">Подробные данные появятся после загрузки общей обстановки.</p>
         </div>
       </section>
