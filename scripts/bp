@@ -252,6 +252,9 @@ do_rollback() {
     if [[ -f "$work/apache.changed" ]] && ! apachectl graceful; then
         git -C "$ROOT" reset --hard "$current" || true
         restore_configs "$work"
+        if ! git -C "$ROOT" diff --quiet "$target" "$current" -- requirements-vds.lock; then
+            "${ROOT}/.venv/bin/python" -m pip install -r "${ROOT}/requirements-vds.lock" || true
+        fi
         systemctl restart "$SERVICE" || true
         rm -rf "$work"
         die "Apache не перезагрузился; исходная версия восстановлена."
