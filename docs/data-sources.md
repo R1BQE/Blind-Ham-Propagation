@@ -27,7 +27,7 @@ D-RAP is not MUF and must not be described as an MUF forecast or a guarantee tha
 
 Endpoint: https://www.hamqsl.com/solarxml.php
 
-The service fetches the XML feed through the backend. The current client uses a bounded in-memory cache and parses XML while preserving attributes and repeated elements. The feed includes a mixture of solar/geomagnetic indicators, calculated HF band conditions, VHF condition notices and MUF-related fields.
+The service fetches the XML feed through the backend. The current client uses a shared in-memory cache with a 60-minute lifetime and parses XML while preserving attributes and repeated elements. The feed includes a mixture of solar/geomagnetic indicators, calculated HF band conditions, VHF condition notices and MUF-related fields.
 
 Important interpretation rules:
 - Keep the original field name and provider metadata available during normalization.
@@ -77,7 +77,7 @@ Never choose a value solely because it looks more plausible. For every proposed 
 6. Provider quality flags and known limitations?
 7. Is one feed stale, provisional or missing?
 
-If all criteria support comparison, the application may select a preferred source using an explicit documented rule and show the source/time. If criteria do not support comparison, show the values separately and explain the difference. Do not average incompatible values.
+If all criteria support comparison, the application may select a preferred source using an explicit documented rule and show the source/time. If criteria do not support comparison, show the values separately and explain the difference. Do not average incompatible values. The current solar monitor deliberately does not automatically compare NOAA and HamQSL measurements: similar labels alone are insufficient to establish equivalent definitions, averaging periods or geographic scope.
 
 ## General data-quality rules
 
