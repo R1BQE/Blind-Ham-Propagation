@@ -1,5 +1,7 @@
 import asyncio
+import configparser
 import os
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
@@ -7,7 +9,11 @@ from pydantic import BaseModel, Field
 from backend.app.services.drap import get_drap
 from backend.app.services.hamqsl import get_hamqsl_data
 from backend.app.services.local_report import build_local_report
-from backend.app.services.maidenhead import LocatorError, locator_to_center
+from backend.app.services.maidenhead import (
+    LocatorError,
+    coordinates_to_locator,
+    locator_to_center,
+)
 from backend.app.services.noaa import get_space_weather
 from backend.app.services.regional_report import build_regional_report
 from backend.app.services.spot_store import SpotStore
@@ -23,6 +29,12 @@ class LocatorResponse(BaseModel):
     locator: str
     latitude: float
     longitude: float
+
+
+class CoordinatesRequest(BaseModel):
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    accuracy_m: float | None = Field(default=None, gt=0, le=100_000)
 
 
 class PSKSubscriptionRequest(BaseModel):
@@ -129,6 +141,43 @@ async def validate_locator(payload: LocatorRequest) -> LocatorResponse:
         longitude=round(longitude, 6),
     )
 
+
+
+
+@router.get("/config/public")
+async def public_config() -> dict[str, str | bool]:
+    """Return browser-facing configuration; the Yandex JS key is public by design."""
+    settings_path = Path(__file__).resolve().parents[3] / "settings.ini"
+    parser = configparser.ConfigParser()
+    if settings_path.exists():
+        parser.read(settings_path, encoding="utf-8")
+    key = os.getenv("YANDEX_MAPS_JS_API_KEY", "").strip()
+    if not key and parser.has_section("yandex_maps"):
+        key = parser.get("yandex_maps", "javascript_api_key", fallback="").strip()
+    return {
+        "yandex_maps_enabled": bool(key),
+        "yandex_maps_api_key": key,
+    }
+
+
+@router.post("/locator/from-coordinates")
+async def locator_from_coordinates(payload: CoordinatesRequest) -> dict[str, float | str | int]:
+    """Convert browser/device coordinates into a Maidenhead locator."""
+    try:
+        locator, precision = coordinates_to_locator(
+            payload.latitude,
+            payload.longitude,
+            payload.accuracy_m,
+        )
+    except LocatorError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {
+        "locator": locator,
+        "precision": precision,
+        "latitude": payload.latitude,
+        "longitude": payload.longitude,
+        "accuracy_m": payload.accuracy_m,
+    }
 
 @router.get("/solar/activity")
 async def solar_activity() -> dict:
