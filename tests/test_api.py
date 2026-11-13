@@ -91,8 +91,12 @@ def test_coordinate_locator_endpoint_rejects_invalid_coordinates():
     assert response.status_code == 422
 
 
-def test_public_config_reads_yandex_key_from_environment(monkeypatch):
+def test_public_config_reads_yandex_key_from_environment(monkeypatch, tmp_path):
     monkeypatch.setenv("YANDEX_MAPS_JS_API_KEY", "test-browser-key")
+    monkeypatch.setattr(
+        "backend.app.api.routes.SETTINGS_PATH",
+        tmp_path / "settings.ini",
+    )
     response = client.get("/api/v1/config/public")
     assert response.status_code == 200
     assert response.json() == {
@@ -101,8 +105,30 @@ def test_public_config_reads_yandex_key_from_environment(monkeypatch):
     }
 
 
-def test_public_config_reports_maps_disabled_without_key(monkeypatch):
+def test_public_config_reads_yandex_key_from_settings_file(monkeypatch, tmp_path):
     monkeypatch.delenv("YANDEX_MAPS_JS_API_KEY", raising=False)
+    settings_path = tmp_path / "settings.ini"
+    settings_path.write_text(
+        "[yandex_maps]\njavascript_api_key = test-file-key\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("backend.app.api.routes.SETTINGS_PATH", settings_path)
+
+    response = client.get("/api/v1/config/public")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "yandex_maps_enabled": True,
+        "yandex_maps_api_key": "test-file-key",
+    }
+
+
+def test_public_config_reports_maps_disabled_without_key(monkeypatch, tmp_path):
+    monkeypatch.delenv("YANDEX_MAPS_JS_API_KEY", raising=False)
+    monkeypatch.setattr(
+        "backend.app.api.routes.SETTINGS_PATH",
+        tmp_path / "settings.ini",
+    )
     response = client.get("/api/v1/config/public")
     assert response.status_code == 200
     assert response.json()["yandex_maps_enabled"] is False
