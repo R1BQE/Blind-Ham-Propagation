@@ -159,13 +159,20 @@ def test_radio_path_azimuth_is_always_from_transmitter_to_receiver():
     assert tx_item["station_distance_km"] == rx_item["station_distance_km"]
     assert tx_item["station_azimuth_degrees"] == pytest.approx(304.5)
     assert rx_item["station_azimuth_degrees"] == pytest.approx(33.5)
-    assert tx_item["station_azimuth"] == "СЗ"
-    assert rx_item["station_azimuth"] == "ССВ"
+    assert tx_item["station_azimuth"] == "Северо-запад"
+    assert rx_item["station_azimuth"] == "Северо-восток"
     assert tx_item["station_azimuth_degrees"] != rx_item["station_azimuth_degrees"]
 
 def test_regional_report_limits_latest_station_records_to_three():
     store = MemoryStore([
-        spot(f"R{i}ABC", f"W{i}XYZ", "KO59XX", "KO59XW", observed_at=10_000 - i)
+        spot(
+            f"R{i}ABC",
+            f"W{i}XYZ",
+            "KO59XX",
+            "KO59XW",
+            observed_at=10_000 - i,
+            band=["20m", "40m", "80m", "15m", "10m"][i],
+        )
         for i in range(5)
     ])
 
@@ -178,3 +185,5 @@ def test_regional_report_limits_latest_station_records_to_three():
 
     assert len(report["tx"]["latest"]) == 3
     assert len(report["rx"]["latest"]) == 3
+    assert [row["band"] for row in report["tx"]["latest"]] == ["20m", "40m", "80m"]
+    assert len({row["band"] for row in report["rx"]["latest"]}) == 3
