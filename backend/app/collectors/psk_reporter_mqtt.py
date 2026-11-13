@@ -61,6 +61,9 @@ class MQTTConfig:
                 "enabled": "true" if local_default else "false",
                 "topics": ",".join(DEFAULT_TOPIC_FILTERS),
             }
+            parser["yandex_maps"] = {
+                "javascript_api_key": "",
+            }
             try:
                 with SETTINGS_PATH.open("w", encoding="utf-8") as settings_file:
                     parser.write(settings_file)
