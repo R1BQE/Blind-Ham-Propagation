@@ -19,6 +19,7 @@ from backend.app.services.regional_report import build_regional_report
 from backend.app.services.spot_store import SpotStore
 
 router = APIRouter()
+SETTINGS_PATH = Path(__file__).resolve().parents[3] / "settings.ini"
 
 
 class LocatorRequest(BaseModel):
@@ -147,10 +148,9 @@ async def validate_locator(payload: LocatorRequest) -> LocatorResponse:
 @router.get("/config/public")
 async def public_config() -> dict[str, str | bool]:
     """Return browser-facing configuration; the Yandex JS key is public by design."""
-    settings_path = Path(__file__).resolve().parents[3] / "settings.ini"
     parser = configparser.ConfigParser()
-    if settings_path.exists():
-        parser.read(settings_path, encoding="utf-8")
+    if SETTINGS_PATH.exists():
+        parser.read(SETTINGS_PATH, encoding="utf-8")
     key = os.getenv("YANDEX_MAPS_JS_API_KEY", "").strip()
     if not key and parser.has_section("yandex_maps"):
         key = parser.get("yandex_maps", "javascript_api_key", fallback="").strip()
