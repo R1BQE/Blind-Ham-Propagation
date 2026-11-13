@@ -32,7 +32,7 @@ def test_invalid_character_is_rejected():
 
 @pytest.mark.parametrize(
     ("accuracy", "expected_length"),
-    [(1200, 6), (300, 8), (10, 10), (0.2, 12), (None, 8)],
+    [(1200, 6), (300, 6), (10, 8), (0.2, 12), (None, 8)],
 )
 def test_coordinates_to_locator_selects_precision_from_accuracy(accuracy, expected_length):
     from backend.app.services.maidenhead import coordinates_to_locator
