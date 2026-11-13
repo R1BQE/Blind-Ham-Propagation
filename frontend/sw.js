@@ -1,9 +1,10 @@
-const CACHE_NAME = "blind-ham-propagation-shell-v3";
+const CACHE_NAME = "blind-ham-propagation-shell-v4";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./css/app.css",
   "./js/app.js",
+  "./js/location-tools.js",
   "./manifest.webmanifest",
   "./icons/icon.svg"
 ];
