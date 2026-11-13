@@ -110,11 +110,6 @@
       el(li,"strong",`${title}: ${value}`);
       help(li,description);
     }
-    if(solar.magneticfield!==undefined){
-      const item=el(list,"li");
-      el(item,"strong",`Магнитное поле HamQSL: ${val(solar.magneticfield)}`);
-      help(item,"HamQSL не уточняет, какую именно составляющую магнитного поля показывает это поле. Поэтому его нельзя считать значением Bz или напрямую сравнивать с NOAA Bt/Bz.");
-    }
     if(solar.updated)el(card,"p",`Обновлено HamQSL: ${time(solar.updated)}.`,"muted");
     bandsTable(fragment,solar);
     renderVhf(fragment,solar);
@@ -136,6 +131,7 @@
     if(solar&&typeof solar==="object"){
       const h=el(fragment,"section",undefined,"result-card");el(h,"h3","Показатели HamQSL");el(h,"p",`Время обновления по HamQSL: ${time(solar.updated)}`,"muted");const list=el(h,"dl",undefined,"measurements solar-measurements observation-details");
       for(const [tag,title,explanation] of definitions){if(tag==="bz")continue;let value=val(solar[tag]);if(tag==="latdegree"&&value!=="Нет данных")value+="°";if(tag==="solarwind"&&value!=="Нет данных")value+=" км/с";if(tag==="muf"&&value!=="Нет данных")value+=" MHz";const dd=measurement(list,title,value);help(dd,explanation);}
+      if(solar.magneticfield!==undefined){const dd=measurement(list,"Поле magneticfield HamQSL",val(solar.magneticfield));help(dd,"HamQSL не уточняет, какую именно составляющую магнитного поля показывает это поле. Не считай его значением Bz и не сравнивай напрямую с Bt/Bz NOAA.");}
       const c=el(fragment,"section",undefined,"result-card");el(c,"h3","Сопоставление источников");el(c,"p","Показатели NOAA и HamQSL приведены раздельно. Автоматическое сравнение отключено: даже похожие названия не гарантируют одинаковые методику, период усреднения и географическую область. Индекс K HamQSL не подменяет планетарный Kp NOAA, а магнитное поле Bz нельзя сравнивать с полной силой поля или неопределённым полем magneticfield. Время и единицы каждого источника указаны отдельно.","muted");
       renderVhf(fragment,solar);
     }else el(fragment,"section","HamQSL не передал данные. Остальные источники могут быть доступны независимо.","result-card");
