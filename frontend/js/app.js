@@ -123,7 +123,7 @@ regionalLocatorForm.addEventListener("submit", async (event) => {
   }
 
   regionalLocatorSubmit.disabled = true;
-  regionalStatus.textContent = "Проверяем локатор и применяем MQTT-подписки…";
+  regionalStatus.textContent = "Проверяем локатор и применяем фильтры…";
   try {
     const validateResponse = await fetch(`${API}/locator/validate`, {
       method: "POST",
@@ -140,8 +140,8 @@ regionalLocatorForm.addEventListener("submit", async (event) => {
       body: JSON.stringify({ bands, modes }),
       cache: "no-store",
     });
-    const subscriptionData = await subscriptionResponse.json();
-    if (!subscriptionResponse.ok) throw new Error(subscriptionData.detail || "Не удалось изменить MQTT-подписки.");
+    const subscriptionResult = await subscriptionResponse.json();
+    if (!subscriptionResponse.ok) throw new Error(subscriptionResult.detail || "Не удалось применить фильтры радионаблюдений.");
 
     selectedBands = bands;
     selectedModes = modes;
@@ -157,8 +157,7 @@ regionalLocatorForm.addEventListener("submit", async (event) => {
     } catch {
       // Active settings remain in memory for this page.
     }
-    regionalStatus.textContent =
-      `Подписки обновлены: ${subscriptionData.topic_filters.length}. Ожидаем поток и загружаем накопленные наблюдения…`;
+    regionalStatus.textContent = "Параметры сохранены. Обновляем радионаблюдения…";
     await loadRegionalReport();
   } catch (error) {
     regionalLocatorError.textContent = error.message;
@@ -220,12 +219,10 @@ function activateTab(tab, moveFocus = false) {
   const sessionTabs = ["tab-local", "tab-spots"];
   if (sessionTabs.includes(tab.id)) {
     startPskReporterSession();
-    if (pskReporterSocket?.readyState === WebSocket.OPEN) {
-      if (tab.id === "tab-local") {
-        void loadLocalDashboard(locatorInput.value.trim().toUpperCase());
-      } else if (tab.id === "tab-spots") {
-        void loadRegionalReport();
-      }
+    if (tab.id === "tab-spots") {
+      void loadRegionalReport();
+    } else if (tab.id === "tab-local" && pskReporterSocket?.readyState === WebSocket.OPEN) {
+      void loadLocalDashboard(locatorInput.value.trim().toUpperCase());
     }
   } else if (sessionTabs.includes(previousTab?.id)) {
     stopPskReporterSession();
@@ -743,10 +740,10 @@ async function applyPskSubscriptions() {
       cache: "no-store",
     });
     const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || "Не удалось восстановить MQTT-подписки.");
+    if (!response.ok) throw new Error(data.detail || "Не удалось применить фильтры радионаблюдений.");
     return data;
-  } catch (error) {
-    regionalStatus.textContent = error.message;
+  } catch {
+    regionalStatus.textContent = "Не удалось подключить службу радионаблюдений.";
     return null;
   }
 }
