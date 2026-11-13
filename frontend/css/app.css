@@ -256,3 +256,8 @@ button.secondary-button {
   .dialog-content { max-height: 92vh; }
   .yandex-map { min-height: 14rem; }
 }
+
+#locator-address-query {
+  text-transform: none;
+  letter-spacing: normal;
+}
