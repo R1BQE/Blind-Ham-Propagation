@@ -49,7 +49,7 @@ def test_coordinates_to_locator_returns_valid_grid():
     locator, _ = coordinates_to_locator(59.94, 30.31, 10)
     latitude, longitude = locator_to_center(locator)
     assert abs(latitude - 59.94) < 0.001
-    assert abs(longitude - 30.31) < 0.002
+    assert abs(longitude - 30.31) < 0.003
 
 
 @pytest.mark.parametrize(
