@@ -74,13 +74,13 @@ def test_regional_psk_report_rejects_invalid_locator(monkeypatch):
 def test_coordinate_locator_endpoint_selects_precision():
     response = client.post(
         "/api/v1/locator/from-coordinates",
-        json={"latitude": 59.94, "longitude": 30.31, "accuracy_m": 12},
+        json={"latitude": 59.94, "longitude": 30.31, "accuracy_m": 5},
     )
     assert response.status_code == 200
     payload = response.json()
     assert len(payload["locator"]) == 10
     assert payload["precision"] == 10
-    assert payload["accuracy_m"] == 12
+    assert payload["accuracy_m"] == 5
 
 
 def test_coordinate_locator_endpoint_rejects_invalid_coordinates():
