@@ -1,54 +1,87 @@
-# Production updates on the Debian VDS
+# Разработка, установка и обновление
 
-The production installation stays in its existing directory:
+**Язык:** Русский | [English](en/development-and-deployment.md)
+
+## Локальная разработка
+
+Требуется Python 3.11 или новее. Создай виртуальное окружение и установи зависимости разработки:
+
+```bash
+python -m venv .venv
+# Windows PowerShell:
+.\.venv\Scripts\Activate.ps1
+# Debian/Linux:
+source .venv/bin/activate
+python -m pip install -e ".[dev]"
+python -m pytest tests -q
+```
+
+В Windows для обычного локального запуска используй `run-windows.bat`. Он обновляет локальный код, подготавливает окружение, запускает backend и открывает приложение. Ручной запуск Uvicorn не заменяет все механизмы жизненного цикла локального launcher.
+
+## Production VDS
+
+Текущая production-установка находится в каталоге:
 
 `/var/www/html/blind-prop`
 
-There is no release directory tree, no `current` symlink, and no separate virtual environment per version. The existing `.venv`, database, settings file, logs, Apache VirtualHost and service account remain in place.
+Приложение работает как служба systemd `blind-ham-propagation`. Uvicorn слушает только `127.0.0.1:8765`; публичные запросы проходят через Apache reverse proxy. Не публикуй порт Uvicorn напрямую в интернет.
 
-## First transition from the legacy updater
+Существующая установка использует один рабочий каталог, одно виртуальное окружение `.venv`, локальные настройки, базу данных и журналы. Отдельные каталоги релизов и переключение symlink `current` не используются.
 
-The production VDS may already have an older `/usr/local/sbin/bp` dispatcher. Do not overwrite it before the new updater has been staged and reviewed.
+## Ручные команды обновления
 
-After the repository changes are merged and the server has fetched `origin/main`, prepare a separate bootstrap copy as root:
+Команды выполняются от root:
 
-```sh
-git -C /var/www/html/blind-prop show origin/main:scripts/bp > /tmp/bp-bootstrap
-bash -n /tmp/bp-bootstrap
-install -o root -g root -m 0755 /tmp/bp-bootstrap /usr/local/sbin/bp-bootstrap
-rm -f /tmp/bp-bootstrap
+- `bp status` — показывает установленный Git-коммит, ветку, состояние службы, локальную health-проверку и коммит для отката.
+- `bp update` — получает изменения из `origin/main` через fast-forward, устанавливает зафиксированные зависимости только при изменении `requirements-vds.lock`, запускает тесты, проверяет изменённые конфигурации systemd/Apache, перезапускает службу и проверяет локальный health endpoint.
+- `bp rollback` — возвращает предыдущий успешно развёрнутый коммит и соответствующие зависимости/конфигурацию.
+
+Для обычного обновления достаточно выполнить:
+
+```bash
+bp status
+bp update
+bp status
 ```
 
-The bootstrap is deliberately installed under a different name. The legacy `/usr/local/sbin/bp` remains untouched until the first update has passed its tests, configuration validation, service restart and local health check. When invoked by its absolute path as `/usr/local/sbin/bp-bootstrap update`, the successful bootstrap atomically replaces the legacy dispatcher with a symlink to `/var/www/html/blind-prop/scripts/bp`. If the update fails, the legacy dispatcher remains in place.
+Обновлятор использует эксклюзивную блокировку и отказывается работать, если в отслеживаемых файлах есть локальные изменения или checkout находится не в ветке `main`. Он не выполняет stash и не удаляет локальные изменения. Перед запуском убедись, что рабочая копия чистая.
 
-Do not run the initial update until the separate production preflight and backup checks have been reviewed.
+## Что именно обновляется
 
-## Commands
+- Backend и frontend — fast-forward из `origin/main`.
+- Python-зависимости — из `requirements-vds.lock`, только если lock-файл изменился.
+- systemd — только если шаблон службы в репозитории отличается от установленного; перед применением выполняется `systemd-analyze verify`.
+- Apache — только если отслеживаемый фрагмент отличается от установленного; перед применением выполняется `apachectl configtest`, после изменения — graceful reload.
 
-- `bp status` — show the checked-out commit, service state, local health and saved rollback commit.
-- `bp update` — fast-forward from `origin/main`, install pinned dependencies only when `requirements-vds.lock` changes, run tests, validate changed systemd/Apache files, restart and check health.
-- `bp rollback` — return to the previous successfully deployed commit and restore the matching dependencies/configuration.
+Существующий HTTPS VirtualHost, сертификаты, DNS, firewall и посторонняя конфигурация Apache не заменяются.
 
-Run commands as root. The updater takes an exclusive lock and refuses to run if tracked files have local modifications or the checkout is not on `main`. It never stashes or discards local changes.
+Перед перезапуском обновлятор запускает pytest. Обязательна успешная локальная проверка `http://127.0.0.1:8765/api/v1/health`. Публичный health endpoint проверяется дополнительно; временная внешняя ошибка не отменяет успешную локальную проверку.
 
-## What is updated
+## Откат и сохранность данных
 
-- Backend and frontend: `git pull --ff-only origin main`.
-- Python dependencies: installed from `requirements-vds.lock` only when that file changes.
-- systemd: updated only when the tracked unit template differs from the installed unit; checked with `systemd-analyze verify`.
-- Apache: updated only when the tracked fragment differs from the installed fragment; checked with `apachectl configtest` and gracefully reloaded only when changed.
-- The existing HTTPS VirtualHost, certificates, DNS, firewall and unrelated Apache configuration are not changed.
+Перед изменениями кода и конфигурации обновлятор запоминает предыдущий Git-коммит. При замене файлов Apache/systemd сохраняются копии в каталоге `backups/`. Если установка зависимостей, тесты, проверка конфигурации, перезапуск или локальная health-проверка завершаются ошибкой, обновлятор пытается вернуть предыдущий коммит и восстановить изменённые конфигурационные файлы. Успешный откат подтверждается повторной проверкой кода, конфигурации, зависимостей и локального health.
 
-The updater runs `pytest` before restarting. A successful local check is required at `http://127.0.0.1:8765/api/v1/health`. The public health URL is checked afterward for information but a temporary external failure does not undo a healthy local deployment.
+SQLite-база PSK Reporter — временный ограниченный кэш, а не долговременное пользовательское хранилище. Она может быть заполнена заново из новых наблюдений и намеренно не архивируется и не восстанавливается обновлятором. Обычный откат кода оставляет текущий файл базы на месте и не подменяет его старой копией. Приложение ограничивает кэш 50 000 записями и применяет настроенное ограничение по возрасту.
 
-## Rollback and data
+Обновлятор не перезаписывает `settings.ini`, `data/` и `logs/`. Резервные копии старых конфигурационных файлов сохраняются; их очистка — отдельная ручная операция.
 
-Before changing code or configuration, the updater remembers the previous Git commit and keeps copies of any replaced Apache/systemd files under `backups/`. If dependency installation, tests, configuration validation, restart or local health check fails, it returns to the previous commit and restores changed configuration files.
+## Локальные настройки
 
-The PSK Reporter SQLite database is a temporary bounded cache, not durable user data. It can be rebuilt from new observations and is deliberately not backed up or restored by the updater. Ordinary code rollback leaves the current database file alone; it does not replace it with an older snapshot. The application itself limits the cache to 50,000 records and applies its configured age retention.
+Файл `settings.ini` находится в корне рабочей копии и не должен попадать в Git. Он содержит локальные настройки сборщика PSK Reporter, в частности секцию `[psk_reporter]`, параметр `enabled` и список MQTT-топиков `topics`. Перед изменением поведения сборщика проверь фактическое содержимое файла на конкретной машине. Не публикуй его, если в нём присутствуют локальные или чувствительные настройки.
 
-The updater does not overwrite `settings.ini`, `data/` or `logs/`. Old config backups are retained; cleanup is a separate manual task.
+Установщик создаёт начальный `settings.ini`, если файла ещё нет. При обновлении существующий файл сохраняется.
 
-## Important
+## Первоначальная установка
 
-The existing `/usr/local/sbin/bp-update` is the old updater and must not be used for production updates. Install and use the new `bp` command instead. The repository installer `scripts/install_vds.sh` is for initial installation only; it is not an update command.
+`scripts/install_vds.sh` предназначен только для первоначальной установки на Debian VDS. Он создаёт системного пользователя и службу, виртуальное окружение, устанавливает зависимости из `requirements-vds.lock`, готовит рабочие каталоги и начальные настройки.
+
+Если служба `blind-ham-propagation` уже установлена, скрипт откажется выполнять повторную установку и сообщит об использовании команды `bp update`. Не используй установщик для обновления существующего сервера.
+
+## Диагностика
+
+- Состояние службы: `systemctl status blind-ham-propagation`.
+- Журнал службы: `journalctl -u blind-ham-propagation -f`.
+- Локальная проверка API: `curl --fail http://127.0.0.1:8765/api/v1/health`.
+- Состояние обновлятора: `bp status`.
+
+При критической ошибке автоматического отката не считай сервер восстановленным, пока отдельно не проверены Git-коммит, зависимости, конфигурации, состояние systemd-службы и локальный health endpoint.
