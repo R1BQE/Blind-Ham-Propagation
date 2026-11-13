@@ -16,7 +16,7 @@
     <div class="container">
       <p class="eyebrow">Радиосвязь и солнечная активность</p>
       <h1>Blind-Ham Propagation</h1>
-      <p class="lead">Смотри, как солнечная активность влияет на радиосвязь и какие станции принимают передачи друг друга.</p>
+      <p class="lead">Смотри, как солнечная активность влияет на прохождение радиоволн и какие станции принимают друг друга.</p>
     </div>
   </header>
   <main id="main" class="container">
@@ -37,7 +37,7 @@
     <section class="tab-panel" id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" tabindex="0">
       <section class="panel" aria-labelledby="solar-heading">
         <h2 id="solar-heading">Солнечная активность</h2>
-        <p>Показываем, насколько активны Солнце и магнитное поле Земли. Это влияет на дальнюю радиосвязь.</p>
+        <p>Солнечные вспышки и магнитные бури могут как улучшить, так и ухудшить прохождение радиоволн. Здесь собраны показатели, которые помогают понять, что происходит.</p>
         <div class="solar-controls">
           <label><input type="checkbox" id="solar-show-hints" checked> Пояснять показатели</label>
           <button type="button" id="solar-refresh">Обновить данные</button>
@@ -55,10 +55,10 @@
     <section class="tab-panel" id="panel-local" role="tabpanel" aria-labelledby="tab-local" tabindex="0" hidden>
       <section class="panel" aria-labelledby="local-heading">
         <h2 id="local-heading">Условия в моём районе</h2>
-        <p id="locator-help">Введи код своего района — радиолюбительский локатор. Покажем солнечные условия и какие станции принимают передачи поблизости.</p>
+        <p id="locator-help">Введи свой QTH-локатор (Maidenhead). По нему определим примерное положение станции и покажем условия для радиосвязи и наблюдения поблизости.</p>
         <form id="locator-form" novalidate>
           <div class="form-row">
-            <label for="locator">Код моего района (локатор)</label>
+            <label for="locator">Мой QTH-локатор (Maidenhead)</label>
             <input id="locator" name="locator" type="text" inputmode="text"
               autocomplete="off" autocapitalize="characters" spellcheck="false"
               maxlength="12" minlength="2" aria-describedby="locator-help locator-error"
@@ -75,7 +75,7 @@
     <section class="tab-panel" id="panel-spots" role="tabpanel" aria-labelledby="tab-spots" tabindex="0" hidden>
       <section class="panel" aria-labelledby="spots-heading">
         <h2 id="spots-heading">Кто кого принимает</h2>
-        <p>Здесь видно, какие станции приняли передачи друг друга. Укажи свой район, чтобы найти наблюдения поблизости.</p>
+        <p>Здесь собраны споты PSK Reporter: кто, кого, на каком диапазоне и в каком режиме принял. Укажи свой QTH-локатор, чтобы найти наблюдения поблизости.</p>
         <button type="button" id="psk-status-refresh">Проверить связь с сервером</button>
         <p id="psk-status" class="status" role="status" aria-live="polite">Состояние сборщика ещё не проверено.</p>
         <div id="psk-report" class="report" aria-live="polite" aria-busy="false"></div>
@@ -189,7 +189,7 @@
             <input id="settings-radius" name="radius" type="number" min="1" max="1000"
               step="1" value="100" required>
           </div>
-          <p id="settings-help" class="muted">Локатор задаёт район, а не точный адрес. Поэтому расстояния примерные.</p>
+          <p id="settings-help" class="muted">QTH-локатор Maidenhead задаёт координаты с определённой точностью, а не точный адрес. Поэтому расстояния до станций примерные.</p>
           <p id="settings-error" class="field-error" role="alert"></p>
           <button type="submit" id="settings-save">Сохранить настройки</button>
         </form>
