@@ -14,33 +14,33 @@
   <a class="skip-link" href="#main">Перейти к основному содержимому</a>
   <header class="site-header">
     <div class="container">
-      <p class="eyebrow">Радиолюбительский мониторинг</p>
+      <p class="eyebrow">Радиосвязь и солнечная активность</p>
       <h1>Blind-Ham Propagation</h1>
-      <p class="lead">Узнай, что происходит с Солнцем, как это может влиять на радиосвязь и какие станции сейчас слышат друг друга.</p>
+      <p class="lead">Смотри, как солнечная активность влияет на радиосвязь и какие станции принимают передачи друг друга.</p>
     </div>
   </header>
   <main id="main" class="container">
     <p class="muted time-zone-note">Время во всех разделах показывается по часовому поясу компьютера или устройства. Период наблюдений — это последние выбранные часы от текущего момента; часовой пояс влияет только на отображение времени, а не на длительность периода.</p>
     <div class="tabs" role="tablist" aria-label="Разделы сервиса" aria-orientation="horizontal">
       <button type="button" class="tab" id="tab-overview" role="tab" aria-selected="true"
-        aria-controls="panel-overview" tabindex="0">Общая обстановка</button>
+        aria-controls="panel-overview" tabindex="0">Обзор</button>
       <button type="button" class="tab" id="tab-local" role="tab" aria-selected="false"
-        aria-controls="panel-local" tabindex="-1">Мой локатор</button>
+        aria-controls="panel-local" tabindex="-1">Мой район</button>
       <button type="button" class="tab" id="tab-spots" role="tab" aria-selected="false"
-        aria-controls="panel-spots" tabindex="-1">Радионаблюдения</button>
+        aria-controls="panel-spots" tabindex="-1">Станции</button>
       <button type="button" class="tab" id="tab-details" role="tab" aria-selected="false"
-        aria-controls="panel-details" tabindex="-1">Подробные данные</button>
+        aria-controls="panel-details" tabindex="-1">Данные</button>
       <button type="button" class="tab" id="tab-settings" role="tab" aria-selected="false"
         aria-controls="panel-settings" tabindex="-1">Настройки</button>
     </div>
 
     <section class="tab-panel" id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" tabindex="0">
       <section class="panel" aria-labelledby="solar-heading">
-        <h2 id="solar-heading">Что сейчас происходит на Солнце и вокруг Земли</h2>
-        <p>Эти данные помогают оценить солнечные и геомагнитные условия, которые могут влиять на КВ-связь. Для просмотра не нужен твой локатор.</p>
+        <h2 id="solar-heading">Солнечная активность</h2>
+        <p>Показываем, насколько активны Солнце и магнитное поле Земли. Это влияет на дальнюю радиосвязь.</p>
         <div class="solar-controls">
-          <label><input type="checkbox" id="solar-show-hints" checked> Показывать пояснения к показателям</label>
-          <button type="button" id="solar-refresh">Обновить данные солнечной активности</button>
+          <label><input type="checkbox" id="solar-show-hints" checked> Пояснять показатели</label>
+          <button type="button" id="solar-refresh">Обновить данные</button>
         </div>
         <p id="solar-status" class="status" role="status" aria-live="polite">Данные ещё не загружены.</p>
         <div id="solar-report" class="report" role="region" aria-label="Сводка солнечной активности" aria-busy="false"></div>
@@ -54,18 +54,18 @@
 
     <section class="tab-panel" id="panel-local" role="tabpanel" aria-labelledby="tab-local" tabindex="0" hidden>
       <section class="panel" aria-labelledby="local-heading">
-        <h2 id="local-heading">Что сейчас происходит в районе моей станции</h2>
-        <p id="locator-help">Укажи свой радиолюбительский локатор. Здесь мы сопоставим солнечную и геомагнитную обстановку, освещённость твоего района, оценку поглощения радиосигналов и реальные приёмы станций поблизости. Отдельно покажем, на каких диапазонах сейчас больше всего наблюдений.</p>
+        <h2 id="local-heading">Условия в моём районе</h2>
+        <p id="locator-help">Введи код своего района — радиолюбительский локатор. Покажем солнечные условия и какие станции принимают передачи поблизости.</p>
         <form id="locator-form" novalidate>
           <div class="form-row">
-            <label for="locator">Мой радиолюбительский локатор Maidenhead</label>
+            <label for="locator">Код моего района (локатор)</label>
             <input id="locator" name="locator" type="text" inputmode="text"
               autocomplete="off" autocapitalize="characters" spellcheck="false"
               maxlength="12" minlength="2" aria-describedby="locator-help locator-error"
               placeholder="KO59XX" required>
           </div>
           <p id="locator-error" class="field-error" role="alert"></p>
-          <button type="submit" id="local-submit">Показать условия в районе моей станции</button>
+          <button type="submit" id="local-submit">Показать условия</button>
         </form>
         <p id="local-status" class="status" role="status" aria-live="polite">Локатор ещё не указан.</p>
         <div id="local-report" class="report" aria-live="polite" aria-busy="false"></div>
@@ -74,28 +74,28 @@
 
     <section class="tab-panel" id="panel-spots" role="tabpanel" aria-labelledby="tab-spots" tabindex="0" hidden>
       <section class="panel" aria-labelledby="spots-heading">
-        <h2 id="spots-heading">Какие станции сейчас слышат друг друга</h2>
-        <p>Здесь показано, какие передачи станций рядом с твоим локатором услышали в других местах и какие удалённые станции услышали приёмники рядом с твоей станцией. Для каждой пары станций отдельно указаны расстояние от твоего QTH до каждой станции, расстояние между самими станциями и направление радиотрассы от передатчика к приёмнику.</p>
-        <button type="button" id="psk-status-refresh">Проверить получение радионаблюдений</button>
+        <h2 id="spots-heading">Кто кого принимает</h2>
+        <p>Здесь видно, какие станции приняли передачи друг друга. Укажи свой район, чтобы найти наблюдения поблизости.</p>
+        <button type="button" id="psk-status-refresh">Проверить связь с сервером</button>
         <p id="psk-status" class="status" role="status" aria-live="polite">Состояние сборщика ещё не проверено.</p>
         <div id="psk-report" class="report" aria-live="polite" aria-busy="false"></div>
         <section class="result-card" aria-labelledby="regional-heading">
-          <h3 id="regional-heading">Что услышали станции рядом с моей станцией</h3>
+          <h3 id="regional-heading">Приём станций рядом со мной</h3>
           <form id="regional-locator-form" novalidate>
             <div class="form-row">
-              <label for="regional-locator">Мой радиолюбительский локатор</label>
+              <label for="regional-locator">Код моего района (локатор)</label>
               <input id="regional-locator" name="locator" type="text" inputmode="text"
                 autocomplete="off" autocapitalize="characters" spellcheck="false"
                 maxlength="12" minlength="2" aria-describedby="regional-locator-help regional-locator-error"
                 placeholder="KP50DB" required>
             </div>
             <div class="form-row">
-              <label for="regional-radius">Радиус поиска вокруг моей станции, км</label>
+              <label for="regional-radius">Искать в радиусе, км</label>
               <input id="regional-radius" name="radius" type="number" min="1" max="1000"
                 step="1" value="100" required>
             </div>
             <div class="form-row">
-              <label for="regional-period">За какое время показать наблюдения</label>
+              <label for="regional-period">За какой период</label>
               <select id="regional-period" name="period-hours">
                 <option value="3">Последние 3 часа</option>
                 <option value="6" selected>Последние 6 часов</option>
@@ -108,7 +108,7 @@
               </select>
             </div>
             <fieldset class="choice-group">
-              <legend>Диапазоны</legend>
+              <legend>Частоты</legend>
               <div class="choice-options">
                 <label><input type="radio" name="regional-band-selection" value="all" checked> Все</label>
                 <label><input type="radio" name="regional-band-selection" value="custom"> Настроить</label>
@@ -130,7 +130,7 @@
               </div>
             </fieldset>
             <fieldset class="choice-group">
-              <legend>Режимы</legend>
+              <legend>Виды цифровой связи</legend>
               <div class="choice-options">
                 <label><input type="radio" name="regional-mode-selection" value="all" checked> Все</label>
                 <label><input type="radio" name="regional-mode-selection" value="custom"> Настроить</label>
@@ -150,23 +150,23 @@
                 <label><input type="checkbox" name="regional-mode" value="WSPR"> WSPR</label>
               </div>
             </fieldset>
-            <p id="regional-locator-help" class="muted">По умолчанию учитываются все диапазоны и цифровые режимы. Если выбрать «Настроить», можно отметить нужные. Период показывает, за какое время искать записи: от 3 до 24 часов.</p>
+            <p id="regional-locator-help" class="muted">По умолчанию ищем на всех частотах и во всех цифровых режимах. Можно выбрать только нужные. Период — от 3 до 24 часов.</p>
             <p id="regional-locator-error" class="field-error" role="alert"></p>
-            <button type="submit" id="regional-locator-submit">Применить настройки и показать наблюдения</button>
+            <button type="submit" id="regional-locator-submit">Показать наблюдения</button>
           </form>
           <p id="regional-description">Область поиска: локатор KP50DB, радиус 100 км. Период — последние 6 часов.</p>
-          <button type="button" id="regional-refresh">Обновить список наблюдений</button>
+          <button type="button" id="regional-refresh">Обновить список</button>
           <p id="regional-status" class="status" role="status" aria-live="polite">Региональные данные ещё не загружены.</p>
           <div id="regional-report" class="report" aria-live="polite" aria-busy="false"></div>
         </section>
-        <p class="muted">Каждая запись означает, что приёмная станция смогла принять и расшифровать конкретную передачу. Это подтверждение одного успешного приёма, но не гарантия, что ты сможешь связаться с этой станцией. Если записей нет, это ещё не значит, что диапазон не работает.</p>
+        <p class="muted">Запись означает, что станция действительно приняла передачу. Это не гарантирует, что ты сможешь связаться с ней. Нет записей — не значит, что связь невозможна.</p>
       </section>
     </section>
 
     <section class="tab-panel" id="panel-details" role="tabpanel" aria-labelledby="tab-details" tabindex="0" hidden>
       <section class="panel" aria-labelledby="details-heading">
-        <h2 id="details-heading">Что означают показатели</h2>
-        <p>Здесь собраны исходные измерения, сравнение источников и пояснения. NOAA, HamQSL и D-RAP показаны раздельно: это разные данные и модели.</p>
+        <h2 id="details-heading">Показатели и источники</h2>
+        <p>Здесь — исходные измерения и данные разных источников. Они показаны отдельно, потому что измеряют разное.</p>
         <div id="solar-details-report" class="report" role="region" aria-label="Подробные показатели солнечной активности" aria-busy="false">
           <p class="muted">Подробные данные появятся после загрузки общей обстановки.</p>
         </div>
@@ -175,26 +175,26 @@
 
     <section class="tab-panel" id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" tabindex="0" hidden>
       <section class="panel" aria-labelledby="settings-heading">
-        <h2 id="settings-heading">Настройки моей станции</h2>
-        <p>Укажи свой локатор и радиус вокруг него. Эти данные нужны, чтобы находить передачи и приёмники рядом с тобой. Настройки сохраняются в этом браузере.</p>
+        <h2 id="settings-heading">Мои настройки</h2>
+        <p>Укажи код своего района и расстояние поиска. Настройки сохраняются в этом браузере.</p>
         <form id="settings-form">
           <div class="form-row">
-            <label for="settings-locator">Мой радиолюбительский локатор Maidenhead</label>
+            <label for="settings-locator">Код моего района (локатор)</label>
             <input id="settings-locator" name="locator" type="text" maxlength="12"
               autocomplete="off" autocapitalize="characters" spellcheck="false"
               aria-describedby="settings-help" value="KP50DB" required>
           </div>
           <div class="form-row">
-            <label for="settings-radius">Как далеко от моей станции искать, км</label>
+            <label for="settings-radius">Расстояние поиска, км</label>
             <input id="settings-radius" name="radius" type="number" min="1" max="1000"
               step="1" value="100" required>
           </div>
-          <p id="settings-help" class="muted">Для расчётов используется центр квадрата локатора. Поэтому расстояния приблизительные, а не до точного места установки антенны.</p>
+          <p id="settings-help" class="muted">Локатор задаёт район, а не точный адрес. Поэтому расстояния примерные.</p>
           <p id="settings-error" class="field-error" role="alert"></p>
           <button type="submit" id="settings-save">Сохранить настройки</button>
         </form>
         <p id="settings-status" class="status" role="status" aria-live="polite">Используются значения по умолчанию: KP50DB и 100 км.</p>
-        <p class="muted">Для будущих расчётов указаны мощность 100 Вт, дипольная антенна и высота подвеса 10 метров. Пока эти параметры не влияют на список реальных радионаблюдений.</p>
+        <p class="muted">Мощность, тип и высота антенны пока не используются в расчётах.</p>
       </section>
     </section>
   </main>
