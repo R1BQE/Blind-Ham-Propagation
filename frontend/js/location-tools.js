@@ -71,7 +71,7 @@
         latIndex = second.charCodeAt(0) - 65;
         if (lonIndex < 0 || latIndex < 0 || lonIndex >= divisor || latIndex >= divisor) return null;
       } else {
-        if (!/^\\d$/.test(first) || !/^\\d$/.test(second)) return null;
+        if (!/^\d$/.test(first) || !/^\d$/.test(second)) return null;
         lonIndex = Number(first);
         latIndex = Number(second);
       }
