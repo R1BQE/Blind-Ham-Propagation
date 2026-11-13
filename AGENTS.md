@@ -1,62 +1,64 @@
-# Instructions for AI coding agents
+# Инструкции для ИИ-агентов
 
-These instructions apply to the entire repository.
+**Язык:** Русский | [English](AGENTS.en.md)
 
-## Before changing code
+Эти правила действуют для всего репозитория.
 
-1. Read this file and `README.md`.
-2. Read the relevant documents in `docs/`: start with `architecture.md`, then `ai-development-guide.md`, `data-sources.md`, `api.md` and `testing.md` as relevant.
-3. Inspect the current implementation and tests before proposing or making changes. Documentation can lag behind code; verify both.
-4. Check the current Git branch and recent changes. Do not overwrite unrelated work.
+## Перед изменением кода
 
-## Project purpose
+1. Прочитай этот файл и `README.md`.
+2. Изучи относящиеся к задаче документы из `docs/`: начни с `architecture.md`, затем прочитай `ai-development-guide.md`, `data-sources.md`, `api.md` и `testing.md` по необходимости.
+3. Проверь текущую реализацию и тесты. Документация может отставать от кода — сверяй оба источника.
+4. Проверь текущую ветку и последние изменения. Не перезаписывай чужую или несвязанную работу.
 
-Blind-Ham Propagation is an accessible amateur-radio space-weather, propagation-context and reception-observation service. It combines external measurements, model products, geometric calculations and real reception reports. These categories must remain distinguishable.
+## Назначение проекта
 
-## Non-negotiable engineering rules
+Blind-Ham Propagation — доступный сервис для радиолюбителей: космическая погода, контекст условий распространения радиоволн и региональные наблюдения приёма. Проект объединяет внешние измерения, модельные продукты, геометрические расчёты и реальные отчёты о приёме. Эти категории нельзя смешивать.
 
-- Do not invent measurements, forecasts, MUF values, propagation probabilities or reception reports.
-- Preserve provider name, product, observation timestamp, retrieval timestamp, units and quality/freshness information wherever available.
-- Never average values from different providers merely because their labels look similar. Compare their definitions, units, observation times, spatial coverage and quality first.
-- Do not label global indices or a distant station's measurement as a local QTH measurement.
-- Distinguish measurements, model estimates, geometric calculations and PSK Reporter observations in API fields and user-facing text.
-- Handle each external source independently. A failed provider should not hide valid results from other providers.
-- Use bounded timeouts, bounded caches/storage and resilient error handling for external services.
-- Keep secrets, credentials, local settings and personal data out of Git.
-- Add or update tests for changed behavior. Prefer deterministic tests with mocked network responses.
-- Keep API response changes documented in `docs/api.md`.
-- Keep source, product, licence, attribution and limitations documented in `docs/data-sources.md` and `docs/licensing.md`.
-- Do not deploy to the production VDS unless the user explicitly requests deployment.
+## Обязательные инженерные правила
 
-## Accessibility requirements
+- Не выдумывай измерения, прогнозы, значения MUF, вероятности прохождения или отчёты о приёме.
+- По возможности сохраняй название поставщика и продукта, время наблюдения и получения данных, единицы измерения и сведения о качестве/актуальности.
+- Не усредняй значения разных поставщиков только потому, что их названия похожи. Сначала сравни определения, единицы, время наблюдения, географический охват и качество.
+- Не выдавай глобальные индексы или измерения удалённой станции за локальные данные QTH.
+- Разделяй измерения, модельные оценки, геометрические расчёты и наблюдения PSK Reporter в API и интерфейсе.
+- Обрабатывай каждый внешний источник независимо: сбой одного поставщика не должен скрывать корректные данные остальных.
+- Используй ограниченные тайм-ауты, кэши и хранилища, а также устойчивую обработку ошибок внешних сервисов.
+- Не добавляй в Git секреты, учётные данные, локальные настройки и персональные данные.
+- Добавляй или обновляй тесты при изменении поведения. Для сетевых ответов предпочитай детерминированные тесты с mock.
+- Изменения API документируй в `docs/api.md`.
+- Источники, продукты, лицензии, атрибуцию и ограничения документируй в `docs/data-sources.md` и `docs/licensing.md`.
+- Не развёртывай изменения на production VDS без прямого разрешения пользователя.
 
-- Use semantic HTML and programmatically associated labels.
-- All functionality must work with a keyboard; do not require a mouse.
-- Preserve visible focus and logical focus order.
-- Announce loading, success, empty and error states to assistive technology.
-- Do not communicate status by colour alone.
-- Prefer concise plain Russian in the interface. Explain specialist terms where they first appear.
-- Never make a map, chart, colour or icon the only way to understand a result. Provide equivalent text or a table.
-- Respect reduced-motion preferences.
-- Test controls and results with screen-reader-friendly markup; avoid inserting untrusted source text as HTML.
+## Требования доступности
 
-## Workflow
+- Используй семантическую HTML-разметку и программно связанные подписи.
+- Все функции должны работать с клавиатуры, без обязательного использования мыши.
+- Сохраняй видимый фокус и логичный порядок перехода.
+- Объявляй программам чтения с экрана состояния загрузки, успеха, отсутствия данных и ошибки.
+- Не передавай состояние только цветом.
+- Используй простой и краткий русский язык. Объясняй специальные термины при первом появлении.
+- Карта, диаграмма, цвет или значок не могут быть единственным способом понять результат. Добавляй текстовое представление или таблицу.
+- Учитывай настройку уменьшения анимации.
+- Не вставляй недоверенный текст источников как HTML.
 
-1. Make the smallest coherent change.
-2. Add/update tests and documentation.
-3. Run `python -m pytest tests -q` and, when relevant, `ruff check backend tests`.
-4. For frontend changes, run a JavaScript syntax check and manually inspect keyboard/accessibility behavior where possible.
-5. Report exactly what was tested. Never claim tests or live-source checks were run if they were not.
-6. Summarize changed files, important design decisions, known limitations and the commit.
+## Рабочий процесс
 
-## Scope and compatibility
+1. Вноси минимальные согласованные изменения.
+2. Обновляй тесты и документацию.
+3. Запускай `python -m pytest tests -q` и, когда уместно, `ruff check backend tests`.
+4. Для изменений frontend проверяй синтаксис JavaScript и по возможности вручную проверяй клавиатурную доступность.
+5. Точно указывай, какие проверки действительно выполнялись. Не заявляй о запуске тестов или проверке внешних источников, если этого не было.
+6. В отчёте перечисляй изменённые файлы, важные решения, ограничения и коммит.
 
-- Preserve the existing FastAPI + vanilla JavaScript architecture unless a change is explicitly justified.
-- Avoid introducing dependencies for functionality already supported by the standard library or current stack.
-- Keep Windows local development and Debian VDS deployment working.
-- Keep local-only lifecycle endpoints out of production.
-- Do not silently change collector scope, retention, public endpoints or deployment behavior.
+## Область проекта и совместимость
 
-## Documentation maintenance
+- Сохраняй архитектуру FastAPI + обычный JavaScript, если нет обоснованной причины менять её.
+- Не добавляй зависимости для функций, которые уже доступны в стандартной библиотеке или текущем стеке.
+- Сохраняй работоспособность локальной разработки в Windows и развёртывания на Debian VDS.
+- Не допускай попадания локальных lifecycle-маршрутов в production.
+- Не меняй незаметно область сбора данных, сроки хранения, публичные endpoints или поведение развёртывания.
 
-When changing architecture, endpoints, data providers, configuration, setup or deployment, update the corresponding documentation in the same change. Prefer explicit statements of what is implemented, what is experimental and what remains planned.
+## Поддержка документации
+
+При изменении архитектуры, маршрутов, источников данных, конфигурации, установки или развёртывания обновляй соответствующую документацию в том же изменении. В документах явно отделяй реализованные функции, экспериментальные возможности и планы.
