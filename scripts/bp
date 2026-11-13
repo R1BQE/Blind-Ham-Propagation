@@ -31,11 +31,15 @@ require_installation() {
 }
 
 check_clean_checkout() {
-    if ! git -C "$ROOT" diff --quiet || ! git -C "$ROOT" diff --cached --quiet; then
-        die "В отслеживаемых файлах есть локальные изменения. Сначала разберись с ними; updater их не перезаписывает."
+    local status branch
+    status="$(git -C "$ROOT" status --porcelain --untracked-files=all)" \
+        || die "Не удалось проверить состояние Git."
+    if [[ -n "$status" ]]; then
+        printf '%s\n' "$status" >&2
+        die "Рабочая копия содержит изменения или незатреканные файлы. Updater не будет их перезаписывать."
     fi
-    local branch
-    branch="$(git -C "$ROOT" branch --show-current)"
+    branch="$(git -C "$ROOT" branch --show-current)" \
+        || die "Не удалось определить текущую ветку."
     [[ "$branch" == "$BRANCH" ]] || die "Ожидается ветка ${BRANCH}, сейчас: ${branch:-detached HEAD}."
 }
 
@@ -75,7 +79,7 @@ apply_configs() {
     if ! cmp -s "$unit_candidate" "$SERVICE_FILE"; then
         [[ -f "$SERVICE_FILE" ]] || { say "Не найден действующий unit: ${SERVICE_FILE}"; return 1; }
         cp -a "$SERVICE_FILE" "$work/unit.before" || { say "Не удалось сохранить действующий systemd unit."; return 1; }
-        touch "$work/unit.changed"
+        touch "$work/unit.changed" || { say "Не удалось отметить изменяемый systemd unit для отката."; return 1; }
         install -o root -g root -m 0644 "$unit_candidate" "$SERVICE_FILE" || { say "Не удалось установить systemd unit."; return 1; }
         systemd-analyze verify "$SERVICE_FILE" || return 1
         systemctl daemon-reload || return 1
@@ -84,7 +88,7 @@ apply_configs() {
     if ! cmp -s "$apache_candidate" "$APACHE_FILE"; then
         [[ -f "$APACHE_FILE" ]] || { say "Не найден действующий Apache-файл: ${APACHE_FILE}"; return 1; }
         cp -a "$APACHE_FILE" "$work/apache.before" || { say "Не удалось сохранить действующую конфигурацию Apache."; return 1; }
-        touch "$work/apache.changed"
+        touch "$work/apache.changed" || { say "Не удалось отметить изменяемую конфигурацию Apache для отката."; return 1; }
         install -o root -g root -m 0644 "$apache_candidate" "$APACHE_FILE" || { say "Не удалось установить конфигурацию Apache."; return 1; }
         apachectl configtest || return 1
     fi
@@ -92,21 +96,32 @@ apply_configs() {
 
 restore_configs() {
     local work="$1"
-    local changed=0
+    local failed=0
+
     if [[ -f "$work/unit.changed" ]]; then
-        restore_config_file "$SERVICE_FILE" "$work/unit.before"
-        systemctl daemon-reload || true
-        changed=1
+        if [[ ! -f "$work/unit.before" ]] || ! restore_config_file "$SERVICE_FILE" "$work/unit.before" || ! cmp -s "$work/unit.before" "$SERVICE_FILE"; then
+            say "ОШИБКА: не удалось восстановить systemd unit."
+            failed=1
+        elif ! systemctl daemon-reload; then
+            say "ОШИБКА: systemd не принял восстановленный unit."
+            failed=1
+        fi
     fi
+
     if [[ -f "$work/apache.changed" ]]; then
-        restore_config_file "$APACHE_FILE" "$work/apache.before"
-        apachectl configtest || true
-        changed=1
+        if [[ ! -f "$work/apache.before" ]] || ! restore_config_file "$APACHE_FILE" "$work/apache.before" || ! cmp -s "$work/apache.before" "$APACHE_FILE"; then
+            say "ОШИБКА: не удалось восстановить конфигурацию Apache."
+            failed=1
+        elif ! apachectl configtest; then
+            say "ОШИБКА: восстановленная конфигурация Apache не прошла configtest."
+            failed=1
+        elif ! apachectl graceful; then
+            say "ОШИБКА: Apache не принял восстановленную конфигурацию."
+            failed=1
+        fi
     fi
-    if [[ -f "$work/apache.changed" ]]; then
-        apachectl configtest >/dev/null 2>&1 || true
-        apachectl graceful >/dev/null 2>&1 || true
-    fi
+
+    return "$failed"
 }
 
 save_config_backups() {
@@ -148,14 +163,16 @@ restore_dependencies() {
 
     if [[ -f "${ROOT}/requirements-vds.lock" ]]; then
         say "Восстанавливаю зависимости по lock-файлу версии ${commit:0:12}."
-        "${ROOT}/.venv/bin/python" -m pip install -r "${ROOT}/requirements-vds.lock"
+        "${ROOT}/.venv/bin/python" -m pip install -r "${ROOT}/requirements-vds.lock" || return 1
     elif [[ -s "$snapshot" ]]; then
         say "Для старой версии lock-файла нет; восстанавливаю сохранённый pip freeze."
-        "${ROOT}/.venv/bin/python" -m pip install -r "$snapshot"
+        "${ROOT}/.venv/bin/python" -m pip install -r "$snapshot" || return 1
     else
         say "Нет lock-файла или сохранённого снимка зависимостей для ${commit}."
         return 1
     fi
+
+    "${ROOT}/.venv/bin/python" -m pip check
 }
 
 install_dependencies_if_changed() {
@@ -163,7 +180,8 @@ install_dependencies_if_changed() {
     if ! git -C "$ROOT" diff --quiet "$from" "$to" -- requirements-vds.lock; then
         if [[ -f "${ROOT}/requirements-vds.lock" ]]; then
             say "Изменился requirements-vds.lock — устанавливаю зафиксированные зависимости."
-            "${ROOT}/.venv/bin/python" -m pip install -r "${ROOT}/requirements-vds.lock"
+            "${ROOT}/.venv/bin/python" -m pip install -r "${ROOT}/requirements-vds.lock" || return 1
+            "${ROOT}/.venv/bin/python" -m pip check
         else
             restore_dependencies "$to"
         fi
@@ -179,25 +197,76 @@ run_tests() {
 
 restart_and_check() {
     say "Перезапускаю службу."
-    systemctl restart "$SERVICE"
+    systemctl restart "$SERVICE" || return 1
     wait_for_health
+}
+
+abort_update() {
+    local previous="$1" work="$2" current="$3" reason="$4"
+    if rollback_transaction "$previous" "$work" "$current"; then
+        rm -rf "$work"
+        die "$reason. Откат к предыдущей версии подтверждён."
+    fi
+    rm -rf "$work"
+    die "КРИТИЧЕСКАЯ ОШИБКА: $reason. Автоматический откат НЕ подтверждён; требуется ручная диагностика."
+}
+
+install_launcher_link() {
+    local launcher="/usr/local/sbin/bp"
+    local temporary="${launcher}.new.${RANDOM}.${BASHPID}"
+
+    # During the first transition the new updater is invoked as bp-bootstrap.
+    # Replace the legacy dispatcher only after the new release passed all checks.
+    [[ "$0" == "/usr/local/sbin/bp-bootstrap" ]] || return 0
+    [[ -x "${ROOT}/scripts/bp" ]] || {
+        say "ВНИМАНИЕ: новый scripts/bp не найден; старый launcher оставлен без изменений."
+        return 1
+    }
+
+    rm -f "$temporary"
+    ln -s "${ROOT}/scripts/bp" "$temporary" || return 1
+    mv -Tf "$temporary" "$launcher" || {
+        rm -f "$temporary"
+        return 1
+    }
+    say "Команда /usr/local/sbin/bp переключена на scripts/bp."
 }
 
 rollback_transaction() {
     local previous="$1" work="$2" current="$3"
+    local failed=0 actual
+
     say "Откатываю исходный код к ${previous}."
-    git -C "$ROOT" reset --hard "$previous" || true
-    restore_configs "$work"
+    if ! git -C "$ROOT" reset --hard "$previous"; then
+        say "КРИТИЧЕСКАЯ ОШИБКА: git reset --hard не выполнился."
+        return 1
+    fi
+
+    actual="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null)" || actual=""
+    if [[ "$actual" != "$previous" ]]; then
+        say "КРИТИЧЕСКАЯ ОШИБКА: HEAD после reset не совпадает с целевым коммитом."
+        return 1
+    fi
+
+    restore_configs "$work" || failed=1
+
     if ! git -C "$ROOT" diff --quiet "$current" "$previous" -- requirements-vds.lock; then
         say "Возвращаю зависимости предыдущей версии."
-        restore_dependencies "$previous" || say "ВНИМАНИЕ: зависимости автоматически восстановить не удалось."
+        restore_dependencies "$previous" || failed=1
     fi
-    systemctl restart "$SERVICE" || true
-    if wait_for_health; then
-        say "Предыдущая версия снова отвечает."
-    else
-        say "ВНИМАНИЕ: автоматический откат выполнен, но health check не прошёл. Проверь journalctl -u ${SERVICE}."
+
+    systemctl restart "$SERVICE" || failed=1
+    if (( failed == 0 )) && wait_for_health; then
+        actual="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null)" || actual=""
+        if [[ "$actual" == "$previous" ]]; then
+            say "Откат подтверждён: код, конфигурация, зависимости и локальный health проверены."
+            return 0
+        fi
     fi
+
+    say "КРИТИЧЕСКАЯ ОШИБКА: откат НЕ подтверждён. Не считай сервер восстановленным."
+    say "Проверь: git -C $ROOT rev-parse HEAD; pip check; systemctl status $SERVICE; journalctl -u $SERVICE."
+    return 1
 }
 
 do_update() {
@@ -214,7 +283,7 @@ do_update() {
         rm -rf "$work"
         die "git pull не выполнен. Рабочая версия не изменена."
     fi
-    current="$(git -C "$ROOT" rev-parse HEAD)"
+    current="$(git -C "$ROOT" rev-parse HEAD)" || abort_update "$previous" "$work" "$previous" "Не удалось определить коммит после git pull"
     if [[ "$current" == "$previous" ]]; then
         rm -rf "$work"
         say "Уже установлена последняя версия: ${current:0:12}"
@@ -222,51 +291,46 @@ do_update() {
     fi
 
     if ! install_dependencies_if_changed "$previous" "$current"; then
-        rollback_transaction "$previous" "$work" "$current"
-        rm -rf "$work"
-        die "Не удалось обновить Python-зависимости; выполнен откат."
+        abort_update "$previous" "$work" "$current" "Не удалось обновить Python-зависимости"
     fi
 
     if ! save_environment_snapshot "$current"; then
-        rollback_transaction "$previous" "$work" "$current"
-        rm -rf "$work"
-        die "Не удалось сохранить снимок зависимостей новой версии; выполнен откат."
+        abort_update "$previous" "$work" "$current" "Не удалось сохранить снимок зависимостей новой версии"
     fi
 
     if ! run_tests; then
-        rollback_transaction "$previous" "$work" "$current"
-        rm -rf "$work"
-        die "Тесты не прошли; выполнен откат."
+        abort_update "$previous" "$work" "$current" "Тесты не прошли"
     fi
 
     if ! apply_configs "$current" "$work"; then
-        rollback_transaction "$previous" "$work" "$current"
-        rm -rf "$work"
-        die "Не удалось применить или проверить конфигурацию; выполнен откат."
+        abort_update "$previous" "$work" "$current" "Не удалось применить или проверить конфигурацию"
     fi
 
     if ! save_config_backups "$work"; then
-        rollback_transaction "$previous" "$work" "$current"
-        rm -rf "$work"
-        die "Не удалось сохранить резервные копии конфигурации; выполнен откат."
+        abort_update "$previous" "$work" "$current" "Не удалось сохранить резервные копии конфигурации"
     fi
 
     if [[ -f "$work/apache.changed" ]] && ! apachectl graceful; then
-        rollback_transaction "$previous" "$work" "$current"
-        rm -rf "$work"
-        die "Apache не удалось перезагрузить; выполнен откат."
+        abort_update "$previous" "$work" "$current" "Apache не удалось перезагрузить"
     fi
 
     if ! restart_and_check; then
-        rollback_transaction "$previous" "$work" "$current"
-        rm -rf "$work"
-        die "Служба не прошла health-проверку; выполнен откат."
+        abort_update "$previous" "$work" "$current" "Служба не прошла health-проверку"
     fi
 
-    install -d -o root -g root -m 0750 "$STATE_DIR"
-    printf '%s\n' "$previous" > "${LAST_GOOD}.tmp"
-    chmod 0600 "${LAST_GOOD}.tmp"
-    mv -f "${LAST_GOOD}.tmp" "$LAST_GOOD"
+    if ! install -d -o root -g root -m 0750 "$STATE_DIR"; then
+        abort_update "$previous" "$work" "$current" "Не удалось подготовить каталог состояния для last-good"
+    fi
+    if ! printf '%s\n' "$previous" > "${LAST_GOOD}.tmp" ||
+       ! chmod 0600 "${LAST_GOOD}.tmp" ||
+       ! mv -f "${LAST_GOOD}.tmp" "$LAST_GOOD"; then
+        rm -f "${LAST_GOOD}.tmp"
+        abort_update "$previous" "$work" "$current" "Не удалось сохранить commit для ручного отката"
+    fi
+    if ! install_launcher_link; then
+        say "ВНИМАНИЕ: приложение обновлено, но автоматическая замена launcher не удалась."
+        say "Старый /usr/local/sbin/bp не тронут; используй /usr/local/sbin/bp-bootstrap после ручной проверки."
+    fi
     rm -rf "$work"
 
     say "Обновление завершено: ${previous:0:12} -> ${current:0:12}"
@@ -292,50 +356,49 @@ do_rollback() {
         die "Не удалось переключить код."
     fi
     if ! install_dependencies_if_changed "$current" "$target" || ! run_tests || ! apply_configs "$target" "$work"; then
-        say "Откат не прошёл проверку. Возвращаю ${current:0:12}."
-        git -C "$ROOT" reset --hard "$current" || true
-        restore_configs "$work"
-        if ! git -C "$ROOT" diff --quiet "$target" "$current" -- requirements-vds.lock; then
-            restore_dependencies "$current" || true
+        say "Откат не прошёл проверку. Возвращаю исходную версию ${current:0:12}."
+        if rollback_transaction "$current" "$work" "$target"; then
+            rm -rf "$work"
+            die "Откат не прошёл проверку; исходная версия ${current:0:12} восстановлена и проверена."
         fi
-        systemctl restart "$SERVICE" || true
         rm -rf "$work"
-        die "Откат не завершён; исходная версия восстановлена насколько это возможно."
+        die "КРИТИЧЕСКАЯ ОШИБКА: не удалось подтвердить восстановление исходной версии ${current:0:12}."
     fi
     if ! save_config_backups "$work"; then
-        git -C "$ROOT" reset --hard "$current" || true
-        restore_configs "$work"
-        if ! git -C "$ROOT" diff --quiet "$target" "$current" -- requirements-vds.lock; then
-            restore_dependencies "$current" || true
+        say "Не удалось сохранить копии конфигурации; возвращаю исходную версию."
+        if rollback_transaction "$current" "$work" "$target"; then
+            rm -rf "$work"
+            die "Копии конфигурации не сохранены; исходная версия восстановлена и проверена."
         fi
-        systemctl restart "$SERVICE" || true
         rm -rf "$work"
-        die "Не удалось сохранить копии конфигурации; исходная версия восстановлена."
+        die "КРИТИЧЕСКАЯ ОШИБКА: исходная версия не подтверждена после ошибки резервного копирования."
     fi
     if [[ -f "$work/apache.changed" ]] && ! apachectl graceful; then
-        git -C "$ROOT" reset --hard "$current" || true
-        restore_configs "$work"
-        if ! git -C "$ROOT" diff --quiet "$target" "$current" -- requirements-vds.lock; then
-            restore_dependencies "$current" || true
+        say "Apache не перезагрузился; возвращаю исходную версию."
+        if rollback_transaction "$current" "$work" "$target"; then
+            rm -rf "$work"
+            die "Apache не перезагрузился; исходная версия восстановлена и проверена."
         fi
-        systemctl restart "$SERVICE" || true
         rm -rf "$work"
-        die "Apache не перезагрузился; исходная версия восстановлена."
+        die "КРИТИЧЕСКАЯ ОШИБКА: исходная версия не подтверждена после ошибки Apache."
     fi
     if ! restart_and_check; then
-        git -C "$ROOT" reset --hard "$current" || true
-        restore_configs "$work"
-        if ! git -C "$ROOT" diff --quiet "$target" "$current" -- requirements-vds.lock; then
-            restore_dependencies "$current" || true
+        say "Новая версия не прошла health check; возвращаю исходную версию."
+        if rollback_transaction "$current" "$work" "$target"; then
+            rm -rf "$work"
+            die "Новая версия не прошла health check; исходная версия восстановлена и проверена."
         fi
-        systemctl restart "$SERVICE" || true
         rm -rf "$work"
-        die "Новая версия не прошла health check; исходная версия восстановлена."
+        die "КРИТИЧЕСКАЯ ОШИБКА: исходная версия не подтверждена после ошибки health check."
     fi
 
-    printf '%s\n' "$current" > "${LAST_GOOD}.tmp"
-    chmod 0600 "${LAST_GOOD}.tmp"
-    mv -f "${LAST_GOOD}.tmp" "$LAST_GOOD"
+    if ! printf '%s\n' "$current" > "${LAST_GOOD}.tmp" ||
+       ! chmod 0600 "${LAST_GOOD}.tmp" ||
+       ! mv -f "${LAST_GOOD}.tmp" "$LAST_GOOD"; then
+        rm -f "${LAST_GOOD}.tmp"
+        rm -rf "$work"
+        die "Откат выполнен и проверен, но не удалось обновить last-good. Проверь состояние вручную."
+    fi
     rm -rf "$work"
     say "Откат завершён: ${current:0:12} -> ${target:0:12}"
 }
