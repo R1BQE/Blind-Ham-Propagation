@@ -19,6 +19,7 @@
   let ymapsReady = null;
   let addressMap = null;
   let addressMarker = null;
+  const addressSearchMarkers = [];
   let selectedAddress = null;
   const maps = new Map();
   const geocodeCache = new Map();
@@ -361,6 +362,12 @@
     searchButton.disabled = true;
     addressStatus.textContent = "Ищем адрес…";
     addressResults.replaceChildren();
+    for (const marker of addressSearchMarkers) addressMap?.geoObjects.remove(marker);
+    addressSearchMarkers.length = 0;
+    if (addressMarker && addressMap) {
+      addressMap.geoObjects.remove(addressMarker);
+      addressMarker = null;
+    }
     selectedAddress = null;
     addressConfirm.disabled = true;
     addressSelected.textContent = "";
@@ -381,14 +388,22 @@
         results.push({ object, coordinates, title, metadata: getMetadata(object) });
       }
       for (const [index, result] of results.entries()) {
+        const searchMarker = new window.ymaps.Placemark(result.coordinates, {
+          hintContent: result.title,
+          balloonContent: escapeHtml(result.title),
+        });
+        addressMap.geoObjects.add(searchMarker);
+        addressSearchMarkers.push(searchMarker);
         const button = document.createElement("button");
         button.type = "button";
         button.className = "address-result";
         button.textContent = `${index + 1}. ${result.title}`;
         button.addEventListener("click", () => {
           selectedAddress = result;
+          for (const marker of addressSearchMarkers) addressMap.geoObjects.remove(marker);
+          addressSearchMarkers.length = 0;
           if (addressMarker) addressMap.geoObjects.remove(addressMarker);
-          addressMarker = new (window.ymaps.Placemark)(result.coordinates, {
+          addressMarker = new window.ymaps.Placemark(result.coordinates, {
             hintContent: result.title,
             balloonContent: escapeHtml(result.title),
           });
