@@ -407,13 +407,13 @@ function renderRegionalDirection(parent, title, description, data, roles) {
           ? "Неизвестно: нет локатора одной из станций."
           : `${Number(item.station_distance_km).toLocaleString("ru-RU")} км`],
         ["Направление передачи", item.station_azimuth
-          ? `${item.station_azimuth} (${item.station_azimuth_degrees}°)`
+          ? `${item.station_azimuth}, ${item.station_azimuth_degrees}°`
           : "Неизвестно: нет локатора одной из станций."],
       ];
       if (item.bearing) {
         pathRows.push([
           "Направление от твоего локатора до удалённой станции",
-          `${item.bearing} (${item.bearing_degrees}°)`,
+          `${item.bearing}, ${item.bearing_degrees}°`,
         ]);
       }
       if (item.snr_db !== null && item.snr_db !== undefined) {
