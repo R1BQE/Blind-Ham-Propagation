@@ -97,14 +97,13 @@
     };
     const units={solarflux:"sfu",bz:noaa?.magnetic_field_bz?.unit||"nT",solarwind:"км/с",protonflux:"pfu",electonflux:"pfu",latdegree:"°",muf:"МГц"};
     for(const [tag,title,description] of definitions){
-      let value=values[tag]||"Нет данных";
+      let value=values[tag]===null||values[tag]===undefined||values[tag]===""?"Нет данных":String(values[tag]);
       if(tag==="kindex"&&value!=="Нет данных"){
         const k=Number.parseInt(value,10);
         const state=Number.isFinite(k)?(k<=1?"Очень спокойно":k<=3?"Спокойно":k===4?"Неустойчиво":k===5?"Малая магнитная буря":k<=7?"Умеренная магнитная буря":"Сильная магнитная буря"):"";
         if(state)value+=` (${state})`;
       }
-      if(tag==="geomagfield")value=val(value);
-      else if(tag==="xray")value=val(value);
+      if(tag==="geomagfield"||tag==="xray"||tag==="muf")value=val(value);
       if(units[tag]&&value!=="Нет данных")value+=` ${units[tag]}`;
       const li=el(list,"li");
       el(li,"strong",`${title}: ${value}`);
