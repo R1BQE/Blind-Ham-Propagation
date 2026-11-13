@@ -2,7 +2,6 @@ const API = "./api/v1";
 const solarButton = document.querySelector("#solar-refresh");
 const solarStatus = document.querySelector("#solar-status");
 const solarReport = document.querySelector("#solar-report");
-const solarDetailsReport = document.querySelector("#solar-details-report");
 const localForm = document.querySelector("#locator-form");
 const locatorInput = document.querySelector("#locator");
 const locatorError = document.querySelector("#locator-error");
@@ -20,11 +19,6 @@ const regionalLocatorError = document.querySelector("#regional-locator-error");
 const regionalLocatorSubmit = document.querySelector("#regional-locator-submit");
 const regionalRadiusInput = document.querySelector("#regional-radius");
 const regionalPeriodSelect = document.querySelector("#regional-period");
-const settingsForm = document.querySelector("#settings-form");
-const settingsLocator = document.querySelector("#settings-locator");
-const settingsRadius = document.querySelector("#settings-radius");
-const settingsError = document.querySelector("#settings-error");
-const settingsStatus = document.querySelector("#settings-status");
 
 const DEFAULT_SETTINGS = { locator: "KP50DB", radiusKm: 100, periodHours: 6 };
 let userSettings = { ...DEFAULT_SETTINGS };
@@ -58,8 +52,6 @@ function filterDescription() {
 
 function applySettings(settings) {
   userSettings = settings;
-  settingsLocator.value = settings.locator;
-  settingsRadius.value = String(settings.radiusKm);
   locatorInput.value = settings.locator;
   regionalLocatorInput.value = settings.locator;
   regionalRadiusInput.value = String(settings.radiusKm);
@@ -76,7 +68,6 @@ window.applyQthLocator = (locator) => {
   } catch {
     // The active page still uses the selected locator.
   }
-  settingsStatus.textContent = `Локатор обновлён: ${settings.locator}.`;
 };
 
 function loadSettings() {
@@ -89,7 +80,6 @@ function loadSettings() {
         radiusKm: Number(saved.radiusKm),
         periodHours: Number(saved.periodHours) || 6,
       });
-      settingsStatus.textContent = "Загружены сохранённые настройки этого браузера.";
       return;
     }
   } catch {
@@ -178,41 +168,6 @@ regionalLocatorForm.addEventListener("submit", async (event) => {
   }
 });
 
-settingsForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  settingsError.textContent = "";
-  const locator = settingsLocator.value.trim().toUpperCase();
-  const radiusKm = Number(settingsRadius.value);
-  if (!Number.isFinite(radiusKm) || radiusKm < 1 || radiusKm > 1000) {
-    settingsError.textContent = "Радиус должен быть от 1 до 1000 км.";
-    settingsRadius.focus();
-    return;
-  }
-  const saveButton = document.querySelector("#settings-save");
-  saveButton.disabled = true;
-  settingsStatus.textContent = "Проверяем локатор…";
-  try {
-    const response = await fetch(`${API}/locator/validate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ locator }),
-      cache: "no-store",
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || "Некорректный локатор.");
-    const settings = { ...userSettings, locator: data.locator, radiusKm };
-    localStorage.setItem("blindHamPropagationSettings", JSON.stringify(settings));
-    applySettings(settings);
-    settingsStatus.textContent =
-      `Настройки сохранены: ${settings.locator}, радиус ${settings.radiusKm} км, период ${settings.periodHours || 6} часов.`;
-  } catch (error) {
-    settingsError.textContent = error.message;
-    settingsStatus.textContent = "Не удалось сохранить настройки.";
-  } finally {
-    saveButton.disabled = false;
-  }
-});
-
 // Accessible tabs: arrow keys move between tabs and activate the selected panel.
 const tabList = document.querySelector('[role="tablist"]');
 const tabs = Array.from(tabList.querySelectorAll('[role="tab"]'));
@@ -284,15 +239,11 @@ function formatValue(measurement) {
 
 function renderSolar(data) {
   solarReport.replaceChildren();
-  solarDetailsReport?.replaceChildren();
   addText(solarReport, "p", `Время обновления: ${new Date().toLocaleString("ru-RU")}`, "muted");
   if (typeof window.renderSolarOverview === "function") {
     solarReport.append(window.renderSolarOverview(data.hamqsl || {}, data.measurements || {}));
   } else {
     addText(solarReport, "p", "Модуль сводки солнечной активности не загружен.");
-  }
-  if (solarDetailsReport && typeof window.renderSolarDetails === "function") {
-    solarDetailsReport.append(window.renderSolarDetails(data.hamqsl || {}, data.measurements || {}));
   }
   if (data.errors && Object.keys(data.errors).length) {
     const section = document.createElement("section");
