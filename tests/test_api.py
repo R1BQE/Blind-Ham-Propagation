@@ -89,3 +89,21 @@ def test_coordinate_locator_endpoint_rejects_invalid_coordinates():
         json={"latitude": 95, "longitude": 30, "accuracy_m": 10},
     )
     assert response.status_code == 422
+
+
+def test_public_config_reads_yandex_key_from_environment(monkeypatch):
+    monkeypatch.setenv("YANDEX_MAPS_JS_API_KEY", "test-browser-key")
+    response = client.get("/api/v1/config/public")
+    assert response.status_code == 200
+    assert response.json() == {
+        "yandex_maps_enabled": True,
+        "yandex_maps_api_key": "test-browser-key",
+    }
+
+
+def test_public_config_reports_maps_disabled_without_key(monkeypatch):
+    monkeypatch.delenv("YANDEX_MAPS_JS_API_KEY", raising=False)
+    response = client.get("/api/v1/config/public")
+    assert response.status_code == 200
+    assert response.json()["yandex_maps_enabled"] is False
+    assert response.json()["yandex_maps_api_key"] == ""
