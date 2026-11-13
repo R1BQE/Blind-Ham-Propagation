@@ -88,6 +88,9 @@ if [[ ! -f "${ROOT}/settings.ini" ]]; then
 [psk_reporter]
 enabled = true
 topics = pskr/filter/v2/20m/FT8/#
+
+[yandex_maps]
+javascript_api_key =
 INI
     chown root:"${SERVICE_GROUP}" "${ROOT}/settings.ini"
     chmod 0640 "${ROOT}/settings.ini"
