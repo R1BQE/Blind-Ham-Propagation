@@ -133,7 +133,7 @@
         return;
       }
       const location = extractLocation(geoObject);
-      target.textContent = `Местоположение: ${location.text}. Это примерное положение центра ячейки локатора, а не точные координаты антенны.`;
+      target.textContent = `Местоположение: ${location.text}.`
     } catch {
       target.textContent = "Не удалось определить географическое название.";
     }
