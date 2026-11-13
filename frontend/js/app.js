@@ -285,6 +285,7 @@ function formatValue(measurement) {
 function renderSolar(data) {
   solarReport.replaceChildren();
   solarDetailsReport?.replaceChildren();
+  addText(solarReport, "p", `Время обновления: ${new Date().toLocaleString("ru-RU")}`, "muted");
   if (typeof window.renderSolarOverview === "function") {
     solarReport.append(window.renderSolarOverview(data.hamqsl || {}, data.measurements || {}));
   } else {
@@ -315,7 +316,7 @@ async function loadSolar() {
     renderSolar(data);
     solarStatus.textContent = data.status === "partial"
       ? "Часть источников временно недоступна. Доступные данные показаны ниже."
-      : "Данные солнечной активности обновлены. Время измерения указано рядом с показателями.";
+      : "Данные солнечной активности обновлены.";
   } catch (error) {
     solarStatus.textContent = `Не удалось получить данные: ${error.message}`;
   } finally {
