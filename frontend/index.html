@@ -65,8 +65,8 @@
           </div>
           <p id="locator-error" class="field-error" role="alert"></p>
           <div class="locator-actions">
-            <button type="button" id="locator-geolocate">Определить автоматически</button>
-            <button type="button" id="locator-address-open">Указать адрес</button>
+            <button type="button" id="locator-geolocate" data-locator-geolocate data-locator-target="#locator" data-status-target="#locator-tools-status">Определить автоматически</button>
+            <button type="button" id="locator-address-open" data-locator-address data-locator-target="#locator" data-status-target="#locator-tools-status">Указать адрес</button>
             <button type="submit" id="local-submit">Показать условия</button>
           </div>
           <p id="locator-tools-status" class="status" role="status" aria-live="polite"></p>
@@ -90,6 +90,11 @@
                 maxlength="12" minlength="2" aria-describedby="regional-locator-help regional-locator-error"
                 placeholder="KP50DB" required>
             </div>
+            <div class="locator-actions">
+              <button type="button" id="regional-geolocate" data-locator-geolocate data-locator-target="#regional-locator" data-status-target="#regional-tools-status">Определить автоматически</button>
+              <button type="button" id="regional-address-open" data-locator-address data-locator-target="#regional-locator" data-status-target="#regional-tools-status">Указать адрес</button>
+            </div>
+            <p id="regional-tools-status" class="status" role="status" aria-live="polite"></p>
             <div class="form-row">
               <label for="regional-radius">Искать в радиусе, км</label>
               <input id="regional-radius" name="radius" type="number" min="1" max="1000"
@@ -202,7 +207,7 @@
   <dialog id="locator-address-dialog" aria-labelledby="locator-address-title" aria-describedby="locator-address-help">
     <div class="dialog-content">
       <h2 id="locator-address-title">Определить локатор по адресу</h2>
-      <p id="locator-address-help">Введи адрес или его часть. Яндекс найдёт подходящие места. Выбери нужный результат, проверь его на карте и подтверди.</p>
+      <p id="locator-address-help">Введи адрес или его часть. Яндекс найдёт подходящие места. Выбери нужный результат и подтверди.</p>
       <form id="locator-address-form" novalidate>
         <div class="form-row">
           <label for="locator-address-query">Адрес или населённый пункт</label>
