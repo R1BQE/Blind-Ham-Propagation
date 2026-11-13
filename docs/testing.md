@@ -1,8 +1,10 @@
-# Testing and validation
+# Тестирование и проверка
 
-## Test environment
+**Язык:** Русский | [English](en/testing.md)
 
-Python 3.11 or newer is required. Install the project and development dependencies:
+## Окружение для тестов
+
+Требуется Python 3.11 или новее. Установи проект и зависимости разработки:
 
 ```bash
 python -m venv .venv
@@ -13,69 +15,70 @@ source .venv/bin/activate
 python -m pip install -e ".[dev]"
 ```
 
-## Automated tests
+## Автоматические тесты
 
-Run the full suite from the repository root:
+Запуск полного набора из корня репозитория:
 
 ```bash
 python -m pytest tests -q
 ```
 
-Run one test module:
+Запуск одного модуля:
 
 ```bash
 python -m pytest tests/test_hamqsl.py -q
 ```
 
-Run a single test by its name:
+Запуск тестов по части имени:
 
 ```bash
 python -m pytest tests/test_hamqsl.py -k xml -q
 ```
 
-Run static lint checks:
+Статическая проверка линтером:
 
 ```bash
 ruff check backend tests
 ```
 
-Do not change or weaken assertions merely to make a failing test pass. Identify whether the failure is caused by a regression, changed provider format, environment problem or obsolete test expectation.
+Не меняй и не ослабляй проверки только ради успешного прохождения теста. Определи, вызвана ли ошибка регрессией, изменением формата поставщика, проблемой окружения или устаревшим ожиданием теста.
 
-## Test design
+## Требования к тестам
 
-- Unit-test locator conversion, distance/bearing calculations, parsing and normalization with deterministic input.
-- Mock HTTP and MQTT boundaries. The regular test suite must not depend on live third-party services.
-- Cover valid, empty, malformed, missing-field, timeout and provider-error responses.
-- Test cache expiry and cache hits with controlled time where possible.
-- Test API validation, response structure and partial-provider failure behavior.
-- Test that TX and RX regional observations remain independent.
-- Test storage bounds, duplicate handling and stale-observation filtering.
-- Avoid tests that depend on current time without freezing or injecting a clock.
+- Проверяй преобразование локаторов, расчёты расстояния/азимута, разбор и нормализацию на детерминированных данных.
+- Подменяй границы HTTP и MQTT. Обычный набор тестов не должен зависеть от доступности внешних сервисов.
+- Проверяй корректные, пустые, повреждённые ответы, отсутствие полей, тайм-ауты и ошибки поставщиков.
+- Проверяй истечение срока кэша и попадание в кэш, по возможности управляя временем.
+- Проверяй валидацию API, структуру ответов и частичные сбои источников.
+- Проверяй, что региональные наблюдения TX и RX остаются независимыми.
+- Проверяй ограничения хранилища, обработку дубликатов и фильтрацию устаревших наблюдений.
+- Избегай тестов, зависящих от текущего времени, если часы не заморожены или не передаются явно.
 
-## Frontend checks
+## Проверки frontend
 
-For changed JavaScript files, run a syntax check with Node.js when available:
+Для изменённых JavaScript-файлов при наличии Node.js запускай проверку синтаксиса:
 
 ```bash
 node --check frontend/js/app.js
 node --check frontend/js/solar-monitor.js
 ```
 
-Then launch locally with `run-windows.bat` on Windows. Check:
-- page startup and navigation;
-- loading, success, empty and failure states;
-- manual refresh and automatic loading where applicable;
-- keyboard-only operation and visible focus;
-- screen-reader names, labels, table headers and status announcements;
-- responsive layout at narrow and wide viewport sizes;
-- browser console for JavaScript errors.
+Затем запусти приложение локально через `run-windows.bat` в Windows. Проверь:
 
-A JavaScript syntax check is not an accessibility audit. Do not claim NVDA/VoiceOver testing unless it was actually performed.
+- запуск страницы и навигацию;
+- состояния загрузки, успеха, пустого результата и ошибки;
+- ручное обновление и автоматическую загрузку, если они предусмотрены;
+- управление только клавиатурой и видимость фокуса;
+- имена и подписи для скринридера, заголовки таблиц и объявления состояния;
+- адаптивность при узкой и широкой области просмотра;
+- консоль браузера на наличие ошибок JavaScript.
 
-## Live data checks
+Проверка синтаксиса JavaScript не является аудитом доступности. Не заявляй о проверке NVDA/VoiceOver, если она фактически не проводилась.
 
-Live feeds are useful for manual integration checks but should not be required for unit tests. Record the date/time and provider tested. A successful HTTP response alone does not prove that a field is semantically correct or current; inspect source timestamps, units, location and product documentation.
+## Проверка живых данных
 
-## Before committing
+Живые потоки полезны для ручной интеграционной проверки, но не должны быть обязательными для модульных тестов. Записывай дату/время и проверенный источник. Успешный HTTP-ответ сам по себе не доказывает, что поле семантически корректно или актуально: проверяй временные метки источника, единицы, географическую привязку и документацию продукта.
 
-Run the full Python suite after changes that affect backend behavior. Run frontend syntax checks after JavaScript changes. Review the final diff and ensure documentation matches the implementation. Record any checks that could not be performed.
+## Перед коммитом
+
+После изменений backend запускай полный набор Python-тестов. После изменений JavaScript проверяй его синтаксис. Просматривай итоговые изменения и убеждайся, что документация соответствует реализации. Записывай проверки, которые выполнить не удалось.
