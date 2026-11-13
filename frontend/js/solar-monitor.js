@@ -1,6 +1,17 @@
 (() => {
   "use strict";
   const hints = document.querySelector("#solar-show-hints");
+  const HINTS_STORAGE_KEY = "blindHamPropagationSolarHints";
+  if (hints) {
+    try {
+      const savedHints = localStorage.getItem(HINTS_STORAGE_KEY);
+      if (savedHints === "true" || savedHints === "false") {
+        hints.checked = savedHints === "true";
+      }
+    } catch {
+      // Keep the HTML default when browser storage is unavailable.
+    }
+  }
   const translations = {"Poor":"Плохо","Fair":"Средне","Good":"Хорошо","Excellent":"Отлично","Band Closed":"Закрыт","Band Open":"Открыт","VR QUIET":"Очень спокойно","QUIET":"Спокойно","UNSETTLED":"Неустойчиво","UNSETTLD":"Неустойчиво","ACTIVE":"Активно","MINOR STORM":"Небольшая магнитная буря","MAJOR STORM":"Сильная магнитная буря","SEVERE STORM":"Очень сильная магнитная буря","NoRpt":"Нет отчёта","No Report":"Нет отчёта"};
   const definitions = [
     ["solarflux","SFI — солнечный поток F10.7","Индекс солнечного потока на длине волны 10,7 см. Отражает общую активность Солнца и степень ионизации ионосферы. До 70: минимум цикла, высокие диапазоны закрыты. 70–100: низкая активность, в основном работают 40 и 80 метров. 100–150: умеренная активность, открываются 20 и 15 метров. 150–200: высокая активность, 10 метров работает хорошо. Выше 200: пик цикла, возможно прохождение через слой F2 на 6 метрах."],
@@ -138,6 +149,17 @@
     if(payload?.errors&&Object.keys(payload.errors).length){const e=el(fragment,"section",undefined,"result-card");el(e,"h3","Недоступные источники");const ul=el(e,"ul");for(const [name,msg] of Object.entries(payload.errors))el(ul,"li",`${name}: ${msg}`);}
     return fragment;
   }
-  if(hints)hints.addEventListener("change",()=>document.querySelectorAll(".solar-help").forEach(n=>n.hidden=!hints.checked));
+  if (hints) {
+    hints.addEventListener("change", () => {
+      try {
+        localStorage.setItem(HINTS_STORAGE_KEY, String(hints.checked));
+      } catch {
+        // Hint visibility still works for the current page.
+      }
+      document.querySelectorAll(".solar-help").forEach(node => {
+        node.hidden = !hints.checked;
+      });
+    });
+  }
   window.renderSolarOverview=overview;window.renderSolarDetails=details;
 })();
