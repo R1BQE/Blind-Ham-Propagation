@@ -28,10 +28,6 @@
         aria-controls="panel-local" aria-label="Условия в районе моей станции" tabindex="-1">Мой район</button>
       <button type="button" class="tab" id="tab-spots" role="tab" aria-selected="false"
         aria-controls="panel-spots" aria-label="Радионаблюдения: кто кого принимает" tabindex="-1">Станции</button>
-      <button type="button" class="tab" id="tab-details" role="tab" aria-selected="false"
-        aria-controls="panel-details" aria-label="Подробные данные и источники" tabindex="-1">Данные</button>
-      <button type="button" class="tab" id="tab-settings" role="tab" aria-selected="false"
-        aria-controls="panel-settings" tabindex="-1">Настройки</button>
     </div>
 
     <section class="tab-panel" id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" tabindex="0">
@@ -169,39 +165,6 @@
       </section>
     </section>
 
-    <section class="tab-panel" id="panel-details" role="tabpanel" aria-labelledby="tab-details" tabindex="0" hidden>
-      <section class="panel" aria-labelledby="details-heading">
-        <h2 id="details-heading">Показатели и источники</h2>
-        <p>Здесь — исходные измерения и данные разных источников. Они показаны отдельно, потому что измеряют разное.</p>
-        <div id="solar-details-report" class="report" role="region" aria-label="Подробные показатели солнечной активности" aria-busy="false">
-          <p class="muted">Подробные данные появятся после загрузки общей обстановки.</p>
-        </div>
-      </section>
-    </section>
-
-    <section class="tab-panel" id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" tabindex="0" hidden>
-      <section class="panel" aria-labelledby="settings-heading">
-        <h2 id="settings-heading">Мои настройки</h2>
-        <p>Укажи код своего района и расстояние поиска. Настройки сохраняются в этом браузере.</p>
-        <form id="settings-form">
-          <div class="form-row">
-            <label for="settings-locator">Код моего района (локатор)</label>
-            <input id="settings-locator" name="locator" type="text" maxlength="12"
-              autocomplete="off" autocapitalize="characters" spellcheck="false"
-              aria-describedby="settings-help" value="KP50DB" required>
-          </div>
-          <div class="form-row">
-            <label for="settings-radius">Расстояние поиска, км</label>
-            <input id="settings-radius" name="radius" type="number" min="1" max="1000"
-              step="1" value="100" required>
-          </div>
-          <p id="settings-help" class="muted">QTH-локатор Maidenhead задаёт координаты с определённой точностью, а не точный адрес. Поэтому расстояния до станций примерные.</p>
-          <p id="settings-error" class="field-error" role="alert"></p>
-          <button type="submit" id="settings-save">Сохранить настройки</button>
-        </form>
-        <p id="settings-status" class="status" role="status" aria-live="polite">Используются значения по умолчанию: KP50DB и 100 км.</p>
-        <p class="muted">Мощность, тип и высота антенны пока не используются в расчётах.</p>
-      </section>
     </section>
   </main>
   <dialog id="locator-address-dialog" aria-labelledby="locator-address-title" aria-describedby="locator-address-help">
