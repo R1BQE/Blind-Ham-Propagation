@@ -50,22 +50,18 @@ button:disabled { cursor: wait; opacity: .7; }
   main { padding-block-end: calc(5.5rem + env(safe-area-inset-bottom)); }
   .tabs {
     position: fixed; z-index: 20; inset-inline: 0; inset-block-end: 0;
-    display: flex; flex-wrap: nowrap; gap: 0; width: 100%;
-    margin: 0; padding: .4rem .25rem calc(.4rem + env(safe-area-inset-bottom));
-    overflow-x: auto; overflow-y: hidden; overscroll-behavior-inline: contain;
-    -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .15rem;
+    width: 100%; margin: 0;
+    padding: .35rem .2rem calc(.35rem + env(safe-area-inset-bottom));
     border: 0; border-block-start: 1px solid var(--border); border-radius: 0;
-    background: var(--surface);
-    box-shadow: 0 -3px 14px rgb(0 0 0 / 12%);
+    background: var(--surface); box-shadow: 0 -3px 14px rgb(0 0 0 / 12%);
   }
-  .tabs::-webkit-scrollbar { display: none; }
   .tab {
-    flex: 0 0 auto; min-width: 5.25rem; min-height: 3.5rem;
-    padding: .35rem .45rem; border: 0; border-radius: .55rem;
-    font-size: .76rem; line-height: 1.2; white-space: normal;
-    text-align: center; scroll-snap-align: center;
+    min-width: 0; min-height: 3.5rem; padding: .3rem .1rem;
+    border: 0; border-radius: .45rem; font-size: clamp(.62rem, 2.5vw, .76rem);
+    line-height: 1.15; white-space: normal; overflow-wrap: anywhere;
+    text-align: center;
   }
-  .tabs { scroll-snap-type: x proximity; }
   .tab[aria-selected="true"] { background: var(--accent); color: var(--accent-text); }
   .measurements { grid-template-columns: 1fr; gap: 0; }
   .measurements dd { margin-block-end: .55rem; }
