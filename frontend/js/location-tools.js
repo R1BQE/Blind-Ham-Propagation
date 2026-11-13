@@ -193,10 +193,12 @@
     try {
       await loadYandex();
       for (const point of points.values()) {
-        const target = point.targets[0] || (point.locator === data.locator ? qthLine : null);
+        const target = point.locator === data.locator && qthCoordinates
+          ? qthLine
+          : (point.targets[0] || null);
         await enrichPoint(point.locator, target);
-        if (point.targets.length > 1 && target) {
-          for (const other of point.targets.slice(1)) other.textContent = target.textContent;
+        if (target) {
+          for (const other of point.targets) other.textContent = target.textContent;
         }
       }
     } catch {
