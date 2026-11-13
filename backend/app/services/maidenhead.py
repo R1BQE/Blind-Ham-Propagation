@@ -91,14 +91,25 @@ def coordinates_to_locator(
         raise LocatorError("Точность координат должна быть положительным числом.")
 
     accuracy = accuracy_m if accuracy_m is not None else 100.0
-    if accuracy <= 0.5:
-        precision = 12
-    elif accuracy <= 20:
-        precision = 10
-    elif accuracy <= 500:
-        precision = 8
-    else:
-        precision = 6
+    # Pick the longest cell whose half-width in the narrower direction is
+    # at least the reported position error. Longitude cells shrink toward poles.
+    precision = 6
+    for candidate in (6, 8, 10, 12):
+        candidate_lon_size = 360.0
+        candidate_lat_size = 180.0
+        for pair_index in range(candidate // 2):
+            divisor = 18 if pair_index == 0 else (10 if pair_index % 2 else 24)
+            candidate_lon_size /= divisor
+            candidate_lat_size /= divisor
+        latitude_cell_m = candidate_lat_size * 111_320.0
+        longitude_cell_m = (
+            candidate_lon_size * 111_320.0 * abs(math.cos(math.radians(latitude)))
+        )
+        narrow_half_cell_m = min(latitude_cell_m, longitude_cell_m) / 2
+        if accuracy <= narrow_half_cell_m:
+            precision = candidate
+        else:
+            break
 
     lon = min(longitude, 180.0 - 1e-10) + 180.0
     lat = min(latitude, 90.0 - 1e-10) + 90.0
