@@ -488,7 +488,7 @@ async function loadRegionalReport() {
   }
 }
 
-function renderLocal(data, weather, regional, errors = {}) {
+function renderLocal(data, regional, errors = {}) {
   localReport.replaceChildren();
   const section = document.createElement("section");
   section.className = "result-card";
@@ -539,30 +539,7 @@ function renderLocal(data, weather, regional, errors = {}) {
   }
   localReport.append(activity);
 
-  const comparison = document.createElement("section");
-  comparison.className = "result-card";
-  addText(comparison, "h3", "Солнечная активность и условия прохождения");
-  if (weather) {
-    const measurements = weather.measurements || {};
-    const solarRows = [
-      ["Солнечный поток F10.7", formatValue(measurements.solar_flux)],
-      ["Геомагнитный индекс Kp", formatValue(measurements.kp)],
-      ["Скорость солнечного ветра", formatValue(measurements.solar_wind_speed)],
-      ["Межпланетное магнитное поле Bz", formatValue(measurements.magnetic_field_bz)],
-      ["Рентгеновское излучение Солнца", formatValue(measurements.xray_flux)],
-    ];
-    addObservationRows(comparison, solarRows);
-    addText(comparison, "p",
-      "Эти показатели описывают общие условия в околоземном пространстве. Вместе с освещённостью и оценкой поглощения они помогают понять фоновые условия, но сами по себе не определяют, какой диапазон откроется именно между двумя станциями.");
-    addText(comparison, "p", `Солнечные данные получены: ${formatObservationTime(weather.retrieved_at)}`, "muted");
-  } else {
-    addText(comparison, "p", errors.weather || "Не удалось получить свежие данные солнечной активности.", "muted");
-  }
-  if (regional) {
-    addText(comparison, "p",
-      "Сопоставление с радионаблюдениями: диапазоны выше отсортированы по числу зарегистрированных приёмов рядом с твоим локатором. Это фактические подтверждения отдельных приёмов, а не гарантия устойчивой связи.");
-  }
-  localReport.append(comparison);
+
 }
 
 function renderLocalBandActivity(parent, regional) {
@@ -627,7 +604,7 @@ function renderLocalBandActivity(parent, regional) {
 async function loadLocalDashboard(locator) {
   if (!locator) return;
   localSubmit.disabled = true;
-  localStatus.textContent = "Собираем данные о Солнце, освещённости и радионаблюдениях…";
+  localStatus.textContent = "Собираем данные об освещённости и радионаблюдениях…";
   localReport.setAttribute("aria-busy", "true");
   localReport.replaceChildren();
   try {
@@ -635,7 +612,7 @@ async function loadLocalDashboard(locator) {
       locator,
       radius_km: String(userSettings.radiusKm),
       hours: String(userSettings.periodHours || 6),
-      limit: "100",
+      limit: "3",
       bands: bandSelection === "all" ? "" : selectedBands.join(","),
       modes: modeSelection === "all" ? "" : selectedModes.join(","),
     });
@@ -645,11 +622,6 @@ async function loadLocalDashboard(locator) {
         if (!response.ok) throw new Error(data.detail || "Не удалось рассчитать условия для локатора.");
         return data;
       }),
-      fetch(`${API}/solar/activity`, { cache: "no-store" }).then(async response => {
-        const data = await response.json();
-        if (!response.ok) throw new Error("Не удалось получить данные солнечной активности.");
-        return data;
-      }),
       fetch(`${API}/psk-reporter/regional?${params}`, { cache: "no-store" }).then(async response => {
         const data = await response.json();
         if (!response.ok) throw new Error(data.detail || "Не удалось получить радионаблюдения.");
@@ -657,14 +629,12 @@ async function loadLocalDashboard(locator) {
       }),
     ]);
     if (requests[0].status !== "fulfilled") throw requests[0].reason;
-    const weather = requests[1].status === "fulfilled" ? requests[1].value : null;
-    const regional = requests[2].status === "fulfilled" ? requests[2].value : null;
-    renderLocal(requests[0].value, weather, regional, {
-      weather: requests[1].status === "rejected" ? requests[1].reason.message : "",
-      regional: requests[2].status === "rejected" ? requests[2].reason.message : "",
+    const regional = requests[1].status === "fulfilled" ? requests[1].value : null;
+    renderLocal(requests[0].value, regional, {
+      regional: requests[1].status === "rejected" ? requests[1].reason.message : "",
     });
     localStatus.textContent = regional
-      ? (weather ? "Данные по локатору получены." : "Данные по локатору получены. Солнечная информация временно недоступна.")
+      ? "Данные по локатору получены."
       : "Условия по локатору рассчитаны. Радионаблюдения временно недоступны.";
   } catch (error) {
     localStatus.textContent = error.message || "Не удалось загрузить данные для локатора.";
