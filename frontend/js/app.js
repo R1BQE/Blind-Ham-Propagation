@@ -10,9 +10,6 @@ const localSubmit = document.querySelector("#local-submit");
 const localStatus = document.querySelector("#local-status");
 const localReport = document.querySelector("#local-report");
 const serviceStatus = document.querySelector("#service-status");
-const pskStatusButton = document.querySelector("#psk-status-refresh");
-const pskStatus = document.querySelector("#psk-status");
-const pskReport = document.querySelector("#psk-report");
 const regionalRefresh = document.querySelector("#regional-refresh");
 const regionalStatus = document.querySelector("#regional-status");
 const regionalDescription = document.querySelector("#regional-description");
@@ -162,7 +159,6 @@ regionalLocatorForm.addEventListener("submit", async (event) => {
     }
     regionalStatus.textContent =
       `Подписки обновлены: ${subscriptionData.topic_filters.length}. Ожидаем поток и загружаем накопленные наблюдения…`;
-    await loadPskStatus();
     await loadRegionalReport();
   } catch (error) {
     regionalLocatorError.textContent = error.message;
@@ -224,8 +220,12 @@ function activateTab(tab, moveFocus = false) {
   const sessionTabs = ["tab-local", "tab-spots"];
   if (sessionTabs.includes(tab.id)) {
     startPskReporterSession();
-    if (tab.id === "tab-local" && pskReporterSocket?.readyState === WebSocket.OPEN) {
-      void loadLocalDashboard(locatorInput.value.trim().toUpperCase());
+    if (pskReporterSocket?.readyState === WebSocket.OPEN) {
+      if (tab.id === "tab-local") {
+        void loadLocalDashboard(locatorInput.value.trim().toUpperCase());
+      } else if (tab.id === "tab-spots") {
+        void loadRegionalReport();
+      }
     }
   } else if (sessionTabs.includes(previousTab?.id)) {
     stopPskReporterSession();
@@ -313,67 +313,6 @@ async function loadSolar() {
   } finally {
     solarButton.disabled = false;
     solarReport.setAttribute("aria-busy", "false");
-  }
-}
-
-function renderPskStatus(data) {
-  pskReport.replaceChildren();
-  const section = document.createElement("section");
-  section.className = "result-card";
-  const stateLabels = {
-    disabled: "Приём наблюдений отключён",
-    idle: "Ожидает открытия раздела радионаблюдений",
-    connecting: "Подключается к службе приёма наблюдений",
-    connected: "Связь установлена, поступают новые наблюдения",
-    reconnecting: "Связь прервалась. Сервис пытается подключиться снова",
-    error: "Не удалось получать наблюдения",
-    stopped: "Приём наблюдений остановлен",
-    not_started: "Приём наблюдений ещё не запускался",
-  };
-  addText(section, "h3", stateLabels[data.state] || data.state || "Состояние неизвестно");
-  const list = document.createElement("dl");
-  list.className = "measurements";
-  const rows = [
-    ["Сервер, откуда поступают наблюдения", data.broker ? `${data.broker}:${data.port}` : "Не указан"],
-    ["Тип защищённого соединения", data.transport || "Неизвестно"],
-    ["Какие диапазоны и режимы отслеживаются", (data.topic_filters || []).length ? String(data.topic_filters.length) : "Пока ничего не отслеживается"],
-    ["Получено сообщений от службы наблюдений", String(data.messages_received ?? 0)],
-    ["Найдено новых записей о приёме сигналов", String(data.spots_saved ?? 0)],
-    ["Записей сейчас хранится на сервере", String(data.stored_spots ?? 0)],
-    ["Повторно получено уже известных записей", String(data.duplicates ?? 0)],
-    ["Сообщений, которые не удалось разобрать", String(data.invalid_messages ?? 0)],
-    ["Количество ошибок приёма", String(data.errors ?? 0)],
-    ["Последнее сообщение от службы наблюдений", data.last_message_at ? formatObservationTime(data.last_message_at) : "Пока не поступало"],
-    ["Последняя запись о принятом сигнале", data.last_spot_at ? formatObservationTime(data.last_spot_at) : "Пока не поступала"],
-  ];
-  for (const [label, value] of rows) {
-    addText(list, "dt", label);
-    addText(list, "dd", value);
-  }
-  section.append(list);
-  if (data.last_error) addText(section, "p", `Последняя ошибка: ${data.last_error}`, "field-error");
-  pskReport.append(section);
-}
-
-async function loadPskStatus() {
-  pskStatusButton.disabled = true;
-  pskReport.setAttribute("aria-busy", "true");
-  pskStatus.textContent = "Проверяем состояние сборщика…";
-  try {
-    const response = await fetch(`${API}/psk-reporter/status`, { cache: "no-store" });
-    if (!response.ok) throw new Error("Сервер вернул ошибку.");
-    const data = await response.json();
-    renderPskStatus(data);
-    pskStatus.textContent = data.state === "connected"
-      ? "Связь со службой наблюдений установлена. Новые записи могут поступать."
-      : data.state === "disabled"
-        ? "Приём наблюдений отключён в настройках сервера."
-        : "Состояние приёма наблюдений обновлено.";
-  } catch (error) {
-    pskStatus.textContent = `Не удалось получить состояние: ${error.message}`;
-  } finally {
-    pskStatusButton.disabled = false;
-    pskReport.setAttribute("aria-busy", "false");
   }
 }
 
@@ -532,7 +471,7 @@ async function loadRegionalReport() {
     locator: userSettings.locator,
     radius_km: String(userSettings.radiusKm),
     hours: String(userSettings.periodHours || 6),
-    limit: "30",
+    limit: "3",
     bands: bandSelection === "all" ? "" : selectedBands.join(","),
     modes: modeSelection === "all" ? "" : selectedModes.join(","),
   });
@@ -543,8 +482,7 @@ async function loadRegionalReport() {
     const data = await response.json();
     if (!response.ok) throw new Error(data.detail || "Не удалось получить региональные данные.");
     renderRegionalReport(data);
-    regionalStatus.textContent =
-      `Отчёт готов. Передачи станций рядом с тобой услышали ${data.tx.spots} раз; приёмники рядом с тобой услышали удалённые станции ${data.rx.spots} раз.`;
+    regionalStatus.textContent = "Радионаблюдения обновлены.";
   } catch (error) {
     regionalStatus.textContent = error.message;
   } finally {
@@ -728,10 +666,9 @@ async function loadLocalDashboard(locator) {
       weather: requests[1].status === "rejected" ? requests[1].reason.message : "",
       regional: requests[2].status === "rejected" ? requests[2].reason.message : "",
     });
-    const observationCount = regional ? (regional.tx.spots + regional.rx.spots) : null;
     localStatus.textContent = regional
-      ? `Отчёт готов. Найдено ${observationCount} записей о приёме за выбранный период. Солнечные данные ${weather ? "получены" : "временно недоступны"}.`
-      : "Условия для локатора рассчитаны. Радионаблюдения временно недоступны.";
+      ? (weather ? "Данные по локатору получены." : "Данные по локатору получены. Солнечная информация временно недоступна.")
+      : "Условия по локатору рассчитаны. Радионаблюдения временно недоступны.";
   } catch (error) {
     localStatus.textContent = error.message || "Не удалось загрузить данные для локатора.";
   } finally {
@@ -778,7 +715,6 @@ regionalDescription.textContent =
   `Локатор ${userSettings.locator}; радиус ${userSettings.radiusKm} км; ${filterDescription()}; период: ${userSettings.periodHours || 6} часов.`;
 document.querySelectorAll('input[name="regional-band-selection"], input[name="regional-mode-selection"]')
   .forEach((input) => input.addEventListener("change", updateFilterVisibility));
-pskStatusButton.addEventListener("click", loadPskStatus);
 
 let pskReporterSocket = null;
 let pskReporterReconnectTimer = null;
@@ -830,10 +766,9 @@ function startPskReporterSession() {
     }
     void (async () => {
       await applyPskSubscriptions();
-      await loadPskStatus();
       if (document.querySelector("#tab-local").getAttribute("aria-selected") === "true") {
         await loadLocalDashboard(locatorInput.value.trim().toUpperCase());
-      } else {
+      } else if (document.querySelector("#tab-spots").getAttribute("aria-selected") === "true") {
         await loadRegionalReport();
       }
     })();
