@@ -165,7 +165,7 @@ def test_radio_path_azimuth_is_always_from_transmitter_to_receiver():
 
 def test_regional_report_limits_latest_station_records_to_three():
     store = MemoryStore([
-        spot(f"R{i}ABC", f"W{i}XYZ", "KO59XX", "FN31PR", observed_at=10_000 - i)
+        spot(f"R{i}ABC", f"W{i}XYZ", "KO59XX", "KO59XW", observed_at=10_000 - i)
         for i in range(5)
     ])
 
