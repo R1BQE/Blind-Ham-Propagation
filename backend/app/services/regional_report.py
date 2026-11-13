@@ -11,8 +11,8 @@ from backend.app.services.maidenhead import locator_to_center
 from backend.app.services.spot_store import SpotStore
 
 COMPASS_POINTS = (
-    "С", "ССВ", "СВ", "ВСВ", "В", "ВЮВ", "ЮВ", "ЮЮВ",
-    "Ю", "ЮЮЗ", "ЮЗ", "ЗЮЗ", "З", "ЗСЗ", "СЗ", "ССЗ",
+    "Север", "Северо-восток", "Восток", "Юго-восток",
+    "Юг", "Юго-запад", "Запад", "Северо-запад",
 )
 
 
@@ -29,7 +29,7 @@ def _bearing(latitude_1: float, longitude_1: float,
         math.sin(lat1) * math.cos(lat2) * math.cos(delta_lon)
     )
     degrees = (math.degrees(math.atan2(y, x)) + 360.0) % 360.0
-    return round(degrees, 1), COMPASS_POINTS[int((degrees + 11.25) // 22.5) % 16]
+    return round(degrees, 1), COMPASS_POINTS[int((degrees + 22.5) // 45.0) % 8]
 
 
 def _iso_utc(timestamp: int | None) -> str | None:
@@ -213,6 +213,19 @@ def build_regional_report(
                 "stations": len(stat["stations"]),
                 "last_seen": _iso_utc(stat["last_seen"]),
             })
+        # Показываем не более одной самой свежей записи на диапазон,
+        # чтобы в коротком списке были представлены разные диапазоны.
+        latest_by_band = []
+        seen_bands = set()
+        for entry in entries:
+            band = str(entry.get("band") or "Неизвестно")
+            if band in seen_bands:
+                continue
+            seen_bands.add(band)
+            latest_by_band.append(entry)
+            if len(latest_by_band) >= details_limit:
+                break
+
         result[direction] = {
             "spots": len(entries),
             "unique_local_stations": len(station_sets[direction]),
@@ -220,7 +233,7 @@ def build_regional_report(
             "by_band": band_rows,
             "latest": [
                 {key: value for key, value in entry.items() if key != "observed_at_epoch"}
-                for entry in entries[:details_limit]
+                for entry in latest_by_band
             ],
         }
 
