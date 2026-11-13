@@ -1,126 +1,134 @@
-# AI-assisted development guide
+# Руководство по разработке с помощью ИИ
 
-This document is the practical entry point for an AI assistant asked to work on this repository.
+**Язык:** Русский | [English](en/ai-development-guide.md)
 
-## 1. Understand the project
+Это практическая отправная точка для ИИ-ассистента, которому поручена работа с репозиторием.
 
-Read, in this order:
+## 1. Изучение проекта
 
-1. `AGENTS.md` — mandatory repository rules.
-2. `README.md` — project purpose, status and quick start.
-3. `docs/architecture.md` — component boundaries and data flow.
-4. `docs/data-sources.md` — provider semantics and limitations.
-5. `docs/api.md` — public HTTP contract.
-6. `docs/testing.md` — test and validation commands.
-7. `docs/development-and-deployment.md` — local and production operation.
-8. `docs/licensing.md` — third-party code and data obligations.
+Читай документы в следующем порядке:
 
-Then inspect the actual files relevant to the requested task. Do not rely on this guide as a substitute for reading implementation and tests.
+1. `AGENTS.md` — обязательные правила репозитория.
+2. `README.md` — назначение проекта, состояние и быстрый запуск.
+3. `docs/architecture.md` — границы компонентов и потоки данных.
+4. `docs/data-sources.md` — семантика и ограничения источников.
+5. `docs/api.md` — публичный HTTP-контракт.
+6. `docs/testing.md` — тесты и команды проверки.
+7. `docs/development-and-deployment.md` — локальная работа и production.
+8. `docs/licensing.md` — обязательства по стороннему коду и данным.
 
-## 2. Repository map
+После этого изучи реальные файлы, относящиеся к задаче. Это руководство не заменяет чтение реализации и тестов.
 
-- `backend/app/main.py`: FastAPI application creation and router setup.
-- `backend/app/api/routes.py`: HTTP and WebSocket route handlers.
-- `backend/app/services/`: provider clients, calculations, persistence and domain services.
-- `backend/app/collectors/`: long-running data collection components.
-- `frontend/index.html`: page structure and script loading.
-- `frontend/js/app.js`: frontend application behavior, navigation and API interaction.
-- `frontend/js/solar-monitor.js`: solar/geomagnetic monitor rendering and interpretation.
-- `frontend/css/app.css`: responsive presentation and focus styling.
-- `tests/`: pytest unit and API tests.
-- `scripts/`: local/production setup helpers.
-- `deploy/`: service and web-server configuration examples.
-- `data/`, `logs/`: runtime data; do not commit their contents.
+## 2. Структура репозитория
 
-The exact tree can evolve. Confirm paths in the current branch before editing.
+- `backend/app/main.py` — создание FastAPI-приложения и подключение маршрутов.
+- `backend/app/api/routes.py` — обработчики HTTP и WebSocket.
+- `backend/app/services/` — клиенты источников, расчёты, хранение и доменная логика.
+- `backend/app/collectors/` — компоненты длительного сбора данных.
+- `frontend/index.html` — структура страницы и подключение скриптов.
+- `frontend/js/app.js` — логика интерфейса, навигация и работа с API.
+- `frontend/js/solar-monitor.js` — отображение и интерпретация солнечного и геомагнитного монитора.
+- `frontend/css/app.css` — адаптивное оформление и стили фокуса.
+- `tests/` — модульные и API-тесты pytest.
+- `scripts/` — вспомогательные скрипты локальной работы и установки.
+- `deploy/` — примеры конфигурации службы и веб-сервера.
+- `data/`, `logs/` — рабочие данные; их содержимое не добавляется в Git.
 
-## 3. Architecture boundaries
+Структура может меняться. Перед редактированием проверяй реальные пути в текущей ветке.
 
-Provider modules should fetch and normalize one provider's data. Domain services should combine or interpret normalized data only when the semantics support it. API routes should validate requests, call services and return structured responses; avoid putting provider parsing or complex calculations directly in route handlers. Frontend code should render API results and explain their meaning without silently changing the underlying scientific values.
+## 3. Границы архитектуры
 
-Keep external network access behind provider/service modules so tests can mock it. Keep calculations deterministic and independently testable.
+Модуль поставщика должен получать и нормализовать данные одного источника. Доменные сервисы могут объединять или интерпретировать нормализованные данные только при совместимой семантике. API-маршруты проверяют запросы, вызывают сервисы и возвращают структурированные ответы. Не размещай разбор данных поставщика и сложные расчёты непосредственно в обработчиках маршрутов.
 
-## 4. Data semantics
+Сетевые обращения к внешним источникам должны оставаться в слоях поставщиков/сервисов, чтобы тесты могли подменять их. Расчёты по возможности делай детерминированными и независимо тестируемыми.
 
-Every value shown to a user should be traceable to a source or a clearly described calculation. Preserve units and UTC timestamps. Treat observation time and retrieval time as separate fields.
+## 4. Семантика данных
 
-Before comparing two providers, verify:
-- the physical quantity and definition;
-- unit and scale;
-- observation time and update cadence;
-- geographic reference and spatial resolution;
-- provisional/final or quality flags;
-- whether the value is measured, modelled or derived.
+Каждое значение, показанное пользователю, должно быть связано с источником или явно описанным расчётом. Сохраняй единицы измерения и временные метки UTC. Время наблюдения и время получения данных — разные величины.
 
-Do not choose a provider merely because its number looks more plausible. If the data are not comparable, show them separately and explain why. If one provider is stale or missing, identify that state instead of fabricating a replacement.
+Перед сравнением двух поставщиков проверь:
+- физическую величину и её определение;
+- единицу и шкалу;
+- время наблюдения и периодичность обновления;
+- географическую привязку и пространственное разрешение;
+- признаки предварительных/окончательных данных и качества;
+- является ли значение измеренным, модельным или производным.
 
-MUF is not interchangeable with F10.7, TEC, foF2 or D-RAP. D-RAP estimates D-region absorption; it is not an HF maximum usable frequency. A global index is not a path-specific forecast.
+Не выбирай поставщика только потому, что его число кажется правдоподобнее. Несопоставимые данные показывай отдельно и объясняй различия. Если источник устарел или недоступен, явно обозначай это, а не подставляй выдуманное значение.
 
-## 5. User interface and accessibility
+MUF нельзя подменять F10.7, TEC, foF2 или D-RAP. D-RAP оценивает поглощение в D-области, а не максимальную применимую частоту КВ. Глобальный индекс не является прогнозом конкретной радиотрассы.
 
-Use plain Russian, short labels and progressive disclosure: show the few values that help answer the immediate question first, with detailed/raw values available separately. Use semantic headings, labels, buttons and tables. Ensure keyboard access, visible focus, useful accessible names and live announcements. Provide textual equivalents for visual output.
+## 5. Интерфейс и доступность
 
-When simplifying a display, do not delete the underlying data or obscure source and timestamp details. A user must be able to expand details and discover why a summary was produced.
+Используй простой русский язык, короткие подписи и постепенное раскрытие информации: сначала показывай несколько значений, необходимых для ответа на основной вопрос, а подробные/исходные данные размещай отдельно. Используй семантические заголовки, подписи, кнопки и таблицы. Обеспечивай управление с клавиатуры, видимый фокус, понятные доступные имена и объявления динамических состояний. Для визуальных результатов предоставляй текстовый эквивалент.
 
-## 6. Typical task workflow
+Упрощая отображение, не удаляй исходные данные и не скрывай источник или время наблюдения. Пользователь должен иметь возможность раскрыть подробности и понять, откуда взялось сводное значение.
 
-For a bug:
-1. Reproduce or identify the failing path.
-2. Inspect logs, route, service and related tests.
-3. Add a focused regression test.
-4. Fix the root cause.
-5. Run the relevant tests and full test suite.
+## 6. Типовой рабочий процесс
 
-For a new provider:
-1. Verify public endpoint, terms, attribution and rate limits.
-2. Document product semantics and units.
-3. Implement an isolated client with timeout and error handling.
-4. Normalize values without losing provider metadata.
-5. Add mocked tests for valid, missing, malformed, stale and failed responses.
-6. Add API and UI integration with source/time/freshness disclosure.
-7. Update data-source and API documentation.
+При исправлении ошибки:
 
-For a UI change:
-1. Inspect current HTML, JS and CSS.
-2. Preserve keyboard behavior and responsive layout.
-3. Use text nodes/textContent for external data, not unsafe HTML interpolation.
-4. Check labels, focus order, status announcements and empty/error states.
-5. Keep detailed data available without overwhelming the default view.
+1. Воспроизведи проблему или определи путь, на котором она возникает.
+2. Изучи журналы, маршрут, сервис и связанные тесты.
+3. Добавь целевой регрессионный тест.
+4. Исправь первопричину.
+5. Запусти относящиеся к изменению тесты и полный набор.
 
-For a new calculation:
-1. State inputs, assumptions, units and reference frame.
-2. Implement a pure function where practical.
-3. Add known-value and boundary tests.
-4. Explain uncertainty and do not present an estimate as a measurement.
+При добавлении нового источника:
 
-## 7. Commands
+1. Проверь публичный endpoint, условия использования, атрибуцию и ограничения частоты запросов.
+2. Задокументируй семантику продукта и единицы измерения.
+3. Реализуй изолированный клиент с тайм-аутами и обработкой ошибок.
+4. Нормализуй значения, не теряя метаданные поставщика.
+5. Добавь mock-тесты для корректных, отсутствующих, повреждённых, устаревших ответов и ошибок.
+6. Подключи API и интерфейс с отображением источника, времени и актуальности.
+7. Обнови документацию источников данных и API.
 
-Install development dependencies:
+При изменении интерфейса:
+
+1. Изучи текущие HTML, JS и CSS.
+2. Сохраняй клавиатурное управление и адаптивную компоновку.
+3. Выводи внешние данные через текстовые узлы/`textContent`, а не небезопасную HTML-интерполяцию.
+4. Проверяй подписи, порядок фокуса, объявления состояний и пустые/ошибочные состояния.
+5. Сохраняй доступ к подробным данным, не перегружая начальный экран.
+
+При добавлении расчёта:
+
+1. Опиши входные данные, допущения, единицы и систему отсчёта.
+2. По возможности реализуй чистую функцию.
+3. Добавь тесты известных значений и граничных случаев.
+4. Объясни неопределённость и не выдавай оценку за измерение.
+
+## 7. Команды
+
+Установка зависимостей разработки:
 
 ```bash
 python -m venv .venv
-# Windows PowerShell: .\.venv\Scripts\Activate.ps1
-# Linux/macOS: source .venv/bin/activate
+# Windows PowerShell:
+.\.venv\Scripts\Activate.ps1
+# Linux/macOS:
+source .venv/bin/activate
 python -m pip install -e ".[dev]"
 ```
 
-Run tests:
+Запуск тестов и линтера:
 
 ```bash
 python -m pytest tests -q
 ruff check backend tests
 ```
 
-On Windows, the supported local launcher is `run-windows.bat`. Read `docs/development-and-deployment.md` before changing launcher or deployment behavior.
+В Windows поддерживаемый локальный запуск выполняется через `run-windows.bat`. Перед изменением launcher или развёртывания прочитай `docs/development-and-deployment.md`.
 
-## 8. Completion report
+## 8. Отчёт о завершении
 
-At the end of a task, report:
-- what changed and why;
-- files changed;
-- tests actually executed and their results;
-- any checks not possible (especially live external feeds);
-- known limitations and follow-up work;
-- commit SHA and branch, if changes were committed.
+В конце задачи укажи:
+- что изменено и почему;
+- какие файлы затронуты;
+- какие тесты действительно запускались и каков результат;
+- какие проверки выполнить не удалось (особенно проверку внешних источников);
+- известные ограничения и оставшиеся задачи;
+- SHA коммита и ветку, если изменения были закоммичены.
 
-Never say “all tests pass” unless the full suite was actually run.
+Никогда не утверждай, что все тесты прошли, если полный набор фактически не запускался.
