@@ -1,85 +1,89 @@
 # HTTP API
 
-The application exposes versioned routes under `/api/v1`. In local development the base URL is usually `http://127.0.0.1:8765`; production is intended to be served through the configured reverse proxy.
+**Язык:** Русский | [English](en/api.md)
 
-This document describes the implementation currently present in `backend/app/api/routes.py`. Confirm the route source and tests before relying on it as a compatibility guarantee.
+Приложение предоставляет версионированные маршруты с префиксом `/api/v1`. При локальной разработке базовый адрес обычно `http://127.0.0.1:8765`. В production приложение должно работать через настроенный reverse proxy.
 
-## Health
+Документ описывает реализацию в `backend/app/api/routes.py`. Перед тем как считать контракт гарантией совместимости, сверяй его с текущим кодом маршрутов и тестами.
+
+## Проверка состояния
 
 `GET /api/v1/health`
 
-Returns a small service-health object, currently including `status` and `service`.
+Возвращает краткий объект состояния службы, в текущей реализации содержащий поля `status` и `service`.
 
-## Solar and geomagnetic activity
+## Солнечная и геомагнитная активность
 
 `GET /api/v1/solar/activity`
 
-Returns global space-weather measurements from NOAA SWPC, D-RAP data and HamQSL solar XML data. Providers are fetched independently where implemented. A provider failure is recorded in `errors` and can produce a partial response rather than discarding other provider results.
+Возвращает глобальные данные космической погоды NOAA SWPC, данные D-RAP и солнечный XML HamQSL. Источники запрашиваются независимо. Ошибка поставщика записывается в `errors` и может привести к частичному ответу, не удаляя результаты остальных источников.
 
-The response is a composite object. Inspect the current provider service modules and tests for the exact field names and nested schemas; do not assume all providers return identical quantities or timestamps.
+Ответ является составным объектом. Точные имена полей и вложенные схемы проверяй в сервисах поставщиков и тестах. Не предполагай, что у всех источников одинаковые величины и временные метки.
 
-## Local QTH report
+## Локальный отчёт QTH
 
 `GET /api/v1/local/report?locator=KP50DB`
 
-Required query parameter:
-- `locator`: Maidenhead locator, 2–12 characters.
+Обязательный query-параметр:
 
-Returns locator-specific geographic/solar context and attempts to include the nearest NOAA D-RAP grid cell. The nearest grid cell is a model product, not a direct measurement at the station.
+- `locator` — Maidenhead-локатор длиной от 2 до 12 символов.
 
-Invalid locators return HTTP 422.
+Возвращает географический и солнечный контекст для локатора и пытается добавить ближайшую ячейку сетки NOAA D-RAP. Ближайшая ячейка — модельный продукт, а не непосредственное измерение в точке станции.
 
-## Locator validation
+Некорректный локатор приводит к HTTP 422.
+
+## Проверка локатора
 
 `POST /api/v1/locator/validate`
 
-JSON request:
+JSON-запрос:
 
 ```json
 {"locator":"KP50DB"}
 ```
 
-Returns the normalized locator and center latitude/longitude. Invalid locators return HTTP 422.
+Возвращает нормализованный локатор и широту/долготу центра ячейки. Некорректный локатор приводит к HTTP 422.
 
-## PSK Reporter collector status
+## Состояние сборщика PSK Reporter
 
 `GET /api/v1/psk-reporter/status`
 
-Returns collector state and counters. If the collector has not been initialized, the route reports `enabled: false` and `state: not_started`.
+Возвращает состояние сборщика и счётчики. Если сборщик ещё не инициализирован, маршрут возвращает `enabled: false` и `state: not_started`.
 
-## Regional PSK Reporter observations
+## Региональные наблюдения PSK Reporter
 
 `GET /api/v1/psk-reporter/regional`
 
-Query parameters:
-- `locator`: QTH Maidenhead locator; default `KP50DB`.
-- `radius_km`: radius around the locator-cell centre; greater than 0 and at most 1000 km; default 100.
-- `hours`: observation window; current route accepts 3–24 hours; default 6.
-- `limit`: maximum detail rows in each direction; 1–100; default 30.
-- `bands`: optional comma-separated band filter.
-- `modes`: optional comma-separated mode filter.
+Параметры запроса:
 
-The response keeps TX and RX directions separate. TX describes transmissions from stations inside the selected region that were received remotely. RX describes remote transmissions heard by receivers inside the region. These are regional observations, not proof of the user's own station capability.
+- `locator` — Maidenhead-локатор QTH; по умолчанию `KP50DB`.
+- `radius_km` — радиус от центра ячейки локатора; больше 0 и не более 1000 км; по умолчанию 100.
+- `hours` — окно наблюдений; допустимо от 3 до 24 часов; по умолчанию 6.
+- `limit` — максимальное число подробных строк в каждом направлении; от 1 до 100; по умолчанию 30.
+- `bands` — необязательный фильтр диапазонов через запятую.
+- `modes` — необязательный фильтр режимов через запятую.
 
-Invalid parameters/locators return HTTP 422.
+Ответ сохраняет направления TX и RX раздельно. TX описывает передачи станций внутри выбранного региона, которые услышали удалённые приёмники. RX описывает удалённые передачи, услышанные приёмниками внутри региона. Это региональные наблюдения, а не доказательство возможностей собственной станции пользователя.
 
-## PSK Reporter subscriptions
+Некорректные параметры или локатор приводят к HTTP 422.
+
+## Подписки PSK Reporter
 
 `POST /api/v1/psk-reporter/subscriptions`
 
-JSON request contains non-empty arrays `bands` and `modes`. The arrays are bounded by the route's validation limits. The collector validates and applies the filters; invalid filters return 422. If the collector is unavailable, the route returns 503.
+JSON-запрос содержит непустые массивы `bands` и `modes`. Размер массивов ограничен проверками маршрута. Сборщик проверяет и применяет фильтры. Некорректные фильтры приводят к HTTP 422. Если сборщик недоступен, возвращается HTTP 503.
 
-## PSK Reporter viewer session
+## Сессия просмотра PSK Reporter
 
 `WS /api/v1/psk-reporter/session`
 
-A browser WebSocket session tells the backend that the observations view is active. The shared collector lifecycle is coordinated across connected viewers. The collector is not intended to open a new MQTT connection for every HTTP report request.
+WebSocket-сессия браузера сообщает backend, что вкладка наблюдений открыта. Жизненный цикл общего сборщика координируется между подключёнными посетителями. Новый MQTT-сеанс для каждого HTTP-запроса отчёта не создаётся.
 
-## Error handling and compatibility
+## Ошибки и совместимость
 
-- HTTP 422: invalid query or request data.
-- HTTP 503: required collector/service unavailable.
-- External provider failures may be represented inside a successful partial solar report.
-- All times should be interpreted according to the field's documented timezone; source timestamps are normally UTC.
+- HTTP 422 — некорректные параметры запроса или данные.
+- HTTP 503 — необходимый сборщик/сервис недоступен.
+- Сбой внешнего поставщика может быть отражён внутри успешного частичного отчёта о солнечной активности.
+- Время интерпретируй согласно часовому поясу конкретного поля; временные метки источников обычно представлены в UTC.
 
-When adding, removing or changing a route, update this document and the corresponding API tests in the same change.
+При добавлении, удалении или изменении маршрута обновляй этот документ и соответствующие API-тесты в одном изменении.
