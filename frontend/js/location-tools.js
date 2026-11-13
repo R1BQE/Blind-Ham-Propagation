@@ -83,6 +83,17 @@
     return [lat + latSize / 2, lon + lonSize / 2];
   }
 
+  function defaultMapCenter() {
+    try {
+      const settings = JSON.parse(localStorage.getItem("blindHamPropagationSettings") || "null");
+      const center = locatorCenter(settings?.locator);
+      if (center) return center;
+    } catch {
+      // Use the application's default QTH when browser storage is unavailable.
+    }
+    return [59.94, 30.31];
+  }
+
   function escapeHtml(value) {
     return String(value).replace(/[&<>"']/g, (character) => ({
       "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
@@ -322,12 +333,14 @@
 
   addressOpenButton?.addEventListener("click", async () => {
     try {
+      toolsStatus.textContent = "Подключаем Яндекс Карты…";
       await loadYandex();
       dialog.showModal();
       addressInput.focus();
       addressStatus.textContent = "Введи адрес и нажми «Найти адрес».";
+      toolsStatus.textContent = "";
       if (!addressMap) {
-        addressMap = createMap(addressMapElement, [59.94, 30.31], 9);
+        addressMap = createMap(addressMapElement, defaultMapCenter(), 9);
       } else {
         addressMap.container.fitToViewport();
       }
