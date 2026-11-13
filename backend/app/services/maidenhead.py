@@ -68,7 +68,6 @@ def locator_to_center(locator: str) -> tuple[float, float]:
     )
 
 
-
 def coordinates_to_locator(
     latitude: float,
     longitude: float,
