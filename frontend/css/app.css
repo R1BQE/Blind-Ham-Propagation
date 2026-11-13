@@ -195,7 +195,7 @@ button:disabled { cursor: wait; opacity: .7; }
 .locator-actions button { margin-block-start: .5rem; }
 #locator-tools-status { min-height: 1.5rem; }
 #locator-address-dialog {
-  width: min( min(100% - 1.5rem, 48rem) );
+  width: min(calc(100% - 1.5rem), 48rem);
   max-width: 48rem;
   max-height: min(90vh, 52rem);
   padding: 0;
