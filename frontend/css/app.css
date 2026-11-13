@@ -233,15 +233,6 @@ button.secondary-button {
   background: var(--page);
   color: var(--text);
 }
-.yandex-map {
-  width: 100%;
-  min-height: 18rem;
-  margin-block: .75rem;
-  border: 1px solid var(--border);
-  border-radius: .5rem;
-  background: var(--page);
-  overflow: hidden;
-}
 .station-location {
   margin-block: .1rem .65rem;
   overflow-wrap: anywhere;
@@ -254,7 +245,6 @@ button.secondary-button {
     max-height: 92vh;
   }
   .dialog-content { max-height: 92vh; }
-  .yandex-map { min-height: 14rem; }
 }
 
 #locator-address-query {
