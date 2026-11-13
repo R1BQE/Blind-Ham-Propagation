@@ -765,8 +765,6 @@ function startPskReporterSession() {
       await applyPskSubscriptions();
       if (document.querySelector("#tab-local").getAttribute("aria-selected") === "true") {
         await loadLocalDashboard(locatorInput.value.trim().toUpperCase());
-      } else if (document.querySelector("#tab-spots").getAttribute("aria-selected") === "true") {
-        await loadRegionalReport();
       }
     })();
   });
