@@ -6,15 +6,22 @@ The production installation stays in its existing directory:
 
 There is no release directory tree, no `current` symlink, and no separate virtual environment per version. The existing `.venv`, database, settings file, logs, Apache VirtualHost and service account remain in place.
 
-## Install the updater once
+## First transition from the legacy updater
 
-After reviewing and merging the updater changes, install the script as root:
+The production VDS may already have an older `/usr/local/sbin/bp` dispatcher. Do not overwrite it before the new updater has been staged and reviewed.
+
+After the repository changes are merged and the server has fetched `origin/main`, prepare a separate bootstrap copy as root:
 
 ```sh
-ln -s /var/www/html/blind-prop/scripts/bp /usr/local/sbin/bp
+git -C /var/www/html/blind-prop show origin/main:scripts/bp > /tmp/bp-bootstrap
+bash -n /tmp/bp-bootstrap
+install -o root -g root -m 0755 /tmp/bp-bootstrap /usr/local/sbin/bp-bootstrap
+rm -f /tmp/bp-bootstrap
 ```
 
-This creates the `bp` command as a symlink to the repository script. Future Git updates automatically update the command implementation; no separate updater copy needs to be refreshed. It does not modify the running application or server configuration.
+The bootstrap is deliberately installed under a different name. The legacy `/usr/local/sbin/bp` remains untouched until the first update has passed its tests, configuration validation, service restart and local health check. When invoked by its absolute path as `/usr/local/sbin/bp-bootstrap update`, the successful bootstrap atomically replaces the legacy dispatcher with a symlink to `/var/www/html/blind-prop/scripts/bp`. If the update fails, the legacy dispatcher remains in place.
+
+Do not run the initial update until the separate production preflight and backup checks have been reviewed.
 
 ## Commands
 
