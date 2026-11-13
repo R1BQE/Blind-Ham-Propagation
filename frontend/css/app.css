@@ -50,7 +50,7 @@ button:disabled { cursor: wait; opacity: .7; }
   main { padding-block-end: calc(5.5rem + env(safe-area-inset-bottom)); }
   .tabs {
     position: fixed; z-index: 20; inset-inline: 0; inset-block-end: 0;
-    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .15rem;
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .15rem;
     width: 100%; margin: 0;
     padding: .35rem .2rem calc(.35rem + env(safe-area-inset-bottom));
     border: 0; border-block-start: 1px solid var(--border); border-radius: 0;
