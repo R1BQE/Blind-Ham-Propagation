@@ -61,15 +61,14 @@
     // "province" and "area" are administrative regions, not cities.
     // Only Yandex's locality component is presented as a city/town.
     const city = find("locality");
-    // subLocality is an urban district; district may be a municipal district.
+    const region = find("province") || find("area");
+    // subLocality is an urban district. Administrative regions are labelled separately.
     const cityDistrict = find("subLocality");
-    const values = [country, city, cityDistrict].filter((value, index, all) =>
-      value && all.indexOf(value) === index
-    );
     const labels = [];
     if (country) labels.push(`Страна: ${country}`);
-    if (city) labels.push(`Город: ${city}`);
-    if (cityDistrict) labels.push(`Район: ${cityDistrict}`);
+    if (region) labels.push(`Регион: ${region}`);
+    if (city) labels.push(`Город/населённый пункт: ${city}`);
+    if (cityDistrict) labels.push(`Район города: ${cityDistrict}`);
     if (!city) labels.push("Город или населённый пункт не определён");
     return {
       text: labels.join("; ") || "Географическое название не найдено",
@@ -184,13 +183,17 @@
     heading.textContent = "География радионаблюдений";
     const note = document.createElement("p");
     note.textContent = "Местоположение определяется по центру ячейки локатора. Это примерное положение станции, а не точные координаты антенны.";
+    const qthLine = document.createElement("p");
+    qthLine.className = "station-location muted";
+    if (qthCoordinates) qthLine.textContent = "Определяем местоположение твоего QTH…";
     section.append(heading, note);
+    if (qthCoordinates) section.append(qthLine);
     root.insertBefore(section, root.children[1] || null);
 
     try {
       await loadYandex();
       for (const point of points.values()) {
-        const target = point.targets[0] || (point.locator === data.locator ? note : null);
+        const target = point.targets[0] || (point.locator === data.locator ? qthLine : null);
         await enrichPoint(point.locator, target);
         if (point.targets.length > 1 && target) {
           for (const other of point.targets.slice(1)) other.textContent = target.textContent;
