@@ -66,3 +66,66 @@ def locator_to_center(locator: str) -> tuple[float, float]:
         latitude + latitude_size / 2,
         longitude + longitude_size / 2,
     )
+
+
+
+def coordinates_to_locator(
+    latitude: float,
+    longitude: float,
+    accuracy_m: float | None = None,
+) -> tuple[str, int]:
+    """Convert coordinates to a Maidenhead locator and select useful precision.
+
+    GPS accuracy is a radius in metres. The selected precision avoids implying
+    metre-level certainty when the position source is less accurate.
+    """
+    import math
+
+    if not math.isfinite(latitude) or not -90 <= latitude <= 90:
+        raise LocatorError("Широта должна находиться в диапазоне от -90 до 90.")
+    if not math.isfinite(longitude) or not -180 <= longitude <= 180:
+        raise LocatorError("Долгота должна находиться в диапазоне от -180 до 180.")
+    if accuracy_m is not None and (
+        not math.isfinite(accuracy_m) or accuracy_m <= 0
+    ):
+        raise LocatorError("Точность координат должна быть положительным числом.")
+
+    accuracy = accuracy_m if accuracy_m is not None else 100.0
+    if accuracy <= 0.5:
+        precision = 12
+    elif accuracy <= 20:
+        precision = 10
+    elif accuracy <= 500:
+        precision = 8
+    else:
+        precision = 6
+
+    lon = min(longitude, 180.0 - 1e-10) + 180.0
+    lat = min(latitude, 90.0 - 1e-10) + 90.0
+    lon_size = 360.0
+    lat_size = 180.0
+    result = []
+
+    for pair_index in range(precision // 2):
+        if pair_index == 0:
+            divisor = 18
+        elif pair_index % 2:
+            divisor = 10
+        else:
+            divisor = 24
+
+        lon_size /= divisor
+        lat_size /= divisor
+        lon_index = min(int(lon / lon_size), divisor - 1)
+        lat_index = min(int(lat / lat_size), divisor - 1)
+        if pair_index % 2 == 0:
+            result.append(chr(ord("A") + lon_index))
+            result.append(chr(ord("A") + lat_index))
+        else:
+            result.append(str(lon_index))
+            result.append(str(lat_index))
+        lon -= lon_index * lon_size
+        lat -= lat_index * lat_size
+
+    locator = "".join(result)
+    return locator, precision
