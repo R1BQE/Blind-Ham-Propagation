@@ -2,38 +2,30 @@
   "use strict";
 
   const API = "./api/v1";
-  const geolocateButton = document.querySelector("#locator-geolocate");
-  const addressOpenButton = document.querySelector("#locator-address-open");
-  const toolsStatus = document.querySelector("#locator-tools-status");
   const dialog = document.querySelector("#locator-address-dialog");
   const addressForm = document.querySelector("#locator-address-form");
   const addressInput = document.querySelector("#locator-address-query");
   const addressStatus = document.querySelector("#locator-address-status");
   const addressResults = document.querySelector("#locator-address-results");
-  const addressMapElement = document.querySelector("#locator-address-map");
   const addressSelected = document.querySelector("#locator-address-selected");
   const addressConfirm = document.querySelector("#locator-address-confirm");
   const addressCancel = document.querySelector("#locator-address-cancel");
 
   let apiKey = "";
   let ymapsReady = null;
-  let addressMap = null;
-  let addressMarker = null;
-  const addressSearchMarkers = [];
   let selectedAddress = null;
-  const maps = new Map();
+  let activeLocatorInput = null;
+  let activeStatus = null;
+  let activeTrigger = null;
+  let confirmedAddress = false;
   const geocodeCache = new Map();
   let geocodeQueue = Promise.resolve();
   let lastGeocodeAt = 0;
 
   const configReady = fetch(`${API}/config/public`, { cache: "no-store" })
     .then((response) => response.ok ? response.json() : {})
-    .then((config) => {
-      apiKey = String(config.yandex_maps_api_key || "").trim();
-    })
-    .catch(() => {
-      apiKey = "";
-    });
+    .then((config) => { apiKey = String(config.yandex_maps_api_key || "").trim(); })
+    .catch(() => { apiKey = ""; });
 
   function loadYandex() {
     if (ymapsReady) return ymapsReady;
@@ -52,6 +44,54 @@
       });
     });
     return ymapsReady;
+  }
+
+  function getMetadata(geoObject) {
+    return geoObject?.properties?.get("metaDataProperty.GeocoderMetaData") || {};
+  }
+
+  function extractLocation(geoObject) {
+    const metadata = getMetadata(geoObject);
+    const components = metadata.Address?.Components || [];
+    const find = (...kinds) => {
+      const component = components.find((item) => kinds.includes(item.kind));
+      return component?.name || "";
+    };
+    const country = find("country");
+    // "province" and "area" are administrative regions, not cities.
+    // Only Yandex's locality component is presented as a city/town.
+    const city = find("locality");
+    // subLocality is an urban district; district may be a municipal district.
+    const cityDistrict = find("subLocality");
+    const values = [country, city, cityDistrict].filter((value, index, all) =>
+      value && all.indexOf(value) === index
+    );
+    const labels = [];
+    if (country) labels.push(`Страна: ${country}`);
+    if (city) labels.push(`Город: ${city}`);
+    if (cityDistrict) labels.push(`Район: ${cityDistrict}`);
+    if (!city) labels.push("Город или населённый пункт не определён");
+    return {
+      text: labels.join("; ") || "Географическое название не найдено",
+      fullAddress: geoObject?.properties?.get("text") || "",
+      precision: metadata.precision || "other",
+    };
+  }
+
+  function queuedGeocode(query, options = {}) {
+    const key = `point:${query[0].toFixed(4)},${query[1].toFixed(4)}`;
+    if (geocodeCache.has(key)) return geocodeCache.get(key);
+    const request = geocodeQueue.then(async () => {
+      const wait = Math.max(0, 1000 - (Date.now() - lastGeocodeAt));
+      if (wait) await new Promise((resolve) => window.setTimeout(resolve, wait));
+      const ymaps = await loadYandex();
+      lastGeocodeAt = Date.now();
+      const response = await ymaps.geocode(query, { results: options.results || 1 });
+      return response.geoObjects.get(0) || null;
+    });
+    geocodeQueue = request.catch(() => null);
+    geocodeCache.set(key, request);
+    return request;
   }
 
   function locatorCenter(locator) {
@@ -84,159 +124,56 @@
     return [lat + latSize / 2, lon + lonSize / 2];
   }
 
-  function defaultMapCenter() {
-    try {
-      const settings = JSON.parse(localStorage.getItem("blindHamPropagationSettings") || "null");
-      const center = locatorCenter(settings?.locator);
-      if (center) return center;
-    } catch {
-      // Use the application's default QTH when browser storage is unavailable.
-    }
-    return [59.94, 30.31];
-  }
-
-  function escapeHtml(value) {
-    return String(value).replace(/[&<>"']/g, (character) => ({
-      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-    })[character]);
-  }
-
-  function getMetadata(geoObject) {
-    return geoObject?.properties?.get("metaDataProperty.GeocoderMetaData") || {};
-  }
-
-  function extractLocation(geoObject) {
-    const metadata = getMetadata(geoObject);
-    const components = metadata.Address?.Components || [];
-    const find = (...kinds) => {
-      const component = components.find((item) => kinds.includes(item.kind));
-      return component?.name || "";
-    };
-    const country = find("country");
-    const city = find("locality") || find("province") || find("area");
-    const district = find("district", "subLocality");
-    const values = [country, city, district].filter((value, index, all) =>
-      value && all.indexOf(value) === index
-    );
-    return {
-      text: values.join(", ") || geoObject?.properties?.get("text") || "Местоположение не определено",
-      fullAddress: geoObject?.properties?.get("text") || "",
-      precision: metadata.precision || "other",
-    };
-  }
-
-  function queuedGeocode(query, options = {}) {
-    const key = typeof query === "string" ? `address:${query.toLowerCase()}` : `point:${query[0].toFixed(4)},${query[1].toFixed(4)}`;
-    if (geocodeCache.has(key)) return geocodeCache.get(key);
-    const request = geocodeQueue.then(async () => {
-      const wait = Math.max(0, 1000 - (Date.now() - lastGeocodeAt));
-      if (wait) await new Promise((resolve) => window.setTimeout(resolve, wait));
-      const ymaps = await loadYandex();
-      lastGeocodeAt = Date.now();
-      const response = await ymaps.geocode(query, { results: options.results || 1 });
-      const object = response.geoObjects.get(0);
-      if (!object) return null;
-      return object;
-    });
-    geocodeQueue = request.catch(() => null);
-    geocodeCache.set(key, request);
-    return request;
-  }
-
-  function createMap(element, center, zoom = 5) {
-    if (!element || !window.ymaps) return null;
-    const existing = maps.get(element.id);
-    if (existing) {
-      existing.destroy();
-      maps.delete(element.id);
-    }
-    element.replaceChildren();
-    const map = new window.ymaps.Map(element.id, {
-      center,
-      zoom,
-      controls: ["zoomControl", "typeSelector"],
-    }, { suppressMapOpenBlock: true });
-    maps.set(element.id, map);
-    return map;
-  }
-
-  async function addReverseGeocodedPoint(map, locator, label, target) {
+  async function enrichPoint(locator, target) {
     const coordinates = locatorCenter(locator);
-    if (!coordinates) return;
+    if (!coordinates || !target) return;
     try {
       const geoObject = await queuedGeocode(coordinates);
       if (!geoObject) {
-        if (target) target.textContent = "Географическое название не найдено.";
+        target.textContent = "Географическое название не найдено.";
         return;
       }
       const location = extractLocation(geoObject);
-      if (target) target.textContent = `Местоположение: ${location.text}.`;
-      if (map) {
-        const marker = new window.ymaps.Placemark(coordinates, {
-          hintContent: `${label}: ${location.text}`,
-          balloonContent: `<strong>${escapeHtml(label)}</strong><br>${escapeHtml(location.text)}<br><small>Локатор ${escapeHtml(locator)}</small>`,
-        });
-        map.geoObjects.add(marker);
-      }
+      target.textContent = `Местоположение: ${location.text}. Это примерное положение центра ячейки локатора, а не точные координаты антенны.`;
     } catch {
-      if (target) target.textContent = "Не удалось определить страну, город и район.";
+      target.textContent = "Не удалось определить географическое название.";
     }
   }
 
   async function enrichLocalReport(root, data) {
     if (!root || !data?.locator) return;
-    try {
-      const ymaps = await loadYandex();
-      const section = document.createElement("section");
-      section.className = "result-card location-result";
-      const heading = document.createElement("h3");
-      heading.textContent = "Где находится мой локатор";
-      const summary = document.createElement("p");
-      summary.textContent = "Определяем страну, город и район по центру ячейки локатора…";
-      const mapElement = document.createElement("div");
-      mapElement.id = "local-yandex-map";
-      mapElement.className = "yandex-map";
-      mapElement.setAttribute("role", "region");
-      mapElement.setAttribute("aria-label", "Карта местоположения моего локатора");
-      section.append(heading, summary, mapElement);
-      root.prepend(section);
-      const map = createMap(mapElement, [data.latitude, data.longitude], 9);
-      await addReverseGeocodedPoint(map, data.locator, "Моя станция", summary);
-    } catch (error) {
-      const section = document.createElement("p");
-      section.className = "muted";
-      section.textContent = error.message || "Географические названия временно недоступны.";
-      root.prepend(section);
-    }
+    const section = document.createElement("section");
+    section.className = "result-card location-result";
+    const heading = document.createElement("h3");
+    heading.textContent = "Где находится мой локатор";
+    const summary = document.createElement("p");
+    summary.textContent = "Определяем страну, город и район по центру ячейки локатора…";
+    section.append(heading, summary);
+    root.prepend(section);
+    await enrichPoint(data.locator, summary);
   }
 
   async function enrichRegionalReport(root, data) {
     if (!root || !data) return;
     const points = new Map();
     const qthCoordinates = locatorCenter(data.locator);
-    if (qthCoordinates) points.set(data.locator, { locator: data.locator, label: "Твой QTH", coordinates: qthCoordinates });
+    if (qthCoordinates) points.set(data.locator, { locator: data.locator, targets: [] });
     const entries = Array.from(root.querySelectorAll(".observation-list > li"));
     for (const entry of entries) {
-      const headings = entry.querySelectorAll("h5");
       const lists = entry.querySelectorAll("dl");
-      for (let index = 0; index < lists.length; index += 1) {
-        const list = lists[index];
+      for (const list of lists) {
         const terms = Array.from(list.querySelectorAll("dt"));
         const locatorTerm = terms.find((term) => term.textContent.trim() === "Локатор");
         if (!locatorTerm) continue;
         const value = locatorTerm.nextElementSibling;
         const locator = value?.textContent.trim().toUpperCase();
-        const coordinates = locatorCenter(locator);
-        if (!coordinates) continue;
-        const label = headings[index]?.textContent || "Станция";
+        if (!locatorCenter(locator)) continue;
         const locationLine = document.createElement("p");
         locationLine.className = "station-location muted";
         locationLine.textContent = "Определяем страну, город и район…";
         value.insertAdjacentElement("afterend", locationLine);
-        if (!points.has(locator)) points.set(locator, { locator, label, coordinates, targets: [] });
-        const point = points.get(locator);
-        point.targets ||= [];
-        point.targets.push(locationLine);
+        if (!points.has(locator)) points.set(locator, { locator, targets: [] });
+        points.get(locator).targets.push(locationLine);
       }
     }
     if (!points.size) return;
@@ -246,42 +183,25 @@
     const heading = document.createElement("h3");
     heading.textContent = "География радионаблюдений";
     const note = document.createElement("p");
-    note.textContent = "Страна, город и район определяются по центру локатора. Это примерное положение станции, а не точные координаты антенны.";
-    const mapElement = document.createElement("div");
-    mapElement.id = "regional-yandex-map";
-    mapElement.className = "yandex-map";
-    mapElement.setAttribute("role", "region");
-    mapElement.setAttribute("aria-label", "Карта мест расположения радиостанций");
-    section.append(heading, note, mapElement);
+    note.textContent = "Местоположение определяется по центру ячейки локатора. Это примерное положение станции, а не точные координаты антенны.";
+    section.append(heading, note);
     root.insertBefore(section, root.children[1] || null);
 
     try {
       await loadYandex();
-      const map = createMap(mapElement, qthCoordinates || [...points.values()][0].coordinates, 5);
       for (const point of points.values()) {
-        const target = point.targets?.[0] || null;
-        await addReverseGeocodedPoint(map, point.locator, point.label, target);
-        if (point.targets?.length > 1 && target) {
+        const target = point.targets[0] || (point.locator === data.locator ? note : null);
+        await enrichPoint(point.locator, target);
+        if (point.targets.length > 1 && target) {
           for (const other of point.targets.slice(1)) other.textContent = target.textContent;
         }
       }
-    } catch (error) {
-      note.textContent = error.message || "Географические названия временно недоступны.";
-      mapElement.remove();
+    } catch {
+      note.textContent = "Географические названия временно недоступны.";
       for (const line of root.querySelectorAll(".station-location")) {
         line.textContent = "Географическое название недоступно.";
       }
     }
-  }
-
-  function setLocator(locator, accuracyText) {
-    if (typeof window.applyQthLocator === "function") {
-      window.applyQthLocator(locator);
-    } else {
-      const input = document.querySelector("#locator");
-      if (input) input.value = locator;
-    }
-    toolsStatus.textContent = `Определён локатор ${locator}. ${accuracyText}`;
   }
 
   async function coordinatesToLocator(latitude, longitude, accuracy) {
@@ -300,54 +220,86 @@
     return data;
   }
 
-  geolocateButton?.addEventListener("click", () => {
-    toolsStatus.textContent = "";
-    if (!navigator.geolocation) {
-      toolsStatus.textContent = "Браузер не поддерживает определение местоположения.";
-      return;
+  function setLocator(locator, accuracyText) {
+    if (typeof window.applyQthLocator === "function") {
+      window.applyQthLocator(locator);
+    } else if (activeLocatorInput) {
+      activeLocatorInput.value = locator;
     }
-    geolocateButton.disabled = true;
-    toolsStatus.textContent = "Запрашиваем разрешение на определение местоположения…";
-    navigator.geolocation.getCurrentPosition(async (position) => {
-      try {
-        const { latitude, longitude, accuracy } = position.coords;
-        const result = await coordinatesToLocator(latitude, longitude, accuracy);
-        const accuracyText = Number.isFinite(accuracy)
-          ? `Точность геолокации около ${Math.round(accuracy)} м; выбрано ${result.precision} символов.`
-          : `Выбрана точность ${result.precision} символов.`;
-        setLocator(result.locator, accuracyText);
-      } catch (error) {
-        toolsStatus.textContent = error.message;
-      } finally {
-        geolocateButton.disabled = false;
+    if (activeStatus) activeStatus.textContent = `Определён локатор ${locator}. ${accuracyText}`;
+    if (activeLocatorInput) {
+      activeLocatorInput.value = locator;
+      activeLocatorInput.focus();
+    }
+  }
+
+  function getLocatorInput(button) {
+    return document.querySelector(button.dataset.locatorTarget || "#locator");
+  }
+
+  function getStatus(button) {
+    return document.querySelector(button.dataset.statusTarget || "#locator-tools-status");
+  }
+
+  document.querySelectorAll("[data-locator-geolocate]").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeLocatorInput = getLocatorInput(button);
+      activeStatus = getStatus(button);
+      activeTrigger = button;
+      if (activeStatus) activeStatus.textContent = "";
+      if (!navigator.geolocation) {
+        if (activeStatus) activeStatus.textContent = "Браузер не поддерживает определение местоположения.";
+        return;
       }
-    }, (error) => {
-      const messages = {
-        1: "Браузер не получил разрешение на местоположение.",
-        2: "Устройство не смогло определить координаты.",
-        3: "Истекло время ожидания геолокации.",
-      };
-      toolsStatus.textContent = messages[error.code] || "Не удалось определить местоположение.";
-      geolocateButton.disabled = false;
-    }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 });
+      button.disabled = true;
+      if (activeStatus) activeStatus.textContent = "Запрашиваем разрешение на определение местоположения…";
+      navigator.geolocation.getCurrentPosition(async (position) => {
+        try {
+          const { latitude, longitude, accuracy } = position.coords;
+          const result = await coordinatesToLocator(latitude, longitude, accuracy);
+          const accuracyText = Number.isFinite(accuracy)
+            ? `Точность геолокации около ${Math.round(accuracy)} м; выбрано ${result.precision} символов.`
+            : `Выбрана точность ${result.precision} символов.`;
+          setLocator(result.locator, accuracyText);
+        } catch (error) {
+          if (activeStatus) activeStatus.textContent = error.message;
+        } finally {
+          button.disabled = false;
+        }
+      }, (error) => {
+        const messages = {
+          1: "Браузер не получил разрешение на местоположение.",
+          2: "Устройство не смогло определить координаты.",
+          3: "Истекло время ожидания геолокации.",
+        };
+        if (activeStatus) activeStatus.textContent = messages[error.code] || "Не удалось определить местоположение.";
+        button.disabled = false;
+      }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 });
+    });
   });
 
-  addressOpenButton?.addEventListener("click", async () => {
-    try {
-      toolsStatus.textContent = "Подключаем Яндекс Карты…";
-      await loadYandex();
-      dialog.showModal();
-      addressInput.focus();
-      addressStatus.textContent = "Введи адрес и нажми «Найти адрес».";
-      toolsStatus.textContent = "";
-      if (!addressMap) {
-        addressMap = createMap(addressMapElement, defaultMapCenter(), 9);
-      } else {
-        addressMap.container.fitToViewport();
+  document.querySelectorAll("[data-locator-address]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      activeLocatorInput = getLocatorInput(button);
+      activeStatus = getStatus(button);
+      activeTrigger = button;
+      confirmedAddress = false;
+      selectedAddress = null;
+      addressResults.replaceChildren();
+      addressSelected.textContent = "";
+      addressConfirm.disabled = true;
+      try {
+        if (activeStatus) activeStatus.textContent = "Подключаем поиск адресов…";
+        await loadYandex();
+        addressInput.value = "";
+        addressStatus.textContent = "Введи адрес и нажми «Найти адрес».";
+        if (activeStatus) activeStatus.textContent = "";
+        dialog.showModal();
+        addressInput.focus();
+      } catch (error) {
+        if (activeStatus) activeStatus.textContent = error.message;
       }
-    } catch (error) {
-      toolsStatus.textContent = error.message;
-    }
+    });
   });
 
   addressForm?.addEventListener("submit", async (event) => {
@@ -362,12 +314,6 @@
     searchButton.disabled = true;
     addressStatus.textContent = "Ищем адрес…";
     addressResults.replaceChildren();
-    for (const marker of addressSearchMarkers) addressMap?.geoObjects.remove(marker);
-    addressSearchMarkers.length = 0;
-    if (addressMarker && addressMap) {
-      addressMap.geoObjects.remove(addressMarker);
-      addressMarker = null;
-    }
     selectedAddress = null;
     addressConfirm.disabled = true;
     addressSelected.textContent = "";
@@ -378,45 +324,31 @@
         addressStatus.textContent = "По этому запросу ничего не найдено. Уточни адрес.";
         return;
       }
-      const bounds = objects.getBounds();
-      if (bounds && addressMap) addressMap.setBounds(bounds, { checkZoomRange: true, zoomMargin: 30 });
-      const results = [];
       for (let index = 0; index < objects.getLength(); index += 1) {
         const object = objects.get(index);
-        const coordinates = object.geometry.getCoordinates();
-        const title = object.properties.get("text") || object.properties.get("name") || `Вариант ${index + 1}`;
-        results.push({ object, coordinates, title, metadata: getMetadata(object) });
-      }
-      for (const [index, result] of results.entries()) {
-        const searchMarker = new window.ymaps.Placemark(result.coordinates, {
-          hintContent: result.title,
-          balloonContent: escapeHtml(result.title),
-        });
-        addressMap.geoObjects.add(searchMarker);
-        addressSearchMarkers.push(searchMarker);
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "address-result";
-        button.textContent = `${index + 1}. ${result.title}`;
-        button.addEventListener("click", () => {
+        const result = {
+          coordinates: object.geometry.getCoordinates(),
+          title: object.properties.get("text") || object.properties.get("name") || `Вариант ${index + 1}`,
+          metadata: getMetadata(object),
+        };
+        const option = document.createElement("button");
+        option.type = "button";
+        option.className = "address-result";
+        option.textContent = `${index + 1}. ${result.title}`;
+        option.setAttribute("aria-pressed", "false");
+        option.addEventListener("click", () => {
           selectedAddress = result;
-          for (const marker of addressSearchMarkers) addressMap.geoObjects.remove(marker);
-          addressSearchMarkers.length = 0;
-          if (addressMarker) addressMap.geoObjects.remove(addressMarker);
-          addressMarker = new window.ymaps.Placemark(result.coordinates, {
-            hintContent: result.title,
-            balloonContent: escapeHtml(result.title),
+          addressResults.querySelectorAll("button").forEach((item) => {
+            item.setAttribute("aria-pressed", String(item === option));
           });
-          addressMap.geoObjects.add(addressMarker);
-          addressMap.setCenter(result.coordinates, 16);
           addressSelected.textContent = `Выбран адрес: ${result.title}`;
-          addressStatus.textContent = "Адрес выбран. Проверь его и нажми «Подтвердить локатор».";
+          addressStatus.textContent = "Адрес выбран. Нажми «Подтвердить локатор».";
           addressConfirm.disabled = false;
         });
-        addressResults.append(button);
+        addressResults.append(option);
       }
-      addressStatus.textContent = `Найдено вариантов: ${results.length}. Выбери подходящий адрес.`;
-      if (results.length) results[0] && addressResults.querySelector("button")?.focus();
+      addressStatus.textContent = `Найдено вариантов: ${objects.getLength()}. Выбери подходящий адрес.`;
+      addressResults.querySelector("button")?.focus();
     } catch (error) {
       addressStatus.textContent = error.message || "Не удалось выполнить поиск адреса.";
     } finally {
@@ -436,6 +368,7 @@
       const [latitude, longitude] = selectedAddress.coordinates;
       const result = await coordinatesToLocator(latitude, longitude, accuracy);
       setLocator(result.locator, `Адресная точка: ${selectedAddress.title}. Расчётная точность координат — около ${accuracy} м; локатор содержит ${result.precision} символов.`);
+      confirmedAddress = true;
       dialog.close();
     } catch (error) {
       addressStatus.textContent = error.message;
@@ -444,10 +377,10 @@
   });
 
   addressCancel?.addEventListener("click", () => dialog.close());
-  dialog?.addEventListener("close", () => addressOpenButton?.focus());
+  dialog?.addEventListener("close", () => {
+    if (confirmedAddress && activeLocatorInput) activeLocatorInput.focus();
+    else activeTrigger?.focus();
+  });
 
-  window.locationTools = {
-    enrichLocalReport,
-    enrichRegionalReport,
-  };
+  window.locationTools = { enrichLocalReport, enrichRegionalReport };
 })();
