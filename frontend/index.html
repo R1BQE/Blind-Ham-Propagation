@@ -64,7 +64,12 @@
               placeholder="KO59XX" required>
           </div>
           <p id="locator-error" class="field-error" role="alert"></p>
-          <button type="submit" id="local-submit">Показать условия</button>
+          <div class="locator-actions">
+            <button type="button" id="locator-geolocate">Определить автоматически</button>
+            <button type="button" id="locator-address-open">Указать адрес</button>
+            <button type="submit" id="local-submit">Показать условия</button>
+          </div>
+          <p id="locator-tools-status" class="status" role="status" aria-live="polite"></p>
         </form>
         <p id="local-status" class="status" role="status" aria-live="polite">Локатор ещё не указан.</p>
         <div id="local-report" class="report" aria-busy="false"></div>
@@ -194,6 +199,29 @@
       </section>
     </section>
   </main>
+  <dialog id="locator-address-dialog" aria-labelledby="locator-address-title" aria-describedby="locator-address-help">
+    <div class="dialog-content">
+      <h2 id="locator-address-title">Определить локатор по адресу</h2>
+      <p id="locator-address-help">Введи адрес или его часть. Яндекс найдёт подходящие места. Выбери нужный результат, проверь его на карте и подтверди.</p>
+      <form id="locator-address-form" novalidate>
+        <div class="form-row">
+          <label for="locator-address-query">Адрес или населённый пункт</label>
+          <input id="locator-address-query" type="text" autocomplete="street-address" maxlength="250" required>
+        </div>
+        <button type="submit" id="locator-address-search">Найти адрес</button>
+      </form>
+      <p id="locator-address-status" class="status" role="status" aria-live="polite"></p>
+      <div id="locator-address-results" class="address-results" role="group" aria-label="Найденные адреса"></div>
+      <div id="locator-address-map" class="yandex-map" role="region" aria-label="Карта выбранного адреса">
+        Карта появится после поиска адреса.
+      </div>
+      <p id="locator-address-selected" class="muted"></p>
+      <div class="dialog-actions">
+        <button type="button" id="locator-address-confirm" disabled>Подтвердить локатор</button>
+        <button type="button" id="locator-address-cancel" class="secondary-button">Отмена</button>
+      </div>
+    </div>
+  </dialog>
   <footer class="site-footer">
     <div class="container">
       <p>Blind-Ham Propagation — доступный инструмент для радиолюбителей.</p>
@@ -201,6 +229,7 @@
     </div>
   </footer>
   <script src="./js/solar-monitor.js" defer></script>
+  <script src="./js/location-tools.js" defer></script>
   <script src="./js/app.js" defer></script>
 </body>
 </html>
