@@ -68,6 +68,17 @@ function applySettings(settings) {
     `Область поиска: локатор ${settings.locator}, радиус ${settings.radiusKm} км. Период — последние ${settings.periodHours || 6} часов.`;
 }
 
+window.applyQthLocator = (locator) => {
+  const settings = { ...userSettings, locator: String(locator).trim().toUpperCase() };
+  applySettings(settings);
+  try {
+    localStorage.setItem("blindHamPropagationSettings", JSON.stringify(settings));
+  } catch {
+    // The active page still uses the selected locator.
+  }
+  settingsStatus.textContent = `Локатор обновлён: ${settings.locator}.`;
+};
+
 function loadSettings() {
   try {
     const saved = JSON.parse(localStorage.getItem("blindHamPropagationSettings") || "null");
@@ -458,6 +469,7 @@ function renderRegionalReport(data) {
       remoteTitle: "Удалённый передатчик",
     }
   );
+  void window.locationTools?.enrichRegionalReport(regionalReport, data);
 }
 async function loadRegionalReport() {
   regionalRefresh.disabled = true;
@@ -538,7 +550,7 @@ function renderLocal(data, regional, errors = {}) {
     addText(activity, "p", errors.regional || "Пока не удалось получить радионаблюдения.", "muted");
   }
   localReport.append(activity);
-
+  void window.locationTools?.enrichLocalReport(localReport, data);
 
 }
 
