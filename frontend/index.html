@@ -68,7 +68,7 @@
           <button type="submit" id="local-submit">Показать условия</button>
         </form>
         <p id="local-status" class="status" role="status" aria-live="polite">Локатор ещё не указан.</p>
-        <div id="local-report" class="report" aria-live="polite" aria-busy="false"></div>
+        <div id="local-report" class="report" aria-busy="false"></div>
       </section>
     </section>
 
@@ -76,9 +76,6 @@
       <section class="panel" aria-labelledby="spots-heading">
         <h2 id="spots-heading">Кто кого принимает</h2>
         <p>Здесь собраны споты PSK Reporter: кто, кого, на каком диапазоне и в каком режиме принял. Укажи свой QTH-локатор, чтобы найти наблюдения поблизости.</p>
-        <button type="button" id="psk-status-refresh">Проверить связь с сервером</button>
-        <p id="psk-status" class="status" role="status" aria-live="polite">Состояние сборщика ещё не проверено.</p>
-        <div id="psk-report" class="report" aria-live="polite" aria-busy="false"></div>
         <section class="result-card" aria-labelledby="regional-heading">
           <h3 id="regional-heading">Приём станций рядом со мной</h3>
           <form id="regional-locator-form" novalidate>
@@ -157,7 +154,7 @@
           <p id="regional-description">Область поиска: локатор KP50DB, радиус 100 км. Период — последние 6 часов.</p>
           <button type="button" id="regional-refresh">Обновить список</button>
           <p id="regional-status" class="status" role="status" aria-live="polite">Региональные данные ещё не загружены.</p>
-          <div id="regional-report" class="report" aria-live="polite" aria-busy="false"></div>
+          <div id="regional-report" class="report" aria-busy="false"></div>
         </section>
         <p class="muted">Запись означает, что станция действительно приняла передачу. Это не гарантирует, что ты сможешь связаться с ней. Нет записей — не значит, что связь невозможна.</p>
       </section>
