@@ -144,3 +144,32 @@ def test_public_config_reports_maps_disabled_without_key(monkeypatch, tmp_path):
     assert response.status_code == 200
     assert response.json()["yandex_maps_enabled"] is False
     assert response.json()["yandex_maps_api_key"] == ""
+
+def test_lifespan_starts_collector_independently_of_browser_sessions(monkeypatch):
+    class FakeCollector:
+        instance = None
+
+        def __init__(self):
+            self.starts = 0
+            self.stops = 0
+            FakeCollector.instance = self
+
+        def start(self):
+            self.starts += 1
+
+        def stop(self):
+            self.stops += 1
+
+        def status(self):
+            return {"enabled": True, "state": "connected"}
+
+    monkeypatch.setattr("backend.app.main.PSKReporterCollector", FakeCollector)
+
+    with TestClient(app) as running_client:
+        response = running_client.get("/api/v1/psk-reporter/status")
+        assert response.status_code == 200
+        assert response.json()["state"] == "connected"
+        assert FakeCollector.instance.starts == 1
+
+    assert FakeCollector.instance.stops == 1
+
