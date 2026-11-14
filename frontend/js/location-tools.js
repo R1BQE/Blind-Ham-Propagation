@@ -155,18 +155,18 @@
     if (!coordinates || !target) return;
     try {
       const geoObject = await queuedGeocode(coordinates);
-      if (!geoObject) {
-        target.textContent = "Географическое название не найдено.";
-        return;
-      }
       let localityGeoObject = null;
-      if (!(getMetadata(geoObject).Address?.Components || [])
+      if (!geoObject || !(getMetadata(geoObject).Address?.Components || [])
         .some((component) => component.kind === "locality")) {
         // The automatic reverse-geocoder may return only an administrative
         // area. Ask Yandex explicitly for the nearest populated locality.
         localityGeoObject = await queuedGeocode(coordinates, { kind: "locality" });
       }
-      const location = extractLocation(geoObject, localityGeoObject);
+      if (!geoObject && !localityGeoObject) {
+        target.textContent = "Географическое название не найдено.";
+        return;
+      }
+      const location = extractLocation(geoObject || localityGeoObject, localityGeoObject);
       target.textContent = `Местоположение: ${location.text}.`
     } catch {
       target.textContent = "Не удалось определить географическое название.";
