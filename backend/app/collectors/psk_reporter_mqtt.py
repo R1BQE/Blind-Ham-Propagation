@@ -1,8 +1,4 @@
-"""Controlled PSK Reporter MQTT collector.
-
-The first production-safe stage listens to a deliberately narrow topic filter.
-It does not subscribe to the complete worldwide feed by default.
-"""
+"""PSK Reporter MQTT collector for all supported bands and digital modes."""
 from __future__ import annotations
 
 import configparser
