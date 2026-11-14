@@ -76,7 +76,7 @@
 
     // Some federal cities are returned as an area or a second province,
     // while their surrounding settlement is returned as locality.
-    const federalCityPattern = /^(?:г\.?\s*)?(санкт-петербург|москва|севастополь)$/i;
+    const federalCityPattern = /^(?:(?:г\.?|город)\s*)?(санкт-петербург|москва|севастополь)$/i;
     const federalCity = [...areas, ...provinces]
       .find((name) => federalCityPattern.test(name.trim())) || "";
     const city = federalCity || locality;
