@@ -135,15 +135,6 @@ regionalLocatorForm.addEventListener("submit", async (event) => {
     const locatorData = await validateResponse.json();
     if (!validateResponse.ok) throw new Error(locatorData.detail || "Некорректный локатор.");
 
-    const subscriptionResponse = await fetch(`${API}/psk-reporter/subscriptions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bands, modes }),
-      cache: "no-store",
-    });
-    const subscriptionResult = await subscriptionResponse.json();
-    if (!subscriptionResponse.ok) throw new Error(subscriptionResult.detail || "Не удалось применить фильтры радионаблюдений.");
-
     selectedBands = bands;
     selectedModes = modes;
     const settings = { locator: locatorData.locator, radiusKm, periodHours };
@@ -182,16 +173,10 @@ function activateTab(tab, moveFocus = false) {
     panel.hidden = !selected;
   }
   if (moveFocus) tab.focus();
-  const sessionTabs = ["tab-local", "tab-spots"];
-  if (sessionTabs.includes(tab.id)) {
-    startPskReporterSession();
-    if (tab.id === "tab-spots") {
-      void loadRegionalReport();
-    } else if (tab.id === "tab-local" && pskReporterSocket?.readyState === WebSocket.OPEN) {
-      void loadLocalDashboard(locatorInput.value.trim().toUpperCase());
-    }
-  } else if (sessionTabs.includes(previousTab?.id)) {
-    stopPskReporterSession();
+  if (tab.id === "tab-spots") {
+    void loadRegionalReport();
+  } else if (tab.id === "tab-local") {
+    void loadLocalDashboard(locatorInput.value.trim().toUpperCase());
   }
 }
 
@@ -647,73 +632,6 @@ regionalDescription.textContent =
 document.querySelectorAll('input[name="regional-band-selection"], input[name="regional-mode-selection"]')
   .forEach((input) => input.addEventListener("change", updateFilterVisibility));
 
-let pskReporterSocket = null;
-let pskReporterReconnectTimer = null;
-let pskReporterTabActive = false;
-let pskReporterPageClosing = false;
-
-function stopPskReporterSession() {
-  pskReporterTabActive = false;
-  if (pskReporterReconnectTimer !== null) {
-    window.clearTimeout(pskReporterReconnectTimer);
-    pskReporterReconnectTimer = null;
-  }
-  if (pskReporterSocket) {
-    const socket = pskReporterSocket;
-    pskReporterSocket = null;
-    socket.close();
-  }
-}
-
-async function applyPskSubscriptions() {
-  try {
-    const response = await fetch(`${API}/psk-reporter/subscriptions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bands: selectedBands, modes: selectedModes }),
-      cache: "no-store",
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || "Не удалось применить фильтры радионаблюдений.");
-    return data;
-  } catch {
-    regionalStatus.textContent = "Не удалось подключить службу радионаблюдений.";
-    return null;
-  }
-}
-
-function startPskReporterSession() {
-  pskReporterTabActive = true;
-  if (pskReporterPageClosing || pskReporterSocket || pskReporterReconnectTimer !== null) return;
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const apiPath = new URL(API, window.location.href).pathname;
-  const socketUrl = `${protocol}//${window.location.host}${apiPath}/psk-reporter/session`;
-  const socket = new WebSocket(socketUrl);
-  pskReporterSocket = socket;
-  socket.addEventListener("open", () => {
-    if (!pskReporterTabActive || pskReporterPageClosing) {
-      socket.close();
-      return;
-    }
-    void (async () => {
-      await applyPskSubscriptions();
-      if (document.querySelector("#tab-local").getAttribute("aria-selected") === "true") {
-        await loadLocalDashboard(locatorInput.value.trim().toUpperCase());
-      }
-    })();
-  });
-  socket.addEventListener("close", () => {
-    if (pskReporterSocket === socket) pskReporterSocket = null;
-    if (pskReporterTabActive && !pskReporterPageClosing) {
-      pskReporterReconnectTimer = window.setTimeout(() => {
-        pskReporterReconnectTimer = null;
-        startPskReporterSession();
-      }, 2000);
-    }
-  });
-  socket.addEventListener("error", () => {});
-}
-
 async function checkService() {
   try {
     const response = await fetch(`${API}/health`, { cache: "no-store" });
@@ -759,8 +677,6 @@ async function startLocalBrowserSession() {
 
 window.addEventListener("pagehide", () => {
   localSessionPageClosing = true;
-  pskReporterPageClosing = true;
-  stopPskReporterSession();
   if (localSessionSocket) localSessionSocket.close();
 }, { once: true });
 
