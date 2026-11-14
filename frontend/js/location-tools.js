@@ -50,42 +50,69 @@
     return geoObject?.properties?.get("metaDataProperty.GeocoderMetaData") || {};
   }
 
-  function extractLocation(geoObject) {
-    const metadata = getMetadata(geoObject);
-    const components = metadata.Address?.Components || [];
-    const find = (...kinds) => {
-      const component = components.find((item) => kinds.includes(item.kind));
-      return component?.name || "";
-    };
-    const country = find("country");
-    // "province" and "area" are administrative regions, not cities.
-    // Only Yandex's locality component is presented as a city/town.
-    const city = find("locality");
-    const region = find("province") || find("area");
-    // subLocality is an urban district. Administrative regions are labelled separately.
-    const cityDistrict = find("subLocality");
+  function extractLocation(geoObject, localityGeoObject = null) {
+    // Yandex returns address components from larger administrative levels
+    // to smaller ones. Keep repeated component kinds: province may contain
+    // both a federal district and a federal city.
+    const primary = getMetadata(geoObject).Address?.Components || [];
+    const fallback = getMetadata(localityGeoObject).Address?.Components || [];
+    const components = [...primary, ...fallback].filter((item, index, all) =>
+      item?.kind && item?.name
+      && all.findIndex((candidate) =>
+        candidate.kind === item.kind && candidate.name === item.name
+      ) === index
+    );
+    const all = (kind) => components
+      .filter((item) => item.kind === kind)
+      .map((item) => item.name);
+    const first = (kind) => all(kind)[0] || "";
+
+    const country = first("country");
+    const provinces = all("province");
+    const areas = all("area");
+    const locality = first("locality");
+    const districts = all("district");
+    const subLocality = first("subLocality");
+
+    // Some federal cities are returned as an area or a second province,
+    // while their surrounding settlement is returned as locality.
+    const federalCityPattern = /^(?:г\.?\s*)?(санкт-петербург|москва|севастополь)$/i;
+    const federalCity = [...areas, ...provinces]
+      .find((name) => federalCityPattern.test(name.trim())) || "";
+    const city = federalCity || locality;
+    const settlement = federalCity && locality && locality !== federalCity
+      ? locality
+      : "";
+    const region = provinces.find((name) => name !== federalCity)
+      || areas.find((name) => name !== federalCity)
+      || "";
+    const cityDistrict = subLocality || districts[0] || "";
+
     const labels = [];
-    if (country) labels.push(`Страна: ${country}`);
-    if (region) labels.push(`Регион: ${region}`);
-    if (city) labels.push(`Город/населённый пункт: ${city}`);
-    if (cityDistrict) labels.push(`Район города: ${cityDistrict}`);
-    if (!city) labels.push("Город или населённый пункт не определён");
+    if (country) labels.push("Страна: " + country);
+    if (region) labels.push("Регион: " + region);
+    if (city) labels.push("Город: " + city);
+    if (settlement) labels.push("Населённый пункт: " + settlement);
+    if (cityDistrict) labels.push("Район города: " + cityDistrict);
+    if (!city && !settlement) labels.push("Город или населённый пункт не определён");
     return {
       text: labels.join("; ") || "Географическое название не найдено",
       fullAddress: geoObject?.properties?.get("text") || "",
-      precision: metadata.precision || "other",
+      precision: getMetadata(geoObject).precision || "other",
     };
   }
 
   function queuedGeocode(query, options = {}) {
-    const key = `point:${query[0].toFixed(4)},${query[1].toFixed(4)}`;
+    const key = "point:" + query[0].toFixed(4) + "," + query[1].toFixed(4) + ":kind:" + (options.kind || "auto");
     if (geocodeCache.has(key)) return geocodeCache.get(key);
     const request = geocodeQueue.then(async () => {
       const wait = Math.max(0, 1000 - (Date.now() - lastGeocodeAt));
       if (wait) await new Promise((resolve) => window.setTimeout(resolve, wait));
       const ymaps = await loadYandex();
       lastGeocodeAt = Date.now();
-      const response = await ymaps.geocode(query, { results: options.results || 1 });
+      const geocodeOptions = { results: options.results || 1 };
+      if (options.kind) geocodeOptions.kind = options.kind;
+      const response = await ymaps.geocode(query, geocodeOptions);
       return response.geoObjects.get(0) || null;
     });
     geocodeQueue = request.catch(() => null);
