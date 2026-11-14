@@ -4,6 +4,7 @@ from backend.app.collectors.psk_reporter_mqtt import (
     DEFAULT_TOPIC_FILTERS,
     MQTTConfig,
     PSKReporterCollector,
+    SETTINGS_PATH,
 )
 
 
@@ -112,12 +113,7 @@ def test_environment_does_not_create_missing_settings_file(monkeypatch):
     config = MQTTConfig.from_environment()
 
     assert config.enabled is False
-    assert not (
-        __import__(
-            "backend.app.collectors.psk_reporter_mqtt",
-            fromlist=["SETTINGS_PATH"],
-        ).SETTINGS_PATH.exists()
-    )
+    assert not SETTINGS_PATH.exists()
 
 
 def test_environment_enables_collector_in_local_session_by_default(monkeypatch):
