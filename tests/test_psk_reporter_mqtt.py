@@ -78,6 +78,24 @@ def test_build_topic_filters_rejects_empty_and_unknown_values():
         PSKReporterCollector.build_topic_filters(["20m"], ["UNKNOWN"])
 
 
+
+def test_on_connect_subscribes_to_the_complete_matrix_in_one_request():
+    class FakeClient:
+        def __init__(self):
+            self.calls = []
+
+        def subscribe(self, topics):
+            self.calls.append(topics)
+            return 0, 1
+
+    collector = PSKReporterCollector(MQTTConfig(enabled=True), store=FakeStore())
+    client = FakeClient()
+
+    collector._on_connect(client, None, None, 0, None)
+
+    assert len(client.calls) == 1
+    assert client.calls[0] == [(topic, 0) for topic in DEFAULT_TOPIC_FILTERS]
+    assert collector.status()["state"] == "connected"
 def test_collector_saves_normalized_spot_and_counts_duplicate():
     store = FakeStore()
     collector = PSKReporterCollector(
@@ -170,6 +188,8 @@ def test_legacy_settings_topic_does_not_narrow_default_feed(monkeypatch):
 
     assert config.enabled is True
     assert config.topic_filters == DEFAULT_TOPIC_FILTERS
+
+
 def test_environment_topics_are_validated(monkeypatch):
     monkeypatch.setenv("PSK_REPORTER_ENABLED", "true")
     monkeypatch.setenv(
