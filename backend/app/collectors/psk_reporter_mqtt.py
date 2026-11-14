@@ -202,12 +202,13 @@ class PSKReporterCollector:
             return
 
         try:
-            for topic_filter in self.config.topic_filters:
-                result, _message_id = client.subscribe(topic_filter, qos=0)
-                if result != 0:
-                    raise RuntimeError(
-                        f"Не удалось подписаться на MQTT-топик: {topic_filter} (код {result})"
-                    )
+            result, _message_id = client.subscribe(
+                [(topic_filter, 0) for topic_filter in self.config.topic_filters]
+            )
+            if result != 0:
+                raise RuntimeError(
+                    f"Не удалось отправить список MQTT-подписок (код {result})"
+                )
             self._state = "connected"
             logger.info(
                 "PSK Reporter MQTT подключён; подписки: %s",
