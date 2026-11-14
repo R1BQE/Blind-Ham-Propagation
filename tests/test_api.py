@@ -1,6 +1,17 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from backend.app.main import app
+
+@pytest.fixture(autouse=True)
+def isolate_collector_settings_file(tmp_path, monkeypatch):
+    # TestClient lifespan constructs the MQTT collector. Keep its settings path
+    # inside the temporary test directory so tests cannot touch production config.
+    monkeypatch.setattr(
+        "backend.app.collectors.psk_reporter_mqtt.SETTINGS_PATH",
+        tmp_path / "settings.ini",
+    )
+
 
 client = TestClient(app)
 
