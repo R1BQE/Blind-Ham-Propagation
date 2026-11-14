@@ -57,8 +57,7 @@ Base prefix: `/api/v1`.
 - `POST /locator/validate` — validate a Maidenhead locator.
 - `GET /psk-reporter/status` — MQTT collector status.
 - `GET /psk-reporter/regional?locator=KP50DB&radius_km=100&hours=6` — regional TX/RX observations.
-- `POST /psk-reporter/subscriptions` — update collector filters.
-- `WS /psk-reporter/session` — active radio-observation viewer session.
+- The `bands` and `modes` parameters on regional requests filter only the current visitor's response; shared MQTT subscriptions are not changed.
 
 See the [API reference](docs/en/api.md) for parameters, limits, and errors.
 
