@@ -67,7 +67,7 @@ The updater does not overwrite `settings.ini`, `data/`, or `logs/`. Old configur
 
 ## Local settings
 
-The `settings.ini` file is stored in the repository root on each machine and must not be committed to Git. It contains local PSK Reporter collector settings, including the `[psk_reporter]` section, the `enabled` option, and the MQTT `topics` list. Check the actual file on the target machine before changing collector behavior. Do not publish it if it contains local or sensitive settings.
+The `settings.ini` file is stored in the repository root on each machine and must not be committed to Git. It contains local PSK Reporter collector settings, primarily `[psk_reporter] enabled`. When enabled, the MQTT collector starts with the backend service and continuously receives all supported bands and modes. The legacy `topics` option in this file is no longer used. For temporary diagnostic restrictions, an administrator may set the `PSK_REPORTER_TOPICS` environment variable. Website `bands` and `modes` filters apply only to an individual report and never change the shared feed.
 
 The installer creates an initial `settings.ini` if one does not already exist. Existing settings are preserved during updates.
 
