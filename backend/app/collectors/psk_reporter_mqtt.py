@@ -21,7 +21,6 @@ from backend.app.services.spot_store import SpotStore
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_TOPIC_FILTERS = ("pskr/filter/v2/20m/FT8/#",)
 SUPPORTED_BANDS = (
     "160m", "80m", "60m", "40m", "30m", "20m", "17m",
     "15m", "12m", "10m", "6m", "2m", "70cm",
@@ -29,6 +28,13 @@ SUPPORTED_BANDS = (
 SUPPORTED_MODES = (
     "FT8", "FT4", "JS8", "JT65", "JT9", "MSK144",
     "PSK31", "PSK63", "RTTY", "OLIVIA", "MFSK", "WSPR",
+)
+# The collector always receives the complete supported feed. User-selected
+# filters are applied to each regional API response, never to shared MQTT state.
+DEFAULT_TOPIC_FILTERS = tuple(
+    "pskr/filter/v2/{}/{}".format(band, mode) + "/#"
+    for band in SUPPORTED_BANDS
+    for mode in SUPPORTED_MODES
 )
 SETTINGS_PATH = Path(__file__).resolve().parents[3] / "settings.ini"
 
@@ -72,9 +78,12 @@ class MQTTConfig:
         if "PSK_REPORTER_ENABLED" in os.environ:
             enabled = _env_bool("PSK_REPORTER_ENABLED", enabled)
 
+        # Older settings.ini files may contain a narrow pilot filter. Ignore it:
+        # all bands and modes are the default production feed. An explicit
+        # environment override remains available for diagnostics.
         raw_topics = os.getenv("PSK_REPORTER_TOPICS", "").strip()
         if not raw_topics:
-            raw_topics = str(section.get("topics", ",".join(DEFAULT_TOPIC_FILTERS)))
+            raw_topics = ",".join(DEFAULT_TOPIC_FILTERS)
         topics = tuple(item.strip() for item in raw_topics.split(",") if item.strip())
 
         if not topics:
@@ -133,29 +142,6 @@ class PSKReporterCollector:
             for band in selected_bands
             for mode in selected_modes
         )
-
-    def set_filters(self, bands: list[str], modes: list[str]) -> tuple[str, ...]:
-        """Replace live MQTT subscriptions with the selected band/mode matrix."""
-        topics = self.build_topic_filters(bands, modes)
-        client = self._client
-        old_topics = self.config.topic_filters
-        self.config = MQTTConfig(
-            enabled=self.config.enabled,
-            host=self.config.host,
-            port=self.config.port,
-            keepalive=self.config.keepalive,
-            topic_filters=topics,
-        )
-        if client is not None and self._state == "connected":
-            if old_topics:
-                result, _ = client.unsubscribe(list(old_topics))
-                if result != 0:
-                    raise RuntimeError(f"Не удалось отменить старые MQTT-подписки (код {result}).")
-            result, _ = client.subscribe([(topic, 0) for topic in topics])
-            if result != 0:
-                raise RuntimeError(f"Не удалось установить новые MQTT-подписки (код {result}).")
-        logger.info("PSK Reporter subscriptions updated: %s", ", ".join(topics))
-        return topics
 
     def start(self) -> None:
         if not self.config.enabled:
