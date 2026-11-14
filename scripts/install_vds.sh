@@ -87,7 +87,7 @@ if [[ ! -f "${ROOT}/settings.ini" ]]; then
     cat > "${ROOT}/settings.ini" <<'INI'
 [psk_reporter]
 enabled = true
-topics = pskr/filter/v2/20m/FT8/#
+# The application subscribes to all supported bands and modes automatically.
 
 [yandex_maps]
 javascript_api_key =
