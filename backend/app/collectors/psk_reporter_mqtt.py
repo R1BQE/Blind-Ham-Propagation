@@ -56,19 +56,15 @@ class MQTTConfig:
             parser.read(SETTINGS_PATH, encoding="utf-8")
 
         local_default = os.getenv("BLIND_HAM_LOCAL_SESSION", "").strip() == "1"
+        # Loading runtime configuration must be side-effect free. In particular,
+        # FastAPI TestClient starts the application lifespan during tests; it must
+        # never create or modify the real production settings.ini. The installer
+        # is responsible for creating the initial settings file.
         if not SETTINGS_PATH.exists():
-            parser["psk_reporter"] = {
-                "enabled": "true" if local_default else "false",
-                "topics": ",".join(DEFAULT_TOPIC_FILTERS),
-            }
-            parser["yandex_maps"] = {
-                "javascript_api_key": "",
-            }
-            try:
-                with SETTINGS_PATH.open("w", encoding="utf-8") as settings_file:
-                    parser.write(settings_file)
-            except OSError:
-                logger.warning("Не удалось создать файл настроек %s", SETTINGS_PATH)
+            logger.warning(
+                "Файл настроек %s отсутствует; используются безопасные значения по умолчанию",
+                SETTINGS_PATH,
+            )
 
         section = parser["psk_reporter"] if parser.has_section("psk_reporter") else {}
         file_enabled = str(section.get("enabled", "true" if local_default else "false"))
