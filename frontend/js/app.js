@@ -164,7 +164,6 @@ const tabList = document.querySelector('[role="tablist"]');
 const tabs = Array.from(tabList.querySelectorAll('[role="tab"]'));
 
 function activateTab(tab, moveFocus = false) {
-  const previousTab = tabs.find((item) => item.getAttribute("aria-selected") === "true");
   for (const item of tabs) {
     const selected = item === tab;
     item.setAttribute("aria-selected", String(selected));
