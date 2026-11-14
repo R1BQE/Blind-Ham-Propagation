@@ -3,6 +3,8 @@ import pytest
 from backend.app.collectors import psk_reporter_mqtt as mqtt_module
 from backend.app.collectors.psk_reporter_mqtt import (
     DEFAULT_TOPIC_FILTERS,
+    SUPPORTED_BANDS,
+    SUPPORTED_MODES,
     MQTTConfig,
     PSKReporterCollector,
 )
@@ -37,17 +39,20 @@ PAYLOAD = (
 )
 
 
-def test_default_collector_is_disabled_and_uses_narrow_pilot_topic():
+def test_default_collector_is_disabled_and_uses_all_bands_and_modes():
     config = MQTTConfig()
     collector = PSKReporterCollector(config, store=FakeStore())
 
     collector.start()
     status = collector.status()
 
-    assert DEFAULT_TOPIC_FILTERS == ("pskr/filter/v2/20m/FT8/#",)
+    assert len(DEFAULT_TOPIC_FILTERS) == len(SUPPORTED_BANDS) * len(SUPPORTED_MODES)
+    assert len(DEFAULT_TOPIC_FILTERS) == 156
+    assert DEFAULT_TOPIC_FILTERS[0] == "pskr/filter/v2/160m/FT8/#"
+    assert DEFAULT_TOPIC_FILTERS[-1] == "pskr/filter/v2/70cm/WSPR/#"
     assert status["enabled"] is False
     assert status["state"] == "disabled"
-    assert status["topic_filters"] == ["pskr/filter/v2/20m/FT8/#"]
+    assert status["topic_filters"] == list(DEFAULT_TOPIC_FILTERS)
 
 
 def test_build_topic_filters_creates_band_mode_combinations():
@@ -152,6 +157,19 @@ def test_explicit_environment_setting_can_enable_collector(monkeypatch):
     assert config.enabled is True
 
 
+def test_legacy_settings_topic_does_not_narrow_default_feed(monkeypatch):
+    monkeypatch.delenv("PSK_REPORTER_ENABLED", raising=False)
+    monkeypatch.delenv("PSK_REPORTER_TOPICS", raising=False)
+    monkeypatch.delenv("BLIND_HAM_LOCAL_SESSION", raising=False)
+    mqtt_module.SETTINGS_PATH.write_text(
+        "[psk_reporter]\\nenabled = true\\ntopics = pskr/filter/v2/20m/FT8/#\\n",
+        encoding="utf-8",
+    )
+
+    config = MQTTConfig.from_environment()
+
+    assert config.enabled is True
+    assert config.topic_filters == DEFAULT_TOPIC_FILTERS
 def test_environment_topics_are_validated(monkeypatch):
     monkeypatch.setenv("PSK_REPORTER_ENABLED", "true")
     monkeypatch.setenv(
