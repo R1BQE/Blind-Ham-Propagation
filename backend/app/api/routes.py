@@ -3,7 +3,7 @@ import configparser
 import os
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from backend.app.services.drap import get_drap
@@ -38,33 +38,10 @@ class CoordinatesRequest(BaseModel):
     accuracy_m: float | None = Field(default=None, gt=0, le=100_000)
 
 
-class PSKSubscriptionRequest(BaseModel):
-    bands: list[str] = Field(min_length=1, max_length=13)
-    modes: list[str] = Field(min_length=1, max_length=12)
-
 
 @router.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok", "service": "blind-ham-propagation"}
-
-
-@router.websocket("/psk-reporter/session")
-async def psk_reporter_session(websocket: WebSocket) -> None:
-    """Keep the shared collector active while at least one viewer is connected."""
-    await websocket.accept()
-    sessions = getattr(websocket.app.state, "psk_reporter_sessions", None)
-    if sessions is None:
-        await websocket.close(code=1011, reason="PSK Reporter session manager unavailable")
-        return
-    connection_id = id(websocket)
-    await sessions.connect(connection_id)
-    try:
-        while True:
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        pass
-    finally:
-        await sessions.disconnect(connection_id)
 
 
 @router.get("/psk-reporter/status")
@@ -74,30 +51,6 @@ async def psk_reporter_status(request: Request) -> dict:
     if collector is None:
         return {"enabled": False, "state": "not_started"}
     return collector.status()
-
-
-@router.post("/psk-reporter/subscriptions")
-async def update_psk_reporter_subscriptions(
-    payload: PSKSubscriptionRequest,
-    request: Request,
-) -> dict:
-    """Apply selected bands and modes to the live shared MQTT collector."""
-    collector = getattr(request.app.state, "psk_reporter_collector", None)
-    if collector is None:
-        raise HTTPException(status_code=503, detail="Сборщик PSK Reporter недоступен.")
-    try:
-        topics = await asyncio.to_thread(
-            collector.set_filters, payload.bands, payload.modes
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except RuntimeError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
-    return {
-        "bands": list(dict.fromkeys(value.strip().lower() for value in payload.bands)),
-        "modes": list(dict.fromkeys(value.strip().upper() for value in payload.modes)),
-        "topic_filters": list(topics),
-    }
 
 
 @router.get("/psk-reporter/regional")
