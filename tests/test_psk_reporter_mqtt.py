@@ -162,7 +162,7 @@ def test_legacy_settings_topic_does_not_narrow_default_feed(monkeypatch):
     monkeypatch.delenv("PSK_REPORTER_TOPICS", raising=False)
     monkeypatch.delenv("BLIND_HAM_LOCAL_SESSION", raising=False)
     mqtt_module.SETTINGS_PATH.write_text(
-        "[psk_reporter]\\nenabled = true\\ntopics = pskr/filter/v2/20m/FT8/#\\n",
+        "[psk_reporter]\nenabled = true\ntopics = pskr/filter/v2/20m/FT8/#\n",
         encoding="utf-8",
     )
 
