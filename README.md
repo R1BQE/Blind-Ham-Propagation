@@ -57,8 +57,7 @@ uvicorn backend.app.main:app --host 127.0.0.1 --port 8765
 - `POST /locator/validate` — проверка Maidenhead-локатора.
 - `GET /psk-reporter/status` — состояние MQTT-сборщика.
 - `GET /psk-reporter/regional?locator=KP50DB&radius_km=100&hours=6` — региональные TX/RX-наблюдения.
-- `POST /psk-reporter/subscriptions` — изменение фильтров сборщика.
-- `WS /psk-reporter/session` — сессия активного просмотра радионаблюдений.
+- Параметры `bands` и `modes` в региональном запросе фильтруют только ответ текущего посетителя; общие MQTT-подписки не меняются.
 
 Полные параметры, ограничения и коды ошибок: [описание API](docs/api.md).
 
