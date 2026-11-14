@@ -65,17 +65,13 @@ The response keeps TX and RX directions separate. TX describes transmissions fro
 
 Invalid parameters/locators return HTTP 422.
 
-## PSK Reporter subscriptions
+## PSK Reporter collector and filters
 
-`POST /api/v1/psk-reporter/subscriptions`
+The MQTT/TLS collector starts with the backend service when `[psk_reporter] enabled = true` is set in `settings.ini`. It subscribes to all 13 supported bands and 12 digital modes and keeps collecting regardless of whether the website is open or how many visitors are viewing reports.
 
-The JSON request contains non-empty arrays `bands` and `modes`. Array sizes are bounded by route validation. The collector validates and applies the filters; invalid filters return 422. If the collector is unavailable, the route returns 503.
+The `bands` and `modes` parameters on `GET /api/v1/psk-reporter/regional` filter only that request's response. They do not modify shared MQTT subscriptions or affect other visitors' reports.
 
-## PSK Reporter viewer session
-
-`WS /api/v1/psk-reporter/session`
-
-A browser WebSocket session tells the backend that the observations view is active. The shared collector lifecycle is coordinated across connected viewers. The collector does not open a new MQTT connection for every HTTP report request.
+For diagnostics, an administrator may set the `PSK_REPORTER_TOPICS` environment variable to temporarily restrict MQTT filters. The legacy `topics` option in `settings.ini` is no longer used: the default configuration always covers all supported bands and modes.
 
 ## Errors and compatibility
 
