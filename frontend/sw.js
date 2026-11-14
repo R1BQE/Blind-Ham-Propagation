@@ -1,4 +1,4 @@
-const CACHE_NAME = "blind-ham-propagation-shell-v7";
+const CACHE_NAME = "blind-ham-propagation-shell-v8";
 const APP_SHELL = [
   "./",
   "./index.html",
