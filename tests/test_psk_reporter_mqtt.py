@@ -105,6 +105,21 @@ def test_collector_counts_malformed_messages_without_stopping():
     assert status["spots_saved"] == 0
 
 
+def test_environment_does_not_create_missing_settings_file(monkeypatch):
+    monkeypatch.delenv("PSK_REPORTER_ENABLED", raising=False)
+    monkeypatch.delenv("BLIND_HAM_LOCAL_SESSION", raising=False)
+
+    config = MQTTConfig.from_environment()
+
+    assert config.enabled is False
+    assert not (
+        __import__(
+            "backend.app.collectors.psk_reporter_mqtt",
+            fromlist=["SETTINGS_PATH"],
+        ).SETTINGS_PATH.exists()
+    )
+
+
 def test_environment_enables_collector_in_local_session_by_default(monkeypatch):
     monkeypatch.delenv("PSK_REPORTER_ENABLED", raising=False)
     monkeypatch.setenv("BLIND_HAM_LOCAL_SESSION", "1")
