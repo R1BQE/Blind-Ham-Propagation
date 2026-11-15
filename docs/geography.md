@@ -29,7 +29,7 @@ Install project dependencies, then run from the repository root:
 python scripts/build_geography.py
 ```
 
-The script downloads source archives to a temporary directory, creates `data/geography.sqlite3.new`, and replaces `data/geography.sqlite3` only after the import succeeds. Rebuild after this change to add the `name_ru` column and Russian alternate names. The generated database is runtime data and is excluded from Git.
+The full builder downloads source archives to a temporary directory, creates `data/geography.sqlite3.new`, and replaces `data/geography.sqlite3` only after the import succeeds. To update an already-built database without downloading allCountries and Natural Earth again, run `python scripts/update_russian_geography_names.py`. This migration copies the existing database, adds Russian names to the copy, checks SQLite integrity, and atomically replaces the original only after success. The generated database is runtime data and is excluded from Git.
 
 The builder needs network access and the `pyshp` Python package. The full GeoNames archive is large; allow sufficient temporary disk space for the archive, extracted boundary archives, and resulting SQLite database.
 
