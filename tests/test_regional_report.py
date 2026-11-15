@@ -153,18 +153,17 @@ def test_invalid_radius_is_rejected_even_when_store_is_empty():
 
 
 
-def test_regional_report_accepts_periods_up_to_24_hours():
+@pytest.mark.parametrize("hours", [0.5, 1, 2, 3, 4, 5, 6])
+def test_regional_report_accepts_supported_periods(hours):
     store = MemoryStore([])
-    # Keep the 24-hour cutoff above the Unix epoch (Windows does not
-    # support negative timestamps in datetime.fromtimestamp()).
-    report = build_regional_report("KO59XX", hours=24, store=store, now=200_000)
-    assert report["period_hours"] == 24
+    report = build_regional_report("KO59XX", hours=hours, store=store, now=200_000)
+    assert report["period_hours"] == hours
 
 
 def test_regional_report_rejects_period_outside_selector_values():
     store = MemoryStore([])
-    with pytest.raises(ValueError, match="шагом 3 часа"):
-        build_regional_report("KO59XX", hours=7, store=store, now=10_000)
+    with pytest.raises(ValueError, match="30 минут"):
+        build_regional_report("KO59XX", hours=1.5, store=store, now=10_000)
 
 
 
