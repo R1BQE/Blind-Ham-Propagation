@@ -333,8 +333,8 @@ function renderRegionalDirection(parent, title, description, data, roles, direct
 
     for (const item of data.stations) {
       const entry = document.createElement("li");
-      entry.tabIndex = -1;
-      addText(entry, "h4", item.local_call || item.local_grid || "Станция без позывного");
+      const stationHeading = addText(entry, "h4", item.local_call || item.local_grid || "Станция без позывного");
+      stationHeading.tabIndex = -1;
       addText(entry, "p", `Наблюдений: ${item.station_spots || 1}; последнее: ${formatObservationTime(item.observed_at)}`, "muted");
       addText(entry, "p", `${item.band} · ${item.mode}`);
 
@@ -410,7 +410,7 @@ function renderRegionalDirection(parent, title, description, data, roles, direct
         data.stations_total = nextData.stations_total;
         regionalStatus.textContent = "Подгружено";
         const firstNew = list.children[previousCount];
-        if (firstNew) firstNew.focus();
+        if (firstNew) firstNew.querySelector("h4")?.focus();
         if (data.stations.length >= data.stations_total) more.remove();
       } catch (error) {
         regionalStatus.textContent = error.message;
