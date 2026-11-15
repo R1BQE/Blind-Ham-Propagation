@@ -49,4 +49,4 @@ The lookup module has deterministic tests using a small synthetic SQLite databas
 4. Verify the API and accessible text output with representative production locators.
 5. The reverse-geocoding calls to Yandex have been removed. Explicit address search remains a separate Yandex feature.
 
-The production VDS is not modified by the build script or this repository change.
+The standalone build script only creates the database and does not change service configuration. The Debian first-install script invokes the builder automatically before starting systemd, then validates the completed database. Existing deployments are not rebuilt during `bp update`; the updater preserves `data/`.
