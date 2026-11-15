@@ -222,3 +222,21 @@ def test_iter_recent_for_region_keeps_tx_and_rx_candidates_and_filters(tmp_path)
     ))
 
     assert {row["sequence"] for row in rows} == {"1", "2"}
+
+def test_regional_lookup_indexes_tx_rx_and_short_locators(tmp_path):
+    store = SpotStore(tmp_path / "spots.sqlite3")
+    with store._connect() as connection:
+        indexes = {
+            row["name"]
+            for row in connection.execute(
+                "PRAGMA index_list(spots)"
+            ).fetchall()
+        }
+
+    assert {
+        "idx_spots_tx_grid4_observed",
+        "idx_spots_rx_grid4_observed",
+        "idx_spots_tx_short_observed",
+        "idx_spots_rx_short_observed",
+    } <= indexes
+
