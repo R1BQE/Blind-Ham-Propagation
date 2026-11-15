@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 DEFAULT_RETENTION_SECONDS = 6 * 60 * 60
-DEFAULT_MAX_RECORDS = 50_000
+DEFAULT_MAX_RECORDS = 5_000_000
 
 
 def default_database_path() -> Path:
@@ -156,7 +156,6 @@ class SpotStore:
             return 0, 0
 
         prepared = [self._prepare_values(spot, received_at) for spot, received_at in spots]
-        newest_received_at = max(values[2] for values in prepared)
         inserted = 0
 
         with self._connection() as connection:
@@ -172,7 +171,6 @@ class SpotStore:
                     values,
                 )
                 inserted += cursor.rowcount
-            self._prune_connection(connection, newest_received_at)
 
         return inserted, len(prepared) - inserted
 
