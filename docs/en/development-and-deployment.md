@@ -61,7 +61,7 @@ The updater runs pytest before restarting. A successful local check at `http://1
 
 Before changing code or configuration, the updater records the previous Git commit. When Apache/systemd files are replaced, copies are saved under `backups/`. If dependency installation, tests, configuration validation, restart, or the local health check fails, the updater attempts to restore the previous commit and changed configuration files. A successful rollback is confirmed by checking code, configuration, dependencies, and local health again.
 
-The PSK Reporter SQLite database is a temporary bounded cache, not durable user data. It can be rebuilt from new observations and is deliberately not backed up or restored by the updater. A normal code rollback leaves the current database file in place and does not replace it with an older snapshot. The application limits the cache to 50,000 records and applies its configured age retention.
+The PSK Reporter SQLite database is a temporary bounded cache, not durable user data. It can be rebuilt from new observations and is deliberately not backed up or restored by the updater. A normal code rollback leaves the current database file in place and does not replace it with an older snapshot. By default, the application retains observations for 24 hours and limits the cache to 5,000,000 records. The interface therefore offers periods from 3 to 24 hours. Records already deleted by an older version cannot be recovered; a complete 24-hour window accumulates gradually after the update.
 
 The updater does not overwrite `settings.ini`, `data/`, or `logs/`. Old configuration backups are retained; cleaning them up is a separate manual task.
 
@@ -73,7 +73,7 @@ The installer creates an initial `settings.ini` if one does not already exist. E
 
 ## Initial installation
 
-`scripts/install_vds.sh` is intended only for the initial installation on a Debian VDS. It creates the system user and service, virtual environment, installs dependencies from `requirements-vds.lock`, prepares runtime directories, and creates initial settings.
+`scripts/install_vds.sh` is intended only for the initial installation on a Debian VDS. It creates the system user and service, virtual environment, installs dependencies from `requirements-vds.lock`, prepares runtime directories, and creates initial settings. Before starting the service, it downloads GeoNames and Natural Earth, builds `data/geography.sqlite3` as the service user, and verifies database integrity, required tables, and schema version. An existing valid database is preserved without downloading it again. If download or validation fails, installation stops before starting the service.
 
 If the `blind-ham-propagation` service is already installed, the script refuses to perform another installation and directs the operator to `bp update`. Do not use the installer to update an existing server.
 
