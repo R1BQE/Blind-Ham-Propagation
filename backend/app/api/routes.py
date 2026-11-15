@@ -69,7 +69,7 @@ async def psk_reporter_regional(
     request: Request,
     locator: str = Query(default="KP50DB", min_length=2, max_length=12),
     radius_km: float = Query(default=100.0, gt=0, le=1000),
-    hours: int = Query(default=6, ge=3, le=24),
+    hours: float = Query(default=6, ge=0.5, le=6),
     limit: int = Query(default=10, ge=1, le=100),
     offset: int = Query(default=0, ge=0, le=100_000),
     bands: str | None = Query(default=None),
