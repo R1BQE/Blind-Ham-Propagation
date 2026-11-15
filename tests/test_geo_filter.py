@@ -109,3 +109,21 @@ def test_station_exactly_on_radius_boundary_is_included():
     )
     assert result["rx_distance_km"] == pytest.approx(radius, abs=0.001)
     assert result["rx_in_area"] is True
+
+
+
+def test_regional_prefixes_include_parent_square_when_qth_cell_is_near_its_edge():
+    from backend.app.services.geo_filter import locator_prefixes_for_radius
+
+    # The center of the 4-character parent KO59 is much farther than 1 km
+    # from the center of KO59XX, but the child locator itself is in the area.
+    prefixes = locator_prefixes_for_radius("KO59XX", 1.0)
+    assert "KO59" in prefixes
+
+
+def test_regional_prefixes_handle_antimeridian_and_large_radius():
+    from backend.app.services.geo_filter import locator_prefixes_for_radius
+
+    prefixes = locator_prefixes_for_radius("RR99XX", 1000.0)
+    assert prefixes
+    assert all(len(prefix) == 4 for prefix in prefixes)
