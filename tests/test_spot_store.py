@@ -89,6 +89,10 @@ def test_maximum_record_count_is_enforced(tmp_path):
             received_at=10_010 + index,
         )
 
+    # Batch insertion no longer performs expensive pruning on every flush.
+    assert store.count() == 3
+
+    store.prune(now=10_020)
     rows = store.list_recent(now=10_020)
 
     assert store.count() == 2
@@ -120,6 +124,19 @@ def test_store_limits_must_be_positive(tmp_path, kwargs):
     with pytest.raises(ValueError):
         SpotStore(tmp_path / "spots.sqlite3", **kwargs)
 
+
+
+def test_batch_insert_does_not_prune_until_explicit_cleanup(tmp_path):
+    store = SpotStore(tmp_path / "spots.sqlite3", retention_seconds=3600)
+    store.add_spot(make_spot(observed_at=1_000), received_at=1_000)
+    store.add_spot(make_spot(observed_at=4_000, sequence=2), received_at=4_000)
+
+    assert store.count() == 2
+
+    deleted = store.prune(now=5_000)
+
+    assert deleted == 1
+    assert store.count() == 1
 
 
 def test_list_recent_does_not_modify_storage(tmp_path):
