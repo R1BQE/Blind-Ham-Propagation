@@ -441,7 +441,7 @@ function renderRegionalReport(data) {
   const info = document.createElement("p");
   info.className = "muted";
   info.textContent =
-    `Твой локатор: ${data.locator}. Радиус поиска: ${data.radius_km} км. Период: последние ${data.period_hours} ч. Диапазоны: ${(data.bands || []).length ? (data.bands || []).join(", ") : "все"}; режимы: ${(data.modes || []).length ? (data.modes || []).join(", ") : "все"}. В отчёт вошли записи о приёме сигналов, сохранённые к моменту обновления.`;
+    `Твой локатор: ${data.locator}. Радиус поиска: ${data.radius_km} км. Период: последние ${formatPeriod(data.period_hours)}. Диапазоны: ${(data.bands || []).length ? (data.bands || []).join(", ") : "все"}; режимы: ${(data.modes || []).length ? (data.modes || []).join(", ") : "все"}. В отчёт вошли записи о приёме сигналов, сохранённые к моменту обновления.`;
   regionalReport.append(info);
 
   renderRegionalDirection(
@@ -541,7 +541,7 @@ function renderLocal(data, regional, errors = {}) {
   activity.className = "result-card";
   addText(activity, "h3", "Какие диапазоны сейчас наиболее активны рядом с тобой");
   addText(activity, "p",
-    `Учитываются радионаблюдения за последние ${regional?.period_hours ?? userSettings.periodHours ?? 6} ч в радиусе ${regional?.radius_km ?? userSettings.radiusKm} км от локатора ${data.locator}. Считаются реальные записи PSK Reporter, а не расчётная вероятность связи.`);
+    `Учитываются радионаблюдения за последние ${formatPeriod(regional?.period_hours ?? userSettings.periodHours ?? 6)} в радиусе ${regional?.radius_km ?? userSettings.radiusKm} км от локатора ${data.locator}. Считаются реальные записи PSK Reporter, а не расчётная вероятность связи.`);
   if (regional) {
     renderLocalBandActivity(activity, regional);
   } else {
