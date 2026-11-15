@@ -5,9 +5,8 @@ positions. Distances are therefore approximate.
 """
 from __future__ import annotations
 
-from functools import lru_cache
-
 import math
+from functools import lru_cache
 from typing import Any
 
 from backend.app.services.maidenhead import LocatorError, locator_to_center
