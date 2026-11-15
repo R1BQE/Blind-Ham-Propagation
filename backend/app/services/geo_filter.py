@@ -5,6 +5,8 @@ positions. Distances are therefore approximate.
 """
 from __future__ import annotations
 
+from functools import lru_cache
+
 import math
 from typing import Any
 
@@ -37,11 +39,72 @@ def haversine_km(latitude_1: float, longitude_1: float,
     return EARTH_RADIUS_KM * central_angle
 
 
-def distance_between_locators(locator_1: str, locator_2: str) -> float:
-    """Return approximate distance between the centers of two locator cells."""
+@lru_cache(maxsize=131_072)
+def _distance_between_locators_cached(locator_1: str, locator_2: str) -> float:
     latitude_1, longitude_1 = locator_to_center(locator_1)
     latitude_2, longitude_2 = locator_to_center(locator_2)
     return haversine_km(latitude_1, longitude_1, latitude_2, longitude_2)
+
+
+def distance_between_locators(locator_1: str, locator_2: str) -> float:
+    """Return approximate distance between the centers of two locator cells."""
+    first = locator_1.strip().upper()
+    second = locator_2.strip().upper()
+    return _distance_between_locators_cached(first, second)
+
+
+def locator_prefixes_for_radius(
+    qth_locator: str,
+    radius_km: float,
+) -> list[str]:
+    """Return 4-character Maidenhead squares covering a conservative radius box.
+
+    The returned prefixes may include false positives, but never exclude a
+    4-character cell center that can be inside the requested great-circle radius.
+    """
+    if not math.isfinite(radius_km) or radius_km <= 0:
+        raise ValueError("Радиус области наблюдения должен быть положительным числом.")
+
+    center_lat, center_lon = locator_to_center(qth_locator)
+    angular_radius = min(math.pi, radius_km / EARTH_RADIUS_KM)
+    latitude_delta = math.degrees(angular_radius)
+    min_latitude = max(-90.0, center_lat - latitude_delta)
+    max_latitude = min(90.0, center_lat + latitude_delta)
+
+    # A deliberately conservative longitude bound. Using the most poleward
+    # latitude in the box can only widen the candidate area, not lose a cell.
+    max_abs_latitude = max(abs(min_latitude), abs(max_latitude))
+    if max_abs_latitude >= 89.9:
+        longitude_delta = 180.0
+    else:
+        longitude_delta = min(
+            180.0,
+            math.degrees(
+                angular_radius / max(0.01, math.cos(math.radians(max_abs_latitude)))
+            ),
+        )
+
+    first_lat_index = max(0, math.ceil(min_latitude + 89.5))
+    last_lat_index = min(179, math.floor(max_latitude + 89.5))
+    prefixes: list[str] = []
+    for latitude_index in range(first_lat_index, last_lat_index + 1):
+        latitude_center = -89.5 + latitude_index
+        for longitude_index in range(180):
+            longitude_center = -179.0 + 2.0 * longitude_index
+            longitude_difference = abs(
+                (longitude_center - center_lon + 180.0) % 360.0 - 180.0
+            )
+            if longitude_difference > longitude_delta:
+                continue
+            longitude_field, longitude_square = divmod(longitude_index, 10)
+            latitude_field, latitude_square = divmod(latitude_index, 10)
+            prefixes.append(
+                chr(ord("A") + longitude_field)
+                + chr(ord("A") + latitude_field)
+                + str(longitude_square)
+                + str(latitude_square)
+            )
+    return prefixes
 
 
 def _optional_locator_distance(center: tuple[float, float],
@@ -59,6 +122,8 @@ def classify_spot_region(
     spot: dict[str, Any],
     qth_locator: str,
     radius_km: float = DEFAULT_RADIUS_KM,
+    *,
+    center: tuple[float, float] | None = None,
 ) -> dict[str, float | bool | None]:
     """Classify TX and RX independently against the QTH observation area.
 
@@ -68,7 +133,7 @@ def classify_spot_region(
     if not math.isfinite(radius_km) or radius_km <= 0:
         raise ValueError("Радиус области наблюдения должен быть положительным числом.")
 
-    center = locator_to_center(qth_locator)
+    center = center if center is not None else locator_to_center(qth_locator)
     tx_distance = _optional_locator_distance(center, spot.get("tx_grid"))
     rx_distance = _optional_locator_distance(center, spot.get("rx_grid"))
     return {
