@@ -410,8 +410,10 @@ function renderRegionalDirection(parent, title, description, data, roles, direct
         data.stations = [...(data.stations || []), ...(nextData.stations || [])];
         data.stations_total = nextData.stations_total;
         regionalStatus.textContent = "Подгружено";
-        const firstNew = list.children[previousCount];
+        const newEntries = Array.from(list.children).slice(previousCount);
+        const firstNew = newEntries[0];
         if (firstNew) firstNew.querySelector("h4")?.focus();
+        void window.locationTools?.enrichRegionalEntries(newEntries);
         if (data.stations.length >= data.stations_total) more.remove();
       } catch (error) {
         regionalStatus.textContent = error.message;
