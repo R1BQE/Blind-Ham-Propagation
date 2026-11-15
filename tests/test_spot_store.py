@@ -73,6 +73,7 @@ def test_expired_spots_are_removed(tmp_path):
     store.add_spot(make_spot(observed_at=1_000), received_at=1_000)
     store.add_spot(make_spot(observed_at=4_000, sequence=2), received_at=4_000)
 
+    store.prune(now=5_000)
     rows = store.list_recent(now=5_000)
 
     assert len(rows) == 1
@@ -118,3 +119,14 @@ def test_required_fields_are_validated(tmp_path):
 def test_store_limits_must_be_positive(tmp_path, kwargs):
     with pytest.raises(ValueError):
         SpotStore(tmp_path / "spots.sqlite3", **kwargs)
+
+
+
+def test_list_recent_does_not_modify_storage(tmp_path):
+    store = SpotStore(tmp_path / "spots.sqlite3", retention_seconds=3600)
+    store.add_spot(make_spot(observed_at=1_000), received_at=1_000)
+
+    rows = store.list_recent(now=5_000)
+
+    assert rows == []
+    assert store.count() == 1
