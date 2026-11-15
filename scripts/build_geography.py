@@ -243,7 +243,7 @@ def build() -> None:
                 "INSERT INTO metadata VALUES (?, ?)",
                 [
                     ("geonames_settlements", str(inserted)),
-                    ("database_schema", "1"),
+                    ("database_schema", "2"),
                     ("source_geonames", GEONAMES_URL),
                     ("source_geonames_alternate_names", GEONAMES_ALT_NAMES_URL),
                     ("source_natural_earth_version", "5.1.1"),
