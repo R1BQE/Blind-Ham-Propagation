@@ -21,8 +21,6 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "data"
 OUTPUT = DATA_DIR / "geography.sqlite3"
 GEONAMES_URL = "https://download.geonames.org/export/dump/allCountries.zip"
-COUNTRY_INFO_URL = "https://download.geonames.org/export/dump/countryInfo.txt"
-ADMIN1_URL = "https://download.geonames.org/export/dump/admin1CodesASCII.txt"
 NATURAL_EARTH = {
     "countries": "https://naturalearth.s3.amazonaws.com/10m_cultural/ne_10m_admin_0_countries.zip",
     "admin1": "https://naturalearth.s3.amazonaws.com/10m_cultural/ne_10m_admin_1_states_provinces.zip",
@@ -141,16 +139,6 @@ def build() -> None:
                 CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
                 CREATE INDEX settlements_country_admin ON settlements(country_code, admin1_code);
             """)
-
-            with country_info.open(encoding="utf-8") as source:
-                for row in csv.reader((line for line in source if not line.startswith("#")), delimiter="\t"):
-                    if len(row) > 4:
-                        connection.execute("INSERT OR REPLACE INTO metadata VALUES (?, ?)", (f"country:{row[0]}", row[4]))
-
-            with admin1_codes.open(encoding="utf-8") as source:
-                for row in csv.reader(source, delimiter="\t"):
-                    if len(row) >= 2:
-                        connection.execute("INSERT OR REPLACE INTO metadata VALUES (?, ?)", (f"admin1:{row[0]}", row[1]))
 
             print("Импортируем населённые пункты GeoNames…", flush=True)
             inserted = 0
