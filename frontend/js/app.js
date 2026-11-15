@@ -384,7 +384,6 @@ function renderRegionalDirection(parent, title, description, data, roles, direct
     more.textContent = "Загрузить ещё 10";
     more.addEventListener("click", async () => {
       more.disabled = true;
-      regionalStatus.textContent = "Подгружаем станции…";
       try {
         const nextOffset = data.stations?.length || 0;
         const params = new URLSearchParams({
