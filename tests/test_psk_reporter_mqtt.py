@@ -22,11 +22,18 @@ class FakeStore:
     def __init__(self):
         self.items = []
 
+    def add_spots(self, spots):
+        inserted = 0
+        for spot, received_at in spots:
+            if any(item["sequence"] == spot["sequence"] for item in self.items):
+                continue
+            self.items.append({**spot, "received_at": received_at})
+            inserted += 1
+        return inserted, len(spots) - inserted
+
     def add_spot(self, spot, *, received_at=None):
-        if any(item["sequence"] == spot["sequence"] for item in self.items):
-            return False
-        self.items.append({**spot, "received_at": received_at})
-        return True
+        inserted, _duplicates = self.add_spots([(spot, received_at)])
+        return inserted == 1
 
     def count(self):
         return len(self.items)
@@ -106,6 +113,12 @@ def test_collector_saves_normalized_spot_and_counts_duplicate():
     collector._handle_message(TOPIC, PAYLOAD)
     collector._handle_message(TOPIC, PAYLOAD)
 
+    queued_status = collector.status()
+    assert queued_status["queued_spots"] == 2
+    assert queued_status["spots_saved"] == 0
+    assert store.items == []
+
+    assert collector._flush_pending() is True
     status = collector.status()
     assert status["messages_received"] == 2
     assert status["spots_saved"] == 1
