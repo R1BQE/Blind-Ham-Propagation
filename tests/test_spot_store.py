@@ -37,23 +37,24 @@ def test_store_inserts_and_reads_normalized_spot(tmp_path):
 
 
 
-def test_default_retention_keeps_a_full_24_hour_history(tmp_path):
+def test_default_retention_keeps_only_the_last_six_hours(tmp_path):
     store = SpotStore(tmp_path / "spots.sqlite3")
     now = 100_000
     store.add_spot(
-        make_spot(observed_at=now - 7 * 60 * 60, sequence=1),
-        received_at=now - 7 * 60 * 60,
+        make_spot(observed_at=now - 5 * 60 * 60, sequence=1),
+        received_at=now - 5 * 60 * 60,
     )
     store.add_spot(
-        make_spot(observed_at=now - 23 * 60 * 60, sequence=2),
-        received_at=now - 23 * 60 * 60,
+        make_spot(observed_at=now - 7 * 60 * 60, sequence=2),
+        received_at=now - 7 * 60 * 60,
     )
 
     store.prune(now=now)
 
     rows = store.list_recent(now=now)
-    assert store.retention_seconds == 24 * 60 * 60
-    assert len(rows) == 2
+    assert store.retention_seconds == 6 * 60 * 60
+    assert len(rows) == 1
+    assert rows[0]["sequence"] == "1"
 
 def test_iter_recent_filters_by_period_and_reads_in_batches(tmp_path):
     store = SpotStore(tmp_path / "spots.sqlite3")
