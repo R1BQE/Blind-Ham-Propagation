@@ -90,7 +90,6 @@ def locator_prefixes_for_radius(
     last_lat_index = min(179, math.floor(max_latitude + 90.0))
     prefixes: list[str] = []
     for latitude_index in range(first_lat_index, last_lat_index + 1):
-        latitude_center = -89.5 + latitude_index
         for longitude_index in range(180):
             longitude_center = -179.0 + 2.0 * longitude_index
             longitude_difference = abs(
