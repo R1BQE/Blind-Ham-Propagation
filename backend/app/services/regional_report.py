@@ -45,7 +45,8 @@ def build_regional_report(
     *,
     store: SpotStore | Any | None = None,
     now: int | None = None,
-    details_limit: int = 30,
+    details_limit: int = 10,
+    details_offset: int = 0,
     bands: list[str] | None = None,
     modes: list[str] | None = None,
 ) -> dict[str, Any]:
@@ -66,6 +67,8 @@ def build_regional_report(
         raise ValueError("Период должен быть от 3 до 24 часов с шагом 3 часа.")
     if details_limit < 1 or details_limit > 100:
         raise ValueError("Лимит подробных записей должен быть от 1 до 100.")
+    if details_offset < 0:
+        raise ValueError("Смещение списка станций не может быть отрицательным.")
 
     current = int(time.time()) if now is None else int(now)
     spot_store = store or SpotStore()
@@ -80,6 +83,7 @@ def build_regional_report(
         "rx": defaultdict(lambda: {"count": 0, "stations": set(), "last_seen": None}),
     }
     station_sets: dict[str, set[str]] = {"tx": set(), "rx": set()}
+    station_details: dict[str, dict[str, dict[str, Any]]] = {"tx": {}, "rx": {}}
 
     for spot in spots:
         observed_at = int(spot.get("observed_at") or 0)
@@ -167,7 +171,18 @@ def build_regional_report(
                 "observed_at_epoch": observed_at,
             }
             groups[direction].append(item)
-            station_sets[direction].add(local_call) if local_call else None
+            station_key = local_call or (str(local_grid).strip().upper() if local_grid else "")
+            if station_key:
+                station_sets[direction].add(station_key)
+                station = station_details[direction].get(station_key)
+                if station is None:
+                    station = {**item, "station_spots": 0}
+                    station_details[direction][station_key] = station
+                station["station_spots"] += 1
+                if observed_at > int(station.get("observed_at_epoch") or 0):
+                    count = station["station_spots"]
+                    station.update(item)
+                    station["station_spots"] = count
             key = (item["band"], item["mode"])
             stat = band_stats[direction][key]
             stat["count"] += 1
@@ -213,28 +228,27 @@ def build_regional_report(
                 "stations": len(stat["stations"]),
                 "last_seen": _iso_utc(stat["last_seen"]),
             })
-        # Показываем не более одной самой свежей записи на диапазон,
-        # чтобы в коротком списке были представлены разные диапазоны.
-        latest_by_band = []
-        seen_bands = set()
-        for entry in entries:
-            band = str(entry.get("band") or "Неизвестно")
-            if band in seen_bands:
-                continue
-            seen_bands.add(band)
-            latest_by_band.append(entry)
-            if len(latest_by_band) >= details_limit:
-                break
+        ordered_stations = sorted(
+            station_details[direction].values(),
+            key=lambda row: row["observed_at_epoch"],
+            reverse=True,
+        )
+        page_stations = ordered_stations[details_offset:details_offset + details_limit]
+        public_stations = [
+            {key: value for key, value in entry.items() if key != "observed_at_epoch"}
+            for entry in page_stations
+        ]
 
         result[direction] = {
             "spots": len(entries),
             "unique_local_stations": len(station_sets[direction]),
             "last_seen": entries[0]["observed_at"] if entries else None,
             "by_band": band_rows,
-            "latest": [
-                {key: value for key, value in entry.items() if key != "observed_at_epoch"}
-                for entry in latest_by_band
-            ],
+            "stations": public_stations,
+            "latest": public_stations,
+            "stations_total": len(ordered_stations),
+            "stations_offset": details_offset,
+            "stations_limit": details_limit,
         }
 
     return result
