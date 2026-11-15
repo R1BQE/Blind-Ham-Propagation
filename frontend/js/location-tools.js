@@ -108,29 +108,6 @@
     return [lat + latSize / 2, lon + lonSize / 2];
   }
 
-  async function enrichPoint(locator, target) {
-    const coordinates = locatorCenter(locator);
-    if (!coordinates || !target) return;
-    try {
-      const geoObject = await queuedGeocode(coordinates);
-      let localityGeoObject = null;
-      if (!geoObject || !(getMetadata(geoObject).Address?.Components || [])
-        .some((component) => component.kind === "locality")) {
-        // The automatic reverse-geocoder may return only an administrative
-        // area. Ask Yandex explicitly for the nearest populated locality.
-        localityGeoObject = await queuedGeocode(coordinates, { kind: "locality" });
-      }
-      if (!geoObject && !localityGeoObject) {
-        target.textContent = "Географическое название не найдено.";
-        return;
-      }
-      const location = extractLocation(geoObject || localityGeoObject, localityGeoObject);
-      target.textContent = `Местоположение: ${location.text}.`
-    } catch {
-      target.textContent = "Не удалось определить географическое название.";
-    }
-  }
-
   async function enrichLocalReport(root, data) {
     if (!root || !data?.locator) return;
     const section = document.createElement("section");
