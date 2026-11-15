@@ -1,4 +1,22 @@
 const API = "./api/v1";
+
+async function readApiResponse(response, operation) {
+  const contentType = response.headers.get("content-type") || "тип содержимого не указан";
+  const body = await response.text();
+  let data;
+  try {
+    data = body ? JSON.parse(body) : {};
+  } catch {
+    const preview = body.replace(/\\s+/g, " ").trim().slice(0, 180);
+    throw new Error(
+      `${operation}: сервер вернул не JSON (HTTP ${response.status}; ${contentType}). ${preview}`
+    );
+  }
+  if (!response.ok) {
+    throw new Error(data.detail || `${operation}: HTTP ${response.status}.`);
+  }
+  return data;
+}
 const solarButton = document.querySelector("#solar-refresh");
 const solarStatus = document.querySelector("#solar-status");
 const solarReport = document.querySelector("#solar-report");
@@ -627,16 +645,10 @@ async function loadLocalDashboard(locator) {
       modes: modeSelection === "all" ? "" : selectedModes.join(","),
     });
     const requests = await Promise.allSettled([
-      fetch(`${API}/local/report?locator=${encodeURIComponent(locator)}`, { cache: "no-store" }).then(async response => {
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.detail || "Не удалось рассчитать условия для локатора.");
-        return data;
-      }),
-      fetch(`${API}/psk-reporter/regional?${params}`, { cache: "no-store" }).then(async response => {
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.detail || "Не удалось получить радионаблюдения.");
-        return data;
-      }),
+      fetch(`${API}/local/report?locator=${encodeURIComponent(locator)}`, { cache: "no-store" })
+        .then(response => readApiResponse(response, "Расчёт освещённости")),
+      fetch(`${API}/psk-reporter/regional?${params}`, { cache: "no-store" })
+        .then(response => readApiResponse(response, "Получение радионаблюдений")),
     ]);
     if (requests[0].status !== "fulfilled") throw requests[0].reason;
     const regional = requests[1].status === "fulfilled" ? requests[1].value : null;
