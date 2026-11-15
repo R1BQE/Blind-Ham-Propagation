@@ -298,7 +298,11 @@ class SpotStore:
             conditions.append(f"upper(mode) IN ({','.join('?' for _ in normalized_modes)})")
             parameters.extend(normalized_modes)
 
-        query = "SELECT * FROM spots WHERE " + " AND ".join(conditions)
+        query = (
+            "SELECT * FROM spots WHERE "
+            + " AND ".join(conditions)
+            + " ORDER BY observed_at DESC, id DESC"
+        )
         with self._connection() as connection:
             cursor = connection.execute(query, parameters)
             while rows := cursor.fetchmany(batch_size):
