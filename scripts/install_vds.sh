@@ -83,6 +83,55 @@ echo "==> Установка приложения из текущего checkout
 "${ROOT}/.venv/bin/python" -m pip install --no-deps --no-build-isolation "${ROOT}"
 
 install -d -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" -m 0750 "${ROOT}/data" "${ROOT}/logs"
+
+GEOGRAPHY_DB="${ROOT}/data/geography.sqlite3"
+if [[ ! -s "${GEOGRAPHY_DB}" ]]; then
+    echo "==> Подготовка офлайн-базы географии GeoNames и Natural Earth"
+    runuser -u "${SERVICE_USER}" -- "${ROOT}/.venv/bin/python" "${ROOT}/scripts/build_geography.py"
+else
+    echo "==> Найдена существующая офлайн-база географии — повторная загрузка не требуется"
+fi
+
+echo "==> Проверка офлайн-базы географии"
+runuser -u "${SERVICE_USER}" -- "${ROOT}/.venv/bin/python" - "${GEOGRAPHY_DB}" <<'PY'
+import sqlite3
+import sys
+from pathlib import Path
+
+database = Path(sys.argv[1])
+if not database.is_file() or database.stat().st_size == 0:
+    raise SystemExit(f"Географическая база отсутствует или пуста: {database}")
+
+connection = sqlite3.connect(f"file:{database}?mode=ro", uri=True)
+try:
+    integrity = connection.execute("PRAGMA quick_check").fetchone()[0]
+    if integrity != "ok":
+        raise SystemExit(f"Проверка целостности геобазы не пройдена: {integrity}")
+
+    tables = {
+        row[0]
+        for row in connection.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        )
+    }
+    required = {"countries", "admin1", "settlements", "metadata"}
+    missing = required - tables
+    if missing:
+        raise SystemExit("В геобазе отсутствуют таблицы: " + ", ".join(sorted(missing)))
+
+    metadata = dict(connection.execute("SELECT key, value FROM metadata"))
+    if metadata.get("database_schema") != "2":
+        raise SystemExit(
+            "Неподдерживаемая версия геобазы. Ожидается схема 2; "
+            "пересобери базу скриптом scripts/build_geography.py."
+        )
+    count = connection.execute("SELECT COUNT(*) FROM settlements").fetchone()[0]
+    if count == 0:
+        raise SystemExit("Географическая база не содержит населённых пунктов.")
+    print(f"Геобаза проверена: {count:,} населённых пунктов; схема {metadata['database_schema']}.")
+finally:
+    connection.close()
+PY
 if [[ ! -f "${ROOT}/settings.ini" ]]; then
     cat > "${ROOT}/settings.ini" <<'INI'
 [psk_reporter]
