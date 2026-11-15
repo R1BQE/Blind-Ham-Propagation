@@ -44,6 +44,22 @@ def test_store_rejects_duplicate_spot(tmp_path):
     assert store.count() == 1
 
 
+def test_batch_insert_uses_one_api_call_and_counts_duplicates(tmp_path):
+    store = SpotStore(tmp_path / "spots.sqlite3")
+    first = make_spot(sequence=1)
+    second = make_spot(sequence=2)
+
+    inserted, duplicates = store.add_spots([
+        (first, 10_010),
+        (second, 10_011),
+        (first, 10_012),
+    ])
+
+    assert inserted == 2
+    assert duplicates == 1
+    assert store.count() == 2
+
+
 def test_different_sequence_or_observation_time_is_not_deduplicated(tmp_path):
     store = SpotStore(tmp_path / "spots.sqlite3")
     assert store.add_spot(make_spot(), received_at=10_010)
