@@ -46,8 +46,10 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-vds.lock
 
-      - name: Check deployment script syntax
-        run: bash -n scripts/bp scripts/install_vds.sh
+      - name: Check deployment and geography script syntax
+        run: |
+          bash -n scripts/bp scripts/install_vds.sh
+          python -m py_compile scripts/build_geography.py
 
       - name: Install pinned VDS dependencies
         run: python -m pip install -r requirements-vds.lock
