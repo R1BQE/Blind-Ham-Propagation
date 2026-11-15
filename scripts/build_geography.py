@@ -10,6 +10,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import shutil
 import sqlite3
 import sys
 import tempfile
@@ -183,7 +184,7 @@ def build() -> None:
             connection.close()
 
         replacement = DATA_DIR / "geography.sqlite3.new"
-        replacement.write_bytes(new_db.read_bytes())
+        shutil.copyfile(new_db, replacement)
         replacement.replace(OUTPUT)
     print(f"Готово: {OUTPUT}", flush=True)
 
