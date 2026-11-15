@@ -186,6 +186,48 @@
     await enrichPoint(data.locator, summary);
   }
 
+  async function enrichRegionalEntries(entries) {
+    const points = new Map();
+    for (const entry of entries || []) {
+      for (const list of entry.querySelectorAll("dl")) {
+        const terms = Array.from(list.querySelectorAll("dt"));
+        const locatorTerm = terms.find((term) => term.textContent.trim() === "Локатор");
+        if (!locatorTerm) continue;
+        const value = locatorTerm.nextElementSibling;
+        const locator = value?.textContent.trim().toUpperCase();
+        if (!locatorCenter(locator)) continue;
+
+        let locationLine = value.nextElementSibling;
+        if (!locationLine?.classList.contains("station-location")) {
+          locationLine = document.createElement("p");
+          locationLine.className = "station-location muted";
+          locationLine.textContent = "Определяем страну, город и район…";
+          value.insertAdjacentElement("afterend", locationLine);
+        }
+        if (!points.has(locator)) points.set(locator, { locator, targets: [] });
+        points.get(locator).targets.push(locationLine);
+      }
+    }
+    if (!points.size) return;
+
+    try {
+      await loadYandex();
+      for (const point of points.values()) {
+        const target = point.targets[0];
+        await enrichPoint(point.locator, target);
+        for (const other of point.targets.slice(1)) {
+          other.textContent = target.textContent;
+        }
+      }
+    } catch {
+      for (const point of points.values()) {
+        for (const target of point.targets) {
+          target.textContent = "Географическое название недоступно.";
+        }
+      }
+    }
+  }
+
   async function enrichRegionalReport(root, data) {
     if (!root || !data) return;
     const points = new Map();
@@ -421,5 +463,5 @@
     else activeTrigger?.focus();
   });
 
-  window.locationTools = { enrichLocalReport, enrichRegionalReport };
+  window.locationTools = { enrichLocalReport, enrichRegionalReport, enrichRegionalEntries };
 })();
