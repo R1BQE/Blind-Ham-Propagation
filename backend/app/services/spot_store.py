@@ -217,6 +217,34 @@ class SpotStore:
                 ).fetchall()
         return [dict(row) for row in rows]
 
+    def iter_recent(
+        self,
+        *,
+        now: int | None = None,
+        since: int | None = None,
+        batch_size: int = 5000,
+    ):
+        """Yield recent spots in bounded batches without loading the full history."""
+        if batch_size <= 0:
+            raise ValueError("Размер порции должен быть положительным.")
+        current = int(time.time()) if now is None else int(now)
+        cutoff = current - self.retention_seconds
+        if since is not None:
+            cutoff = max(cutoff, int(since))
+
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                SELECT * FROM spots
+                WHERE observed_at >= ? AND observed_at <= ?
+                ORDER BY observed_at DESC, id DESC
+                """,
+                (cutoff, current + 300),
+            )
+            while rows := cursor.fetchmany(batch_size):
+                for row in rows:
+                    yield dict(row)
+
     def count(self) -> int:
         """Return the current number of stored observations."""
         with self._connect() as connection:
