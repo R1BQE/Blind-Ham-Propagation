@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "data"
 OUTPUT = DATA_DIR / "geography.sqlite3"
 GEONAMES_URL = "https://download.geonames.org/export/dump/allCountries.zip"
+GEONAMES_ALT_NAMES_URL = "https://download.geonames.org/export/dump/alternateNamesV2.zip"
 NATURAL_EARTH = {
     "countries": "https://naturalearth.s3.amazonaws.com/10m_cultural/ne_10m_admin_0_countries.zip",
     "admin1": "https://naturalearth.s3.amazonaws.com/10m_cultural/ne_10m_admin_1_states_provinces.zip",
@@ -106,6 +107,62 @@ def shape_records(archive_path: Path, table: str, connection: sqlite3.Connection
             return count
 
 
+def import_russian_alternate_names(archive_path: Path, connection: sqlite3.Connection) -> int:
+    """Import Russian GeoNames alternate names for populated places only."""
+    connection.execute("""
+        CREATE TEMP TABLE russian_names (
+            geoname_id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            preferred INTEGER NOT NULL
+        )
+    """)
+    batch = []
+    with zipfile.ZipFile(archive_path) as archive:
+        for row in read_tsv(archive, "alternateNamesV2.txt"):
+            if len(row) < 5 or row[2] != "ru" or not row[3]:
+                continue
+            try:
+                geoname_id = int(row[1])
+            except ValueError:
+                continue
+            preferred = 1 if row[4] == "1" else 0
+            batch.append((geoname_id, row[3], preferred))
+            if len(batch) >= 10000:
+                connection.executemany("""
+                    INSERT INTO russian_names(geoname_id, name, preferred)
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(geoname_id) DO UPDATE SET
+                        name = excluded.name,
+                        preferred = excluded.preferred
+                    WHERE excluded.preferred > russian_names.preferred
+                """, batch)
+                batch.clear()
+    if batch:
+        connection.executemany("""
+            INSERT INTO russian_names(geoname_id, name, preferred)
+            VALUES (?, ?, ?)
+            ON CONFLICT(geoname_id) DO UPDATE SET
+                name = excluded.name,
+                preferred = excluded.preferred
+            WHERE excluded.preferred > russian_names.preferred
+        """, batch)
+
+    connection.execute("""
+        UPDATE settlements
+        SET name_ru = (
+            SELECT russian_names.name
+            FROM russian_names
+            WHERE russian_names.geoname_id = settlements.geoname_id
+        )
+        WHERE geoname_id IN (SELECT geoname_id FROM russian_names)
+    """)
+    matched = connection.execute(
+        "SELECT COUNT(*) FROM settlements WHERE name_ru IS NOT NULL"
+    ).fetchone()[0]
+    connection.execute("DROP TABLE russian_names")
+    return matched
+
+
 def build() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as temporary:
@@ -132,9 +189,10 @@ def build() -> None:
                 );
                 CREATE VIRTUAL TABLE admin1_rtree USING rtree(id, min_lon, max_lon, min_lat, max_lat);
                 CREATE TABLE settlements (
-                    geoname_id INTEGER PRIMARY KEY, name TEXT NOT NULL, ascii_name TEXT,
-                    latitude REAL NOT NULL, longitude REAL NOT NULL, country_code TEXT NOT NULL,
-                    admin1_code TEXT, feature_code TEXT, population INTEGER NOT NULL DEFAULT 0
+                    geoname_id INTEGER PRIMARY KEY, name TEXT NOT NULL, name_ru TEXT,
+                    ascii_name TEXT, latitude REAL NOT NULL, longitude REAL NOT NULL,
+                    country_code TEXT NOT NULL, admin1_code TEXT, feature_code TEXT,
+                    population INTEGER NOT NULL DEFAULT 0
                 );
                 CREATE VIRTUAL TABLE settlements_rtree USING rtree(id, min_lon, max_lon, min_lat, max_lat);
                 CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -156,7 +214,7 @@ def build() -> None:
                         continue
                     name = row[1] or row[2]
                     cursor = connection.execute(
-                        "INSERT OR IGNORE INTO settlements VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        "INSERT OR IGNORE INTO settlements VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?)",
                         (geoname_id, name, row[2], latitude, longitude, row[8], row[10], row[7], population),
                     )
                     if cursor.rowcount:
@@ -167,6 +225,12 @@ def build() -> None:
                         inserted += 1
                     if inserted and inserted % 100000 == 0:
                         print(f"  Населённых пунктов: {inserted:,}", flush=True)
+
+            print("Скачиваем русские альтернативные названия GeoNames…", flush=True)
+            alternate_names_zip = temp / "alternateNamesV2.zip"
+            download(GEONAMES_ALT_NAMES_URL, alternate_names_zip)
+            russian_names = import_russian_alternate_names(alternate_names_zip, connection)
+            print(f"  Населённых пунктов с русским названием: {russian_names:,}", flush=True)
 
             for table, key in (("countries", "countries"), ("admin1", "admin1")):
                 print(f"Скачиваем границы Natural Earth: {table}…", flush=True)
@@ -181,6 +245,7 @@ def build() -> None:
                     ("geonames_settlements", str(inserted)),
                     ("database_schema", "1"),
                     ("source_geonames", GEONAMES_URL),
+                    ("source_geonames_alternate_names", GEONAMES_ALT_NAMES_URL),
                     ("source_natural_earth_version", "5.1.1"),
                 ],
             )
