@@ -49,7 +49,7 @@ jobs:
       - name: Check deployment and geography script syntax
         run: |
           bash -n scripts/bp scripts/install_vds.sh
-          python -m py_compile scripts/build_geography.py
+          python -m py_compile scripts/build_geography.py scripts/update_russian_geography_names.py
 
       - name: Install pinned VDS dependencies
         run: python -m pip install -r requirements-vds.lock
