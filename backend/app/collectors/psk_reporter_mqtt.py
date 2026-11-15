@@ -27,6 +27,8 @@ SUPPORTED_MODES = (
 )
 # The collector always receives the complete supported feed. User-selected
 # filters are applied to each regional API response, never to shared MQTT state.
+FLUSH_INTERVAL_SECONDS = 2.0
+
 DEFAULT_TOPIC_FILTERS = tuple(
     "pskr/filter/v2/{}/{}".format(band, mode) + "/#"
     for band in SUPPORTED_BANDS
@@ -109,6 +111,10 @@ class PSKReporterCollector:
         self.store = store
         self._client: Any = None
         self._lock = threading.Lock()
+        self._queue_lock = threading.Lock()
+        self._pending_spots: list[tuple[dict[str, Any], int]] = []
+        self._flush_stop = threading.Event()
+        self._flush_thread: threading.Thread | None = None
         self._stopping = False
         self._state = "disabled" if not self.config.enabled else "idle"
         self._messages_received = 0
@@ -149,6 +155,7 @@ class PSKReporterCollector:
         self._stopping = False
         if self.store is None:
             self.store = SpotStore()
+        self._start_flush_worker()
 
         try:
             import paho.mqtt.client as mqtt
@@ -186,7 +193,65 @@ class PSKReporterCollector:
                 client.disconnect()
             finally:
                 client.loop_stop()
+
+        # Stop accepting MQTT callbacks first, then drain every queued spot.
+        self._flush_stop.set()
+        thread = self._flush_thread
+        if thread is not None and thread.is_alive():
+            thread.join()
+        else:
+            while not self._flush_pending():
+                time.sleep(1)
+
         self._state = "stopped" if self.config.enabled else "disabled"
+
+    def _start_flush_worker(self) -> None:
+        thread = self._flush_thread
+        if thread is not None and thread.is_alive():
+            return
+        self._flush_stop.clear()
+        self._flush_thread = threading.Thread(
+            target=self._flush_loop,
+            name="psk-reporter-sqlite-writer",
+            daemon=True,
+        )
+        self._flush_thread.start()
+
+    def _flush_loop(self) -> None:
+        while not self._flush_stop.wait(FLUSH_INTERVAL_SECONDS):
+            self._flush_pending()
+
+        # A graceful shutdown must not discard the in-memory queue. If SQLite
+        # is temporarily busy or unavailable, keep retrying until it is saved.
+        while not self._flush_pending():
+            time.sleep(1)
+
+    def _flush_pending(self) -> bool:
+        with self._queue_lock:
+            if not self._pending_spots:
+                return True
+            batch = self._pending_spots
+            self._pending_spots = []
+
+        try:
+            inserted, duplicates = self.store.add_spots(batch)
+        except Exception as exc:
+            # Put the failed batch back before newer messages, preserving order.
+            with self._queue_lock:
+                self._pending_spots = batch + self._pending_spots
+            self._record_error(exc)
+            logger.exception("Не удалось пакетно сохранить споты PSK Reporter")
+            return False
+
+        with self._lock:
+            self._spots_saved += inserted
+            self._duplicates += duplicates
+            if inserted:
+                latest_observed_at = max(int(spot["observed_at"]) for spot, _received in batch)
+                self._last_spot_at = datetime.fromtimestamp(
+                    latest_observed_at, tz=timezone.utc
+                ).isoformat()
+        return True
 
     def _on_connect(
         self,
@@ -250,21 +315,10 @@ class PSKReporterCollector:
                 self._invalid_messages += 1
             return
 
-        try:
-            inserted = self.store.add_spot(spot, received_at=now)
-        except Exception as exc:
-            self._record_error(exc)
-            logger.exception("Не удалось сохранить спот PSK Reporter")
-            return
-
-        with self._lock:
-            if inserted:
-                self._spots_saved += 1
-                self._last_spot_at = datetime.fromtimestamp(
-                    spot["observed_at"], tz=timezone.utc
-                ).isoformat()
-            else:
-                self._duplicates += 1
+        # MQTT callbacks only enqueue data. SQLite writes happen in batches
+        # on the dedicated writer thread, at most once every two seconds.
+        with self._queue_lock:
+            self._pending_spots.append((dict(spot), now))
 
     def _record_error(self, error: Any) -> None:
         message = str(error)
@@ -290,6 +344,9 @@ class PSKReporterCollector:
                 "last_spot_at": self._last_spot_at,
                 "last_error": self._last_error,
             }
+
+        with self._queue_lock:
+            result["queued_spots"] = len(self._pending_spots)
 
         if self.store is not None:
             try:
