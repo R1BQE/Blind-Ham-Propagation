@@ -326,10 +326,11 @@ function renderRegionalDirection(parent, title, description, data, roles, direct
   ]);
   renderBandSummary(section, data.by_band);
 
+  const list = document.createElement("ol");
+  list.className = "observation-list";
+
   if (data.stations?.length) {
     addText(section, "h4", "Станции");
-    const list = document.createElement("ol");
-    list.className = "observation-list";
 
     for (const item of data.stations) {
       const entry = document.createElement("li");
