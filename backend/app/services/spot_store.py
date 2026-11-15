@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-DEFAULT_RETENTION_SECONDS = 24 * 60 * 60
+DEFAULT_RETENTION_SECONDS = 6 * 60 * 60
 DEFAULT_MAX_RECORDS = 5_000_000
 
 
