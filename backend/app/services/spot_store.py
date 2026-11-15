@@ -128,18 +128,24 @@ class SpotStore:
             (cutoff, cutoff),
         )
         deleted = cursor.rowcount
-        cursor = connection.execute(
-            """
-            DELETE FROM spots
-            WHERE id IN (
-                SELECT id FROM spots
-                ORDER BY observed_at DESC, id DESC
-                LIMIT -1 OFFSET ?
+        total = connection.execute(
+            "SELECT COUNT(*) FROM spots"
+        ).fetchone()[0]
+        excess = total - self.max_records
+        if excess > 0:
+            cursor = connection.execute(
+                """
+                DELETE FROM spots
+                WHERE id IN (
+                    SELECT id FROM spots
+                    ORDER BY observed_at ASC, id ASC
+                    LIMIT ?
+                )
+                """,
+                (excess,),
             )
-            """,
-            (self.max_records,),
-        )
-        return deleted + cursor.rowcount
+            deleted += cursor.rowcount
+        return deleted
 
     def add_spots(
         self,
@@ -193,7 +199,6 @@ class SpotStore:
             raise ValueError("Лимит выборки должен быть положительным.")
         current = int(time.time()) if now is None else int(now)
         with self._connect() as connection:
-            self._prune_connection(connection, current)
             if band is None:
                 rows = connection.execute(
                     """
