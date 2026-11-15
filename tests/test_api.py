@@ -82,6 +82,53 @@ def test_regional_psk_report_rejects_invalid_locator(monkeypatch):
     assert response.status_code == 422
 
 
+def test_offline_geography_lookup_endpoint(monkeypatch):
+    class FakeGeographyDatabase:
+        def lookup(self, latitude, longitude):
+            assert latitude == pytest.approx(59.979167)
+            assert longitude == pytest.approx(31.958333)
+            return {
+                "country": "Россия",
+                "region": "Ленинградская область",
+                "settlement": "Тестовый город",
+                "settlement_distance_km": 1.2,
+                "text": "Россия, Ленинградская область, Тестовый город",
+            }
+
+    monkeypatch.setattr(
+        "backend.app.api.routes.get_geography_database",
+        lambda: FakeGeographyDatabase(),
+    )
+
+    response = client.post(
+        "/api/v1/geography/lookup",
+        json={"locators": ["ko59xx", "KO59XX"]},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload["results"]) == 1
+    assert payload["results"][0]["locator"] == "KO59XX"
+    assert payload["results"][0]["settlement"] == "Тестовый город"
+    assert "GeoNames" in payload["attribution"]
+
+
+def test_offline_geography_lookup_rejects_invalid_locator():
+    response = client.post(
+        "/api/v1/geography/lookup",
+        json={"locators": ["KO59!X"]},
+    )
+    assert response.status_code == 422
+
+
+def test_offline_geography_lookup_rejects_empty_batch():
+    response = client.post(
+        "/api/v1/geography/lookup",
+        json={"locators": []},
+    )
+    assert response.status_code == 422
+
+
 def test_coordinate_locator_endpoint_selects_precision():
     response = client.post(
         "/api/v1/locator/from-coordinates",
