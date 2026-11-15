@@ -125,7 +125,8 @@ class GeographyDatabase:
         longitude_delta = min(180.0, SETTLEMENT_RADIUS_KM / (111.320 * cosine))
         rows = connection.execute(
             """
-            SELECT s.geoname_id, s.name, s.latitude, s.longitude, s.population
+            SELECT s.geoname_id, COALESCE(s.name_ru, s.name) AS display_name,
+                   s.latitude, s.longitude, s.population
             FROM settlements_rtree AS bounds
             JOIN settlements AS s ON s.geoname_id = bounds.id
             WHERE bounds.min_lon <= ? AND bounds.max_lon >= ?
@@ -144,7 +145,7 @@ class GeographyDatabase:
             if distance > SETTLEMENT_RADIUS_KM:
                 continue
             candidate = {
-                "name": row["name"],
+                "name": row["display_name"],
                 "distance_km": distance,
                 "population": row["population"],
                 "geoname_id": row["geoname_id"],
