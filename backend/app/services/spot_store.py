@@ -245,6 +245,66 @@ class SpotStore:
                 for row in rows:
                     yield dict(row)
 
+
+    def iter_recent_for_region(
+        self,
+        *,
+        locator: str,
+        radius_km: float,
+        now: int | None = None,
+        since: int | None = None,
+        bands: list[str] | None = None,
+        modes: list[str] | None = None,
+        batch_size: int = 5000,
+    ):
+        """Stream only recent spots with at least one endpoint in candidate grids.
+
+        SQLite applies a conservative Maidenhead 4-character prefix filter.
+        Exact great-circle distance remains the responsibility of the report
+        builder, so the SQL prefilter cannot introduce false negatives.
+        """
+        from backend.app.services.geo_filter import locator_prefixes_for_radius
+
+        if batch_size <= 0:
+            raise ValueError("Размер порции должен быть положительным.")
+        current = int(time.time()) if now is None else int(now)
+        cutoff = current - self.retention_seconds
+        if since is not None:
+            cutoff = max(cutoff, int(since))
+        prefixes = locator_prefixes_for_radius(locator, radius_km)
+        if not prefixes:
+            return
+
+        placeholders = ",".join("?" for _ in prefixes)
+        conditions = [
+            "observed_at >= ?",
+            "observed_at <= ?",
+            (
+                f"(substr(tx_grid, 1, 4) IN ({placeholders}) "
+                f"OR substr(rx_grid, 1, 4) IN ({placeholders}) "
+                "OR (tx_grid IS NOT NULL AND length(tx_grid) < 4) "
+                "OR (rx_grid IS NOT NULL AND length(rx_grid) < 4))"
+            ),
+        ]
+        parameters: list[Any] = [cutoff, current + 300, *prefixes, *prefixes]
+
+        normalized_bands = sorted({value.strip().lower() for value in bands or [] if value.strip()})
+        if normalized_bands:
+            conditions.append(f"lower(band) IN ({','.join('?' for _ in normalized_bands)})")
+            parameters.extend(normalized_bands)
+
+        normalized_modes = sorted({value.strip().upper() for value in modes or [] if value.strip()})
+        if normalized_modes:
+            conditions.append(f"upper(mode) IN ({','.join('?' for _ in normalized_modes)})")
+            parameters.extend(normalized_modes)
+
+        query = "SELECT * FROM spots WHERE " + " AND ".join(conditions)
+        with self._connection() as connection:
+            cursor = connection.execute(query, parameters)
+            while rows := cursor.fetchmany(batch_size):
+                for row in rows:
+                    yield dict(row)
+
     def count(self) -> int:
         """Return the current number of stored observations."""
         with self._connect() as connection:
