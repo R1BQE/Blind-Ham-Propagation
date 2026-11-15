@@ -175,8 +175,15 @@ def build() -> None:
                 count = shape_records(archive_path, table, connection)
                 print(f"  Объектов границ: {count:,}", flush=True)
 
-            connection.execute("INSERT INTO metadata VALUES ('geonames_settlements', ?)", (str(inserted),))
-            connection.execute("INSERT INTO metadata VALUES ('database_schema', '1')")
+            connection.executemany(
+                "INSERT INTO metadata VALUES (?, ?)",
+                [
+                    ("geonames_settlements", str(inserted)),
+                    ("database_schema", "1"),
+                    ("source_geonames", GEONAMES_URL),
+                    ("source_natural_earth_version", "5.1.1"),
+                ],
+            )
             connection.commit()
             connection.execute("PRAGMA optimize")
             connection.commit()
