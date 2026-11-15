@@ -12,7 +12,8 @@ A missing nearby settlement does not remove a country or region result. If no ma
 
 ## Data sources
 
-- GeoNames `allCountries.zip`: only feature class `P` (populated places) is imported. The primary GeoNames name is retained, along with coordinates, country/admin codes, feature code, population, and GeoNames ID. Source: https://www.geonames.org/export/
+- GeoNames `allCountries.zip`: only feature class `P` (populated places) is imported. The primary GeoNames name is retained, along with coordinates, country/admin codes, feature code, population, and GeoNames ID.
+- GeoNames `alternateNamesV2.zip`: Russian (`ru`) alternate names are imported for matching populated places. A preferred Russian name is selected when available; otherwise the primary GeoNames name remains the fallback. Source: https://www.geonames.org/export/
 - Natural Earth 1:10m Admin 0 Countries: country polygons. Source: https://www.naturalearthdata.com/downloads/10m-cultural-vectors/
 - Natural Earth 1:10m Admin 1 States/Provinces: first-level administrative polygons from the same source.
 
@@ -28,7 +29,7 @@ Install project dependencies, then run from the repository root:
 python scripts/build_geography.py
 ```
 
-The script downloads source archives to a temporary directory, creates `data/geography.sqlite3.new`, and replaces `data/geography.sqlite3` only after the import succeeds. The generated database is runtime data and is excluded from Git.
+The script downloads source archives to a temporary directory, creates `data/geography.sqlite3.new`, and replaces `data/geography.sqlite3` only after the import succeeds. Rebuild after this change to add the `name_ru` column and Russian alternate names. The generated database is runtime data and is excluded from Git.
 
 The builder needs network access and the `pyshp` Python package. The full GeoNames archive is large; allow sufficient temporary disk space for the archive, extracted boundary archives, and resulting SQLite database.
 
