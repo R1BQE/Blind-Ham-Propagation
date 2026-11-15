@@ -41,7 +41,7 @@ def _iso_utc(timestamp: int | None) -> str | None:
 def build_regional_report(
     locator: str,
     radius_km: float = 100.0,
-    hours: int = 6,
+    hours: float = 6,
     *,
     store: SpotStore | Any | None = None,
     now: int | None = None,
@@ -63,8 +63,8 @@ def build_regional_report(
     center_lat, center_lon = locator_to_center(normalized_locator)
     if not math.isfinite(radius_km) or radius_km <= 0:
         raise ValueError("Радиус области наблюдения должен быть положительным числом.")
-    if hours not in {3, 6, 9, 12, 15, 18, 21, 24}:
-        raise ValueError("Период должен быть от 3 до 24 часов с шагом 3 часа.")
+    if hours not in {0.5, 1, 2, 3, 4, 5, 6}:
+        raise ValueError("Период должен быть одним из значений: 30 минут, 1, 2, 3, 4, 5 или 6 часов.")
     if details_limit < 1 or details_limit > 100:
         raise ValueError("Лимит подробных записей должен быть от 1 до 100.")
     if details_offset < 0:
