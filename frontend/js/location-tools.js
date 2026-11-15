@@ -18,6 +18,7 @@
   let activeStatus = null;
   let activeTrigger = null;
   let confirmedAddress = false;
+  let geolocationRequestId = 0;
   const geographyCache = new Map();
 
   const configReady = fetch(`${API}/config/public`, { cache: "no-store" })
@@ -273,7 +274,20 @@
       }
       button.disabled = true;
       if (activeStatus) activeStatus.textContent = "Запрашиваем разрешение на определение местоположения…";
+      const requestId = ++geolocationRequestId;
+      // Geolocation's own timeout may not include the time spent waiting for
+      // the browser permission prompt. Keep the interface recoverable anyway.
+      const fallbackTimer = window.setTimeout(() => {
+        if (requestId !== geolocationRequestId) return;
+        button.disabled = false;
+        if (activeStatus) {
+          activeStatus.textContent =
+            "Браузер не завершил запрос местоположения за 25 секунд. Проверь разрешение на геолокацию для этого сайта в настройках браузера.";
+        }
+      }, 25000);
       navigator.geolocation.getCurrentPosition(async (position) => {
+        if (requestId !== geolocationRequestId) return;
+        window.clearTimeout(fallbackTimer);
         try {
           const { latitude, longitude, accuracy } = position.coords;
           const result = await coordinatesToLocator(latitude, longitude, accuracy);
@@ -287,6 +301,8 @@
           button.disabled = false;
         }
       }, (error) => {
+        if (requestId !== geolocationRequestId) return;
+        window.clearTimeout(fallbackTimer);
         const messages = {
           1: "Браузер не получил разрешение на местоположение.",
           2: "Устройство не смогло определить координаты.",
