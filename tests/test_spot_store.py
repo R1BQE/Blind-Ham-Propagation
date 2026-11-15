@@ -36,6 +36,25 @@ def test_store_inserts_and_reads_normalized_spot(tmp_path):
     assert rows[0]["received_at"] == 10_010
 
 
+
+def test_default_retention_keeps_a_full_24_hour_history(tmp_path):
+    store = SpotStore(tmp_path / "spots.sqlite3")
+    now = 100_000
+    store.add_spot(
+        make_spot(observed_at=now - 7 * 60 * 60, sequence=1),
+        received_at=now - 7 * 60 * 60,
+    )
+    store.add_spot(
+        make_spot(observed_at=now - 23 * 60 * 60, sequence=2),
+        received_at=now - 23 * 60 * 60,
+    )
+
+    store.prune(now=now)
+
+    rows = store.list_recent(now=now)
+    assert store.retention_seconds == 24 * 60 * 60
+    assert len(rows) == 2
+
 def test_store_rejects_duplicate_spot(tmp_path):
     store = SpotStore(tmp_path / "spots.sqlite3")
     spot = make_spot()
