@@ -12,7 +12,7 @@ An accessible web service for amateur radio operators: solar and geomagnetic act
 - **Source comparison:** comparison of selected overlapping NOAA and HamQSL indicators without artificially averaging incompatible values.
 - **Maidenhead:** locator validation and coordinate conversion.
 - **Local report:** solar geometry and the nearest D-RAP grid cell.
-- **PSK Reporter:** MQTT/TLS collector, up to 24 hours of SQLite history, and separate regional TX/RX observations. The GeoNames and Natural Earth offline geography database is downloaded automatically during initial installation.
+- **PSK Reporter:** MQTT/TLS collector, up to 6 hours of SQLite history, and separate regional TX/RX observations. The GeoNames and Natural Earth offline geography database is downloaded automatically during initial installation.
 
 The project is under active development. Integrating a data source does not mean that a complete radio propagation forecast is available. See the [project roadmap](docs/en/roadmap.md) for current stages and remaining work.
 
