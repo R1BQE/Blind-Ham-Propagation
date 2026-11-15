@@ -18,9 +18,7 @@
   let activeStatus = null;
   let activeTrigger = null;
   let confirmedAddress = false;
-  const geocodeCache = new Map();
-  let geocodeQueue = Promise.resolve();
-  let lastGeocodeAt = 0;
+  const geographyCache = new Map();
 
   const configReady = fetch(`${API}/config/public`, { cache: "no-store" })
     .then((response) => response.ok ? response.json() : {})
@@ -50,74 +48,34 @@
     return geoObject?.properties?.get("metaDataProperty.GeocoderMetaData") || {};
   }
 
-  function extractLocation(geoObject, localityGeoObject = null) {
-    // Yandex returns address components from larger administrative levels
-    // to smaller ones. Keep repeated component kinds: province may contain
-    // both a federal district and a federal city.
-    const primary = getMetadata(geoObject).Address?.Components || [];
-    const fallback = getMetadata(localityGeoObject).Address?.Components || [];
-    const components = [...primary, ...fallback].filter((item, index, all) =>
-      item?.kind && item?.name
-      && all.findIndex((candidate) =>
-        candidate.kind === item.kind && candidate.name === item.name
-      ) === index
-    );
-    const all = (kind) => components
-      .filter((item) => item.kind === kind)
-      .map((item) => item.name);
-    const first = (kind) => all(kind)[0] || "";
+  async function lookupGeography(locators) {
+    const unique = [...new Set((locators || [])
+      .map((value) => String(value || "").trim().toUpperCase())
+      .filter((value) => locatorCenter(value)))];
+    const missing = unique.filter((locator) => !geographyCache.has(locator));
 
-    const country = first("country");
-    const provinces = all("province");
-    const areas = all("area");
-    const locality = first("locality");
-    const districts = all("district");
-    const subLocality = first("subLocality");
+    if (missing.length) {
+      const response = await fetch(`${API}/geography/lookup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ locators: missing }),
+        cache: "no-store",
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.detail || "Не удалось определить географические названия.");
+      }
+      for (const result of payload.results || []) {
+        geographyCache.set(result.locator, result);
+      }
+    }
 
-    // Some federal cities are returned as an area or a second province,
-    // while their surrounding settlement is returned as locality.
-    const federalCityPattern = /^(?:(?:г\.?|город)\s*)?(санкт-петербург|москва|севастополь)$/i;
-    const federalCity = [...areas, ...provinces]
-      .find((name) => federalCityPattern.test(name.trim())) || "";
-    const city = federalCity || locality;
-    const settlement = federalCity && locality && locality !== federalCity
-      ? locality
-      : "";
-    const region = provinces.find((name) => name !== federalCity)
-      || areas.find((name) => name !== federalCity)
-      || "";
-    const cityDistrict = subLocality || districts[0] || "";
-
-    const labels = [];
-    if (country) labels.push("Страна: " + country);
-    if (region) labels.push("Регион: " + region);
-    if (city) labels.push("Город: " + city);
-    if (settlement) labels.push("Населённый пункт: " + settlement);
-    if (cityDistrict) labels.push("Район города: " + cityDistrict);
-    if (!city && !settlement) labels.push("Город или населённый пункт не определён");
-    return {
-      text: labels.join("; ") || "Географическое название не найдено",
-      fullAddress: geoObject?.properties?.get("text") || "",
-      precision: getMetadata(geoObject).precision || "other",
-    };
+    return new Map(unique.map((locator) => [locator, geographyCache.get(locator)]));
   }
 
-  function queuedGeocode(query, options = {}) {
-    const key = "point:" + query[0].toFixed(4) + "," + query[1].toFixed(4) + ":kind:" + (options.kind || "auto");
-    if (geocodeCache.has(key)) return geocodeCache.get(key);
-    const request = geocodeQueue.then(async () => {
-      const wait = Math.max(0, 1000 - (Date.now() - lastGeocodeAt));
-      if (wait) await new Promise((resolve) => window.setTimeout(resolve, wait));
-      const ymaps = await loadYandex();
-      lastGeocodeAt = Date.now();
-      const geocodeOptions = { results: options.results || 1 };
-      if (options.kind) geocodeOptions.kind = options.kind;
-      const response = await ymaps.geocode(query, geocodeOptions);
-      return response.geoObjects.get(0) || null;
-    });
-    geocodeQueue = request.catch(() => null);
-    geocodeCache.set(key, request);
-    return request;
+  function formatGeography(result) {
+    const value = result?.text || "Географическое название не определено.";
+    return `Местоположение: ${value.endsWith(".") ? value : value + "."}`;
   }
 
   function locatorCenter(locator) {
@@ -181,9 +139,17 @@
     heading.textContent = "Где находится мой локатор";
     const summary = document.createElement("p");
     summary.textContent = "Определяем страну, город и район по центру ячейки локатора…";
-    section.append(heading, summary);
+    const attribution = document.createElement("p");
+    attribution.className = "muted";
+    attribution.textContent = "Источники геоданных: GeoNames (CC BY 4.0), Natural Earth (общественное достояние).";
+    section.append(heading, summary, attribution);
     root.prepend(section);
-    await enrichPoint(data.locator, summary);
+    try {
+      const results = await lookupGeography([data.locator]);
+      summary.textContent = formatGeography(results.get(data.locator.trim().toUpperCase()));
+    } catch {
+      summary.textContent = "Не удалось получить географическое название.";
+    }
   }
 
   async function enrichRegionalEntries(entries) {
@@ -211,18 +177,15 @@
     if (!points.size) return;
 
     try {
-      await loadYandex();
+      const results = await lookupGeography([...points.keys()]);
       for (const point of points.values()) {
-        const target = point.targets[0];
-        await enrichPoint(point.locator, target);
-        for (const other of point.targets.slice(1)) {
-          other.textContent = target.textContent;
-        }
+        const text = formatGeography(results.get(point.locator));
+        for (const target of point.targets) target.textContent = text;
       }
     } catch {
       for (const point of points.values()) {
         for (const target of point.targets) {
-          target.textContent = "Географическое название недоступно.";
+          target.textContent = "Не удалось получить географическое название.";
         }
       }
     }
@@ -259,28 +222,27 @@
     heading.textContent = "География радионаблюдений";
     const note = document.createElement("p");
     note.textContent = "Местоположение определяется по центру ячейки локатора. Это примерное положение станции, а не точные координаты антенны.";
+    const attribution = document.createElement("p");
+    attribution.className = "muted";
+    attribution.textContent = "Источники геоданных: GeoNames (CC BY 4.0), Natural Earth (общественное достояние).";
     const qthLine = document.createElement("p");
     qthLine.className = "station-location muted";
     if (qthCoordinates) qthLine.textContent = "Определяем местоположение твоего QTH…";
-    section.append(heading, note);
+    section.append(heading, note, attribution);
     if (qthCoordinates) section.append(qthLine);
     root.insertBefore(section, root.children[1] || null);
 
     try {
-      await loadYandex();
+      const results = await lookupGeography([...points.keys()]);
       for (const point of points.values()) {
-        const target = point.locator === data.locator && qthCoordinates
-          ? qthLine
-          : (point.targets[0] || null);
-        await enrichPoint(point.locator, target);
-        if (target) {
-          for (const other of point.targets) other.textContent = target.textContent;
-        }
+        const resultText = formatGeography(results.get(point.locator));
+        if (point.locator === data.locator && qthCoordinates) qthLine.textContent = resultText;
+        for (const target of point.targets) target.textContent = resultText;
       }
     } catch {
-      note.textContent = "Географические названия временно недоступны.";
+      note.textContent = "Офлайн-географическая база временно недоступна.";
       for (const line of root.querySelectorAll(".station-location")) {
-        line.textContent = "Географическое название недоступно.";
+        line.textContent = "Не удалось получить географическое название.";
       }
     }
   }
