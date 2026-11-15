@@ -73,15 +73,25 @@ def build_regional_report(
     current = int(time.time()) if now is None else int(now)
     spot_store = store or SpotStore()
     cutoff = current - hours * 3600
+    selected_bands = {value.strip().lower() for value in bands or [] if value.strip()}
+    selected_modes = {value.strip().upper() for value in modes or [] if value.strip()}
+    regional_iterator = getattr(spot_store, "iter_recent_for_region", None)
     iterator = getattr(spot_store, "iter_recent", None)
-    if callable(iterator):
+    if callable(regional_iterator):
+        spots = regional_iterator(
+            locator=normalized_locator,
+            radius_km=radius_km,
+            now=current,
+            since=cutoff,
+            bands=list(selected_bands),
+            modes=list(selected_modes),
+        )
+    elif callable(iterator):
         spots = iterator(now=current, since=cutoff)
     else:
         # Compatibility with lightweight custom stores used by integrations/tests.
         spots = spot_store.list_recent(now=current, limit=5_000_000)
     scanned_spots = 0
-    selected_bands = {value.strip().lower() for value in bands or [] if value.strip()}
-    selected_modes = {value.strip().upper() for value in modes or [] if value.strip()}
 
     spot_counts = {"tx": 0, "rx": 0}
     last_seen: dict[str, int | None] = {"tx": None, "rx": None}
@@ -101,7 +111,9 @@ def build_regional_report(
             continue
         if selected_modes and str(spot.get("mode") or "").upper() not in selected_modes:
             continue
-        region = classify_spot_region(spot, normalized_locator, radius_km)
+        region = classify_spot_region(
+            spot, normalized_locator, radius_km, center=(center_lat, center_lon)
+        )
 
         for direction, local_side, remote_side in (
             ("tx", "tx", "rx"),
