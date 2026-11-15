@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import datetime, timezone
+from functools import lru_cache
 import math
 from typing import Any
 
@@ -16,6 +17,7 @@ COMPASS_POINTS = (
 )
 
 
+@lru_cache(maxsize=131_072)
 def _bearing(latitude_1: float, longitude_1: float,
              latitude_2: float, longitude_2: float) -> tuple[float, str]:
     """Return initial great-circle bearing and a Russian compass direction."""
@@ -127,85 +129,105 @@ def build_regional_report(
             remote_call = str(spot.get(f"{remote_side}_call") or "").strip().upper()
             remote_grid = spot.get(f"{remote_side}_grid")
             local_distance = region[f"{local_side}_distance_km"]
-            remote_distance = None
-            bearing_degrees = None
-            bearing_direction = None
-            station_distance = None
-            station_azimuth_degrees = None
-            station_azimuth_direction = None
-            if isinstance(remote_grid, str) and remote_grid.strip():
-                try:
-                    remote_lat, remote_lon = locator_to_center(remote_grid)
-                    remote_distance = distance_between_locators(
-                        normalized_locator, remote_grid
-                    )
-                    bearing_degrees, bearing_direction = _bearing(
-                        center_lat, center_lon, remote_lat, remote_lon
-                    )
-                except (ValueError, TypeError):
-                    pass
 
-            # Radio-path distance and azimuth, always directed TX -> RX.
-            if (isinstance(local_grid, str) and local_grid.strip()
-                    and isinstance(remote_grid, str) and remote_grid.strip()):
-                try:
-                    local_lat, local_lon = locator_to_center(local_grid)
-                    remote_lat, remote_lon = locator_to_center(remote_grid)
-                    station_distance = distance_between_locators(local_grid, remote_grid)
-                    tx_lat, tx_lon = (
-                        (local_lat, local_lon) if direction == "tx"
-                        else (remote_lat, remote_lon)
-                    )
-                    rx_lat, rx_lon = (
-                        (remote_lat, remote_lon) if direction == "tx"
-                        else (local_lat, local_lon)
-                    )
-                    station_azimuth_degrees, station_azimuth_direction = _bearing(
-                        tx_lat, tx_lon, rx_lat, rx_lon
-                    )
-                except (ValueError, TypeError):
-                    pass
-
-            item = {
-                "band": str(spot.get("band") or "Неизвестно"),
-                "mode": str(spot.get("mode") or "Неизвестно"),
-                "local_call": local_call or "Неизвестно",
-                "local_grid": local_grid,
-                "remote_call": remote_call or "Неизвестно",
-                "remote_grid": remote_grid,
-                "distance_km": (
-                    round(float(remote_distance), 1)
-                    if remote_distance is not None else None
-                ),
-                "local_distance_km": (
-                    round(float(local_distance), 1) if local_distance is not None else None
-                ),
-                "bearing_degrees": bearing_degrees,
-                "bearing": bearing_direction,
-                "station_distance_km": round(float(station_distance), 1) if station_distance is not None else None,
-                "station_azimuth_degrees": station_azimuth_degrees,
-                "station_azimuth": station_azimuth_direction,
-                "snr_db": spot.get("snr_db"),
-                "frequency_hz": spot.get("frequency_hz"),
-                "observed_at": _iso_utc(observed_at),
-                "observed_at_epoch": observed_at,
-            }
             spot_counts[direction] += 1
             if last_seen[direction] is None or observed_at > last_seen[direction]:
                 last_seen[direction] = observed_at
-            station_key = local_call or (str(local_grid).strip().upper() if local_grid else "")
+
+            station_key = local_call or (
+                str(local_grid).strip().upper() if local_grid else ""
+            )
+            station = None
+            needs_detail = False
             if station_key:
                 station_sets[direction].add(station_key)
                 station = station_details[direction].get(station_key)
                 if station is None:
-                    station = {**item, "station_spots": 0}
+                    station = {"station_spots": 0}
                     station_details[direction][station_key] = station
+                    needs_detail = True
+                elif observed_at > int(station.get("observed_at_epoch") or 0):
+                    needs_detail = True
                 station["station_spots"] += 1
-                if observed_at > int(station.get("observed_at_epoch") or 0):
-                    count = station["station_spots"]
-                    station.update(item)
-                    station["station_spots"] = count
-            key = (item["band"], item["mode"])
+
+            band_value = str(spot.get("band") or "Неизвестно")
+            mode_value = str(spot.get("mode") or "Неизвестно")
+
+            # Detailed geodesic calculations are needed only for the newest
+            # observation of each local station, not for every repeated spot.
+            if needs_detail and station is not None:
+                remote_distance = None
+                bearing_degrees = None
+                bearing_direction = None
+                station_distance = None
+                station_azimuth_degrees = None
+                station_azimuth_direction = None
+
+                if isinstance(remote_grid, str) and remote_grid.strip():
+                    try:
+                        remote_lat, remote_lon = locator_to_center(remote_grid)
+                        remote_distance = distance_between_locators(
+                            normalized_locator, remote_grid
+                        )
+                        bearing_degrees, bearing_direction = _bearing(
+                            center_lat, center_lon, remote_lat, remote_lon
+                        )
+                    except (ValueError, TypeError):
+                        pass
+
+                if (isinstance(local_grid, str) and local_grid.strip()
+                        and isinstance(remote_grid, str) and remote_grid.strip()):
+                    try:
+                        local_lat, local_lon = locator_to_center(local_grid)
+                        remote_lat, remote_lon = locator_to_center(remote_grid)
+                        station_distance = distance_between_locators(local_grid, remote_grid)
+                        tx_lat, tx_lon = (
+                            (local_lat, local_lon) if direction == "tx"
+                            else (remote_lat, remote_lon)
+                        )
+                        rx_lat, rx_lon = (
+                            (remote_lat, remote_lon) if direction == "tx"
+                            else (local_lat, local_lon)
+                        )
+                        station_azimuth_degrees, station_azimuth_direction = _bearing(
+                            tx_lat, tx_lon, rx_lat, rx_lon
+                        )
+                    except (ValueError, TypeError):
+                        pass
+
+                item = {
+                    "band": band_value,
+                    "mode": mode_value,
+                    "local_call": local_call or "Неизвестно",
+                    "local_grid": local_grid,
+                    "remote_call": remote_call or "Неизвестно",
+                    "remote_grid": remote_grid,
+                    "distance_km": (
+                        round(float(remote_distance), 1)
+                        if remote_distance is not None else None
+                    ),
+                    "local_distance_km": (
+                        round(float(local_distance), 1)
+                        if local_distance is not None else None
+                    ),
+                    "bearing_degrees": bearing_degrees,
+                    "bearing": bearing_direction,
+                    "station_distance_km": (
+                        round(float(station_distance), 1)
+                        if station_distance is not None else None
+                    ),
+                    "station_azimuth_degrees": station_azimuth_degrees,
+                    "station_azimuth": station_azimuth_direction,
+                    "snr_db": spot.get("snr_db"),
+                    "frequency_hz": spot.get("frequency_hz"),
+                    "observed_at": _iso_utc(observed_at),
+                    "observed_at_epoch": observed_at,
+                }
+                station_spots = station["station_spots"]
+                station.update(item)
+                station["station_spots"] = station_spots
+
+            key = (band_value, mode_value)
             stat = band_stats[direction][key]
             stat["count"] += 1
             if local_call:
