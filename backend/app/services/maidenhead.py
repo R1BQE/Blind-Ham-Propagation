@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from functools import lru_cache
+
 
 class LocatorError(ValueError):
     """Raised when a Maidenhead locator is malformed."""
 
 
-def locator_to_center(locator: str) -> tuple[float, float]:
+def _locator_to_center_uncached(locator: str) -> tuple[float, float]:
     """Return (latitude, longitude) at the center of a 2- to 12-character locator.
 
     Supported precision levels are 2, 4, 6, 8, 10 and 12 characters.
@@ -67,6 +69,19 @@ def locator_to_center(locator: str) -> tuple[float, float]:
         longitude + longitude_size / 2,
     )
 
+
+
+@lru_cache(maxsize=65_536)
+def _locator_to_center_cached(locator: str) -> tuple[float, float]:
+    """Cache normalized Maidenhead locator conversions."""
+    return _locator_to_center_uncached(locator)
+
+
+def locator_to_center(locator: str) -> tuple[float, float]:
+    """Return a locator center, caching case- and whitespace-normalized values."""
+    if not isinstance(locator, str):
+        raise LocatorError("Локатор должен быть текстовой строкой.")
+    return _locator_to_center_cached(locator.strip().upper())
 
 def coordinates_to_locator(
     latitude: float,
