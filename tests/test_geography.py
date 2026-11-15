@@ -35,7 +35,8 @@ def make_database(path, settlement=None):
         );
         CREATE VIRTUAL TABLE admin1_rtree USING rtree(id, min_lon, max_lon, min_lat, max_lat);
         CREATE TABLE settlements (
-            geoname_id INTEGER PRIMARY KEY, name TEXT, latitude REAL, longitude REAL,
+            geoname_id INTEGER PRIMARY KEY, name TEXT, name_ru TEXT,
+            latitude REAL, longitude REAL,
             population INTEGER
         );
         CREATE VIRTUAL TABLE settlements_rtree USING rtree(id, min_lon, max_lon, min_lat, max_lat);
@@ -55,7 +56,7 @@ def make_database(path, settlement=None):
     if settlement:
         geoname_id, name, latitude, longitude = settlement
         connection.execute(
-            "INSERT INTO settlements VALUES (?, ?, ?, ?, 100)",
+            "INSERT INTO settlements VALUES (?, ?, NULL, ?, ?, 100)",
             (geoname_id, name, latitude, longitude),
         )
         connection.execute(
@@ -129,3 +130,29 @@ def test_lookup_returns_empty_geography_when_database_is_missing(tmp_path):
 def test_lookup_rejects_invalid_coordinates(tmp_path):
     with pytest.raises(ValueError):
         GeographyDatabase(tmp_path / "missing.sqlite3").lookup(91, 0)
+
+
+
+def test_lookup_prefers_russian_settlement_name(tmp_path):
+    path = tmp_path / "geography.sqlite3"
+    make_database(path, (123, "Moscow", 0.1, 0.1))
+    connection = sqlite3.connect(path)
+    connection.execute(
+        "UPDATE settlements SET name_ru = 'Москва' WHERE geoname_id = 123"
+    )
+    connection.commit()
+    connection.close()
+
+    result = GeographyDatabase(path).lookup(0, 0)
+
+    assert result["settlement"] == "Москва"
+    assert result["text"] == "Testland, Test Region, Москва"
+
+
+def test_lookup_falls_back_to_primary_name_without_russian_name(tmp_path):
+    path = tmp_path / "geography.sqlite3"
+    make_database(path, (123, "Moscow", 0.1, 0.1))
+
+    result = GeographyDatabase(path).lookup(0, 0)
+
+    assert result["settlement"] == "Moscow"
