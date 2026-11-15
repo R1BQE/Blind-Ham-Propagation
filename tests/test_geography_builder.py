@@ -1,7 +1,10 @@
 import sqlite3
+import sys
 import zipfile
+from pathlib import Path
 
-from scripts.build_geography import import_russian_alternate_names
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+from build_geography import import_russian_alternate_names
 
 
 def test_import_russian_alternate_names_prefers_preferred_variant(tmp_path):
