@@ -55,6 +55,28 @@ def test_default_retention_keeps_a_full_24_hour_history(tmp_path):
     assert store.retention_seconds == 24 * 60 * 60
     assert len(rows) == 2
 
+def test_iter_recent_filters_by_period_and_reads_in_batches(tmp_path):
+    store = SpotStore(tmp_path / "spots.sqlite3")
+    now = 100_000
+    store.add_spot(
+        make_spot(observed_at=now - 2 * 60 * 60, sequence=1),
+        received_at=now - 2 * 60 * 60,
+    )
+    store.add_spot(
+        make_spot(observed_at=now - 8 * 60 * 60, sequence=2),
+        received_at=now - 8 * 60 * 60,
+    )
+    store.add_spot(
+        make_spot(observed_at=now - 25 * 60 * 60, sequence=3),
+        received_at=now - 25 * 60 * 60,
+    )
+
+    rows = list(store.iter_recent(now=now, since=now - 3 * 60 * 60, batch_size=1))
+
+    assert len(rows) == 1
+    assert rows[0]["sequence"] == "1"
+
+
 def test_store_rejects_duplicate_spot(tmp_path):
     store = SpotStore(tmp_path / "spots.sqlite3")
     spot = make_spot()
