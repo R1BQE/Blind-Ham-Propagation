@@ -65,7 +65,7 @@ async def psk_reporter_status(request: Request) -> dict:
 
 
 @router.get("/psk-reporter/regional")
-async def psk_reporter_regional(
+def psk_reporter_regional(
     request: Request,
     locator: str = Query(default="KP50DB", min_length=2, max_length=12),
     radius_km: float = Query(default=100.0, gt=0, le=1000),
