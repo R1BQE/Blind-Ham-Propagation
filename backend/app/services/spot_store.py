@@ -182,7 +182,7 @@ class SpotStore:
     def prune(self, *, now: int | None = None) -> int:
         """Delete expired rows and enforce the maximum history size."""
         current = int(time.time()) if now is None else int(now)
-        with self._connect() as connection:
+        with self._connection() as connection:
             return self._prune_connection(connection, current)
 
     def list_recent(
