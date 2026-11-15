@@ -1,4 +1,5 @@
 import configparser
+from functools import lru_cache
 import os
 from pathlib import Path
 
@@ -6,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, WebSock
 from pydantic import BaseModel, Field
 
 from backend.app.services.drap import get_drap
+from backend.app.services.geography import GeographyDatabase
 from backend.app.services.hamqsl import get_hamqsl_data
 from backend.app.services.local_report import build_local_report
 from backend.app.services.maidenhead import (
@@ -35,6 +37,16 @@ class CoordinatesRequest(BaseModel):
     latitude: float = Field(ge=-90, le=90)
     longitude: float = Field(ge=-180, le=180)
     accuracy_m: float | None = Field(default=None, gt=0, le=100_000)
+
+
+class GeographyLookupRequest(BaseModel):
+    locators: list[str] = Field(min_length=1, max_length=100)
+
+
+@lru_cache(maxsize=1)
+def get_geography_database() -> GeographyDatabase:
+    """Reuse the lightweight database service; each lookup opens SQLite read-only."""
+    return GeographyDatabase()
 
 
 
@@ -111,6 +123,32 @@ async def public_config() -> dict[str, str | bool]:
     return {
         "yandex_maps_enabled": bool(key),
         "yandex_maps_api_key": key,
+    }
+
+
+@router.post("/geography/lookup")
+def geography_lookup(payload: GeographyLookupRequest) -> dict:
+    """Resolve up to 100 Maidenhead locator centres using the offline database."""
+    database = get_geography_database()
+    results = []
+    seen = set()
+    for raw_locator in payload.locators:
+        locator = raw_locator.strip().upper()
+        if locator in seen:
+            continue
+        seen.add(locator)
+        try:
+            latitude, longitude = locator_to_center(locator)
+        except LocatorError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        results.append({
+            "locator": locator,
+            **database.lookup(latitude, longitude),
+        })
+
+    return {
+        "results": results,
+        "attribution": "Геоданные: GeoNames (CC BY 4.0); Natural Earth (общественное достояние).",
     }
 
 
