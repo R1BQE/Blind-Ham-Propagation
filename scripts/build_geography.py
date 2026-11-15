@@ -77,10 +77,15 @@ def shape_records(archive_path: Path, table: str, connection: sqlite3.Connection
                     iso2 = field_value(properties, "ISO_A2")
                     if not code or not name:
                         continue
-                    connection.execute(
+                    xmin, ymin, xmax, ymax = shape_record.shape.bbox
+                    cursor = connection.execute(
                         "INSERT INTO countries(code, iso2, name, min_lon, max_lon, min_lat, max_lat, geometry) "
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                        (code, iso2, name, *shape_record.shape.bbox[0:2], 0, 0, json.dumps(geometry, separators=(",", ":"))),
+                        (code, iso2, name, xmin, xmax, ymin, ymax, json.dumps(geometry, separators=(",", ":"))),
+                    )
+                    connection.execute(
+                        "INSERT INTO countries_rtree(id, min_lon, max_lon, min_lat, max_lat) VALUES (?, ?, ?, ?, ?)",
+                        (cursor.lastrowid, xmin, xmax, ymin, ymax),
                     )
                 else:
                     code = field_value(properties, "adm1_code", "postal", "iso_3166_2")
@@ -126,6 +131,7 @@ def build() -> None:
                     name TEXT NOT NULL, min_lon REAL, max_lon REAL, min_lat REAL, max_lat REAL,
                     geometry TEXT NOT NULL
                 );
+                CREATE VIRTUAL TABLE countries_rtree USING rtree(id, min_lon, max_lon, min_lat, max_lat);
                 CREATE TABLE admin1 (
                     id INTEGER PRIMARY KEY, code TEXT NOT NULL, country_code TEXT NOT NULL,
                     name TEXT NOT NULL, min_lon REAL NOT NULL, max_lon REAL NOT NULL,
