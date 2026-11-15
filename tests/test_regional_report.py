@@ -49,6 +49,27 @@ def test_regional_report_keeps_tx_and_rx_directions_separate():
     assert report["rx"]["latest"][0]["remote_call"] == "W1ABC"
 
 
+def test_regional_report_uses_streaming_store_without_a_50k_limit():
+    class StreamingStore:
+        def __init__(self):
+            self.requested_since = None
+
+        def iter_recent(self, *, now=None, since=None):
+            self.requested_since = since
+            yield spot("R1BQE", "W1ABC", "KO59XX", "FN31PR", observed_at=10_000)
+            yield spot("R2BQE", "W2ABC", "KO59XX", "FN32PR", observed_at=9_900)
+
+        def list_recent(self, **kwargs):
+            raise AssertionError("Regional report must use streaming iteration")
+
+    store = StreamingStore()
+    report = build_regional_report("KO59XX", hours=3, store=store, now=10_100)
+
+    assert store.requested_since == 10_100 - 3 * 60 * 60
+    assert report["stored_spots_scanned"] == 2
+    assert report["tx"]["spots"] == 2
+
+
 def test_spot_can_contribute_to_both_directions_when_both_ends_are_local():
     store = MemoryStore([spot("R1BQE", "R2ABC", "KO59XX", "KO59XW")])
 
