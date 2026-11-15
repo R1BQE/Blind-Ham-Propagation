@@ -313,7 +313,7 @@ function addObservationRows(parent, rows) {
   parent.append(list);
 }
 
-function renderRegionalDirection(parent, title, description, data, roles) {
+function renderRegionalDirection(parent, title, description, data, roles, direction) {
   const section = document.createElement("section");
   section.className = "result-card";
   addText(section, "h3", title);
@@ -326,14 +326,17 @@ function renderRegionalDirection(parent, title, description, data, roles) {
   ]);
   renderBandSummary(section, data.by_band);
 
-  if (data.latest?.length) {
-    addText(section, "h4", "Последние принятые передачи");
+  if (data.stations?.length) {
+    addText(section, "h4", "Станции");
     const list = document.createElement("ol");
     list.className = "observation-list";
 
-    for (const item of data.latest) {
+    for (const item of data.stations) {
       const entry = document.createElement("li");
-      addText(entry, "h4", `${item.band} · ${item.mode}`);
+      entry.tabIndex = -1;
+      addText(entry, "h4", item.local_call || item.local_grid || "Станция без позывного");
+      addText(entry, "p", `Наблюдений: ${item.station_spots || 1}; последнее: ${formatObservationTime(item.observed_at)}`, "muted");
+      addText(entry, "p", `${item.band} · ${item.mode}`);
 
       addText(entry, "h5", roles.localTitle);
       addObservationRows(entry, [
@@ -371,8 +374,51 @@ function renderRegionalDirection(parent, title, description, data, roles) {
       list.append(entry);
     }
     section.append(list);
-  } else {
+  } else if (!data.stations_total) {
     addText(section, "p", "За выбранный период приёмов в указанном районе нет.");
+  }
+
+  if ((data.stations?.length || 0) < (data.stations_total || 0)) {
+    const more = document.createElement("button");
+    more.type = "button";
+    more.textContent = "Загрузить ещё 10";
+    more.addEventListener("click", async () => {
+      more.disabled = true;
+      regionalStatus.textContent = "Подгружаем станции…";
+      try {
+        const nextOffset = data.stations?.length || 0;
+        const params = new URLSearchParams({
+          locator: userSettings.locator,
+          radius_km: String(userSettings.radiusKm),
+          hours: String(userSettings.periodHours || 6),
+          limit: "10",
+          offset: String(nextOffset),
+          bands: bandSelection === "all" ? "" : selectedBands.join(","),
+          modes: modeSelection === "all" ? "" : selectedModes.join(","),
+        });
+        const response = await fetch(`${API}/psk-reporter/regional?${params}`, { cache: "no-store" });
+        const nextReport = await response.json();
+        if (!response.ok) throw new Error(nextReport.detail || "Не удалось подгрузить станции.");
+        const nextData = nextReport[direction];
+        const temporary = document.createElement("div");
+        renderRegionalDirection(temporary, title, description, nextData, roles, direction);
+        const nextList = temporary.querySelector(".observation-list");
+        const previousCount = list.children.length;
+        if (nextList) {
+          for (const child of Array.from(nextList.children)) list.append(child);
+        }
+        data.stations = [...(data.stations || []), ...(nextData.stations || [])];
+        data.stations_total = nextData.stations_total;
+        regionalStatus.textContent = "Подгружено";
+        const firstNew = list.children[previousCount];
+        if (firstNew) firstNew.focus();
+        if (data.stations.length >= data.stations_total) more.remove();
+      } catch (error) {
+        regionalStatus.textContent = error.message;
+        more.disabled = false;
+      }
+    });
+    section.append(more);
   }
   parent.append(section);
 }
@@ -393,7 +439,8 @@ function renderRegionalReport(data) {
     {
       localTitle: "Передатчик рядом с тобой",
       remoteTitle: "Удалённый приёмник",
-    }
+    },
+    "tx"
   );
   renderRegionalDirection(
     regionalReport,
@@ -403,7 +450,8 @@ function renderRegionalReport(data) {
     {
       localTitle: "Приёмник рядом с тобой",
       remoteTitle: "Удалённый передатчик",
-    }
+    },
+    "rx"
   );
   void window.locationTools?.enrichRegionalReport(regionalReport, data);
 }
@@ -416,7 +464,8 @@ async function loadRegionalReport() {
     locator: userSettings.locator,
     radius_km: String(userSettings.radiusKm),
     hours: String(userSettings.periodHours || 6),
-    limit: "3",
+    limit: "10",
+    offset: "0",
     bands: bandSelection === "all" ? "" : selectedBands.join(","),
     modes: modeSelection === "all" ? "" : selectedModes.join(","),
   });
