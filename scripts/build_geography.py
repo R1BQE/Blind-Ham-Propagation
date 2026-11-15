@@ -24,8 +24,8 @@ GEONAMES_URL = "https://download.geonames.org/export/dump/allCountries.zip"
 COUNTRY_INFO_URL = "https://download.geonames.org/export/dump/countryInfo.txt"
 ADMIN1_URL = "https://download.geonames.org/export/dump/admin1CodesASCII.txt"
 NATURAL_EARTH = {
-    "countries": "https://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/cultural/ne_10m_admin_0_countries.zip",
-    "admin1": "https://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/cultural/ne_10m_admin_1_states_provinces.zip",
+    "countries": "https://naturalearth.s3.amazonaws.com/10m_cultural/ne_10m_admin_0_countries.zip",
+    "admin1": "https://naturalearth.s3.amazonaws.com/10m_cultural/ne_10m_admin_1_states_provinces.zip",
 }
 USER_AGENT = "Blind-Ham-Propagation geography database builder"
 
@@ -114,12 +114,6 @@ def build() -> None:
         print("Скачиваем GeoNames allCountries…", flush=True)
         geonames_zip = temp / "allCountries.zip"
         download(GEONAMES_URL, geonames_zip)
-        print("Скачиваем справочники стран и регионов GeoNames…", flush=True)
-        country_info = temp / "countryInfo.txt"
-        admin1_codes = temp / "admin1CodesASCII.txt"
-        download(COUNTRY_INFO_URL, country_info)
-        download(ADMIN1_URL, admin1_codes)
-
         new_db = temp / "geography.sqlite3"
         connection = sqlite3.connect(new_db)
         try:
@@ -171,7 +165,7 @@ def build() -> None:
                         population = int(row[14] or 0)
                     except ValueError:
                         continue
-                    name = row[2] or row[1]
+                    name = row[1] or row[2]
                     cursor = connection.execute(
                         "INSERT OR IGNORE INTO settlements VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                         (geoname_id, name, row[2], latitude, longitude, row[8], row[10], row[7], population),
