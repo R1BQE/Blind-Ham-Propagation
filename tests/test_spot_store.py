@@ -233,10 +233,52 @@ def test_regional_lookup_indexes_tx_rx_and_short_locators(tmp_path):
             ).fetchall()
         }
 
-    assert {
+    expected = {
         "idx_spots_tx_grid4_observed",
         "idx_spots_rx_grid4_observed",
         "idx_spots_tx_short_observed",
         "idx_spots_rx_short_observed",
-    } <= indexes
+    }
+    assert expected <= indexes
+
+    prefixes = ["KO59", "KO58"]
+    placeholders = ",".join("?" for _ in prefixes)
+    query = f"""
+        SELECT * FROM spots
+        WHERE id IN (
+            SELECT id FROM spots
+            WHERE observed_at >= ? AND observed_at <= ?
+              AND upper(substr(tx_grid, 1, 4)) IN ({placeholders})
+            UNION
+            SELECT id FROM spots
+            WHERE observed_at >= ? AND observed_at <= ?
+              AND upper(substr(rx_grid, 1, 4)) IN ({placeholders})
+            UNION
+            SELECT id FROM spots
+            WHERE observed_at >= ? AND observed_at <= ?
+              AND tx_grid IS NOT NULL AND length(tx_grid) < 4
+            UNION
+            SELECT id FROM spots
+            WHERE observed_at >= ? AND observed_at <= ?
+              AND rx_grid IS NOT NULL AND length(rx_grid) < 4
+        )
+    """
+    parameters = [
+        0, 100, *prefixes,
+        0, 100, *prefixes,
+        0, 100,
+        0, 100,
+    ]
+    with store._connect() as connection:
+        plan = " ".join(
+            row["detail"]
+            for row in connection.execute(
+                "EXPLAIN QUERY PLAN " + query, parameters
+            ).fetchall()
+        )
+
+    assert "idx_spots_tx_grid4_observed" in plan
+    assert "idx_spots_rx_grid4_observed" in plan
+    assert "idx_spots_tx_short_observed" in plan
+    assert "idx_spots_rx_short_observed" in plan
 
