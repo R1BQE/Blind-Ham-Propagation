@@ -83,6 +83,37 @@ class SpotStore:
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_spots_band_observed ON spots(band, observed_at)"
             )
+            # Regional reports filter by Maidenhead 4-character prefixes. These
+            # expression indexes let SQLite seek directly to matching TX/RX
+            # squares instead of evaluating substr() for every recent spot.
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_spots_tx_grid4_observed
+                ON spots(upper(substr(tx_grid, 1, 4)), observed_at)
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_spots_rx_grid4_observed
+                ON spots(upper(substr(rx_grid, 1, 4)), observed_at)
+                """
+            )
+            # Preserve support for coarse 2-character locators without making
+            # the main prefix lookup fall back to a full time-range scan.
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_spots_tx_short_observed
+                ON spots(observed_at)
+                WHERE tx_grid IS NOT NULL AND length(tx_grid) < 4
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_spots_rx_short_observed
+                ON spots(observed_at)
+                WHERE rx_grid IS NOT NULL AND length(rx_grid) < 4
+                """
+            )
 
     @staticmethod
     def _dedupe_key(spot: dict[str, Any]) -> str:
@@ -276,33 +307,47 @@ class SpotStore:
             return
 
         placeholders = ",".join("?" for _ in prefixes)
-        conditions = [
-            "observed_at >= ?",
-            "observed_at <= ?",
-            (
-                f"(upper(substr(tx_grid, 1, 4)) IN ({placeholders}) "
-                f"OR upper(substr(rx_grid, 1, 4)) IN ({placeholders}) "
-                "OR (tx_grid IS NOT NULL AND length(tx_grid) < 4) "
-                "OR (rx_grid IS NOT NULL AND length(rx_grid) < 4))"
-            ),
+        # UNION gives each endpoint its own indexable lookup. A single OR
+        # expression makes SQLite fall back to idx_spots_observed_at and scan
+        # every spot in the requested time window.
+        query = f"""
+            SELECT * FROM spots
+            WHERE id IN (
+                SELECT id FROM spots
+                WHERE observed_at >= ? AND observed_at <= ?
+                  AND upper(substr(tx_grid, 1, 4)) IN ({placeholders})
+                UNION
+                SELECT id FROM spots
+                WHERE observed_at >= ? AND observed_at <= ?
+                  AND upper(substr(rx_grid, 1, 4)) IN ({placeholders})
+                UNION
+                SELECT id FROM spots
+                WHERE observed_at >= ? AND observed_at <= ?
+                  AND tx_grid IS NOT NULL AND length(tx_grid) < 4
+                UNION
+                SELECT id FROM spots
+                WHERE observed_at >= ? AND observed_at <= ?
+                  AND rx_grid IS NOT NULL AND length(rx_grid) < 4
+            )
+        """
+        parameters: list[Any] = [
+            cutoff, current + 300, *prefixes,
+            cutoff, current + 300, *prefixes,
+            cutoff, current + 300,
+            cutoff, current + 300,
         ]
-        parameters: list[Any] = [cutoff, current + 300, *prefixes, *prefixes]
 
         normalized_bands = sorted({value.strip().lower() for value in bands or [] if value.strip()})
         if normalized_bands:
-            conditions.append(f"lower(band) IN ({','.join('?' for _ in normalized_bands)})")
+            query += f" AND lower(band) IN ({','.join('?' for _ in normalized_bands)})"
             parameters.extend(normalized_bands)
 
         normalized_modes = sorted({value.strip().upper() for value in modes or [] if value.strip()})
         if normalized_modes:
-            conditions.append(f"upper(mode) IN ({','.join('?' for _ in normalized_modes)})")
+            query += f" AND upper(mode) IN ({','.join('?' for _ in normalized_modes)})"
             parameters.extend(normalized_modes)
 
-        query = (
-            "SELECT * FROM spots WHERE "
-            + " AND ".join(conditions)
-            + " ORDER BY observed_at DESC, id DESC"
-        )
+        query += " ORDER BY observed_at DESC, id DESC"
         with self._connection() as connection:
             cursor = connection.execute(query, parameters)
             while rows := cursor.fetchmany(batch_size):
