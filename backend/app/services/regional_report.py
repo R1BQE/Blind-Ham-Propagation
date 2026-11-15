@@ -72,12 +72,19 @@ def build_regional_report(
 
     current = int(time.time()) if now is None else int(now)
     spot_store = store or SpotStore()
-    spots = spot_store.list_recent(now=current, limit=50_000)
     cutoff = current - hours * 3600
+    iterator = getattr(spot_store, "iter_recent", None)
+    if callable(iterator):
+        spots = iterator(now=current, since=cutoff)
+    else:
+        # Compatibility with lightweight custom stores used by integrations/tests.
+        spots = spot_store.list_recent(now=current, limit=5_000_000)
+    scanned_spots = 0
     selected_bands = {value.strip().lower() for value in bands or [] if value.strip()}
     selected_modes = {value.strip().upper() for value in modes or [] if value.strip()}
 
-    groups: dict[str, list[dict[str, Any]]] = {"tx": [], "rx": []}
+    spot_counts = {"tx": 0, "rx": 0}
+    last_seen: dict[str, int | None] = {"tx": None, "rx": None}
     band_stats: dict[str, dict[tuple[str, str], dict[str, Any]]] = {
         "tx": defaultdict(lambda: {"count": 0, "stations": set(), "last_seen": None}),
         "rx": defaultdict(lambda: {"count": 0, "stations": set(), "last_seen": None}),
@@ -86,6 +93,7 @@ def build_regional_report(
     station_details: dict[str, dict[str, dict[str, Any]]] = {"tx": {}, "rx": {}}
 
     for spot in spots:
+        scanned_spots += 1
         observed_at = int(spot.get("observed_at") or 0)
         if observed_at < cutoff or observed_at > current + 300:
             continue
@@ -170,7 +178,9 @@ def build_regional_report(
                 "observed_at": _iso_utc(observed_at),
                 "observed_at_epoch": observed_at,
             }
-            groups[direction].append(item)
+            spot_counts[direction] += 1
+            if last_seen[direction] is None or observed_at > last_seen[direction]:
+                last_seen[direction] = observed_at
             station_key = local_call or (str(local_grid).strip().upper() if local_grid else "")
             if station_key:
                 station_sets[direction].add(station_key)
@@ -200,7 +210,7 @@ def build_regional_report(
         "modes": sorted(selected_modes),
         "generated_at": _iso_utc(current),
         "period_started_at": _iso_utc(cutoff),
-        "stored_spots_scanned": len(spots),
+        "stored_spots_scanned": scanned_spots,
         "tx": {},
         "rx": {},
         "explanation": {
@@ -215,7 +225,6 @@ def build_regional_report(
     }
 
     for direction in ("tx", "rx"):
-        entries = sorted(groups[direction], key=lambda row: row["observed_at_epoch"], reverse=True)
         band_rows = []
         for (band, mode), stat in sorted(
             band_stats[direction].items(),
@@ -240,9 +249,9 @@ def build_regional_report(
         ]
 
         result[direction] = {
-            "spots": len(entries),
+            "spots": spot_counts[direction],
             "unique_local_stations": len(station_sets[direction]),
-            "last_seen": entries[0]["observed_at"] if entries else None,
+            "last_seen": _iso_utc(last_seen[direction]),
             "by_band": band_rows,
             "stations": public_stations,
             "latest": public_stations,
