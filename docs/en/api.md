@@ -56,7 +56,7 @@ Query parameters:
 
 - `locator`: QTH Maidenhead locator; default `KP50DB`.
 - `radius_km`: radius around the locator-cell centre; greater than 0 and at most 1000 km; default 100.
-- `hours`: observation window; current route accepts 3–24 hours; default 6.
+- `hours`: observation window; supported values are 0.5 (30 minutes), 1, 2, 3, 4, 5, or 6 hours; default 6. The collector independently retains up to 24 hours of history.
 - `limit`: maximum detail rows in each direction; 1–100; default 30.
 - `bands`: optional comma-separated band filter.
 - `modes`: optional comma-separated mode filter.
