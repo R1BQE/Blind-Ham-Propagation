@@ -27,7 +27,8 @@ SUPPORTED_MODES = (
 )
 # The collector always receives the complete supported feed. User-selected
 # filters are applied to each regional API response, never to shared MQTT state.
-FLUSH_INTERVAL_SECONDS = 2.0
+FLUSH_INTERVAL_SECONDS = 5.0
+PRUNE_INTERVAL_SECONDS = 60.0
 
 DEFAULT_TOPIC_FILTERS = tuple(
     "pskr/filter/v2/{}/{}".format(band, mode) + "/#"
@@ -115,6 +116,7 @@ class PSKReporterCollector:
         self._pending_spots: list[tuple[dict[str, Any], int]] = []
         self._flush_stop = threading.Event()
         self._flush_thread: threading.Thread | None = None
+        self._last_prune_at = time.monotonic()
         self._stopping = False
         self._state = "disabled" if not self.config.enabled else "idle"
         self._messages_received = 0
@@ -226,11 +228,28 @@ class PSKReporterCollector:
     def _flush_loop(self) -> None:
         while not self._flush_stop.wait(FLUSH_INTERVAL_SECONDS):
             self._flush_pending()
+            self._prune_if_due()
 
         # A graceful shutdown must not discard the in-memory queue. If SQLite
         # is temporarily busy or unavailable, keep retrying until it is saved.
         while not self._flush_pending():
             time.sleep(1)
+
+    def _prune_if_due(self) -> bool:
+        """Run storage cleanup separately from frequent batch inserts."""
+        if self.store is None:
+            return True
+        now = time.monotonic()
+        if now - self._last_prune_at < PRUNE_INTERVAL_SECONDS:
+            return True
+        try:
+            self.store.prune()
+        except Exception as exc:
+            self._record_error(exc)
+            logger.exception("Не удалось выполнить периодическую очистку базы спотов")
+            return False
+        self._last_prune_at = now
+        return True
 
     def _flush_pending(self) -> bool:
         with self._queue_lock:
@@ -322,7 +341,7 @@ class PSKReporterCollector:
             return
 
         # MQTT callbacks only enqueue data. SQLite writes happen in batches
-        # on the dedicated writer thread, at most once every two seconds.
+        # on the dedicated writer thread, every five seconds.
         with self._queue_lock:
             self._pending_spots.append((dict(spot), now))
 
