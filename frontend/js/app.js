@@ -50,14 +50,25 @@ function filterDescription() {
   return `диапазоны: ${bandSelection === "all" ? "все" : selectedBands.join(", ")}; режимы: ${modeSelection === "all" ? "все" : selectedModes.join(", ")}`;
 }
 
+function formatPeriod(hours) {
+  if (hours === 0.5) return "30 минут";
+  if (hours === 1) return "1 час";
+  if (hours >= 2 && hours <= 4) return `${hours} часа`;
+  return `${hours} часов`;
+}
+
 function applySettings(settings) {
+  const periodHours = [0.5, 1, 2, 3, 4, 5, 6].includes(Number(settings.periodHours))
+    ? Number(settings.periodHours)
+    : DEFAULT_SETTINGS.periodHours;
+  settings = { ...settings, periodHours };
   userSettings = settings;
   locatorInput.value = settings.locator;
   regionalLocatorInput.value = settings.locator;
   regionalRadiusInput.value = String(settings.radiusKm);
   regionalPeriodSelect.value = String(settings.periodHours || 6);
   regionalDescription.textContent =
-    `Область поиска: локатор ${settings.locator}, радиус ${settings.radiusKm} км. Период — последние ${settings.periodHours || 6} часов.`;
+    `Область поиска: локатор ${settings.locator}, радиус ${settings.radiusKm} км. Период — последние ${formatPeriod(settings.periodHours)}.`;
 }
 
 window.applyQthLocator = (locator) => {
@@ -107,8 +118,8 @@ regionalLocatorForm.addEventListener("submit", async (event) => {
     regionalRadiusInput.focus();
     return;
   }
-  if (![3, 6, 9, 12, 15, 18, 21, 24].includes(periodHours)) {
-    regionalLocatorError.textContent = "Выбери период наблюдений от 3 до 24 часов.";
+  if (![0.5, 1, 2, 3, 4, 5, 6].includes(periodHours)) {
+    regionalLocatorError.textContent = "Выбери период наблюдений от 30 минут до 6 часов.";
     regionalPeriodSelect.focus();
     return;
   }
@@ -140,7 +151,7 @@ regionalLocatorForm.addEventListener("submit", async (event) => {
     const settings = { locator: locatorData.locator, radiusKm, periodHours };
     applySettings(settings);
     regionalDescription.textContent =
-      `Локатор ${settings.locator}; радиус ${radiusKm} км; ${filterDescription()}; период: ${periodHours} часов.`;
+      `Локатор ${settings.locator}; радиус ${radiusKm} км; ${filterDescription()}; период: ${formatPeriod(periodHours)}.`;
     try {
       localStorage.setItem("blindHamPropagationSettings", JSON.stringify(settings));
       localStorage.setItem("blindHamPropagationPSKFilters", JSON.stringify({
@@ -678,7 +689,7 @@ try {
 }
 updateFilterVisibility();
 regionalDescription.textContent =
-  `Локатор ${userSettings.locator}; радиус ${userSettings.radiusKm} км; ${filterDescription()}; период: ${userSettings.periodHours || 6} часов.`;
+  `Локатор ${userSettings.locator}; радиус ${userSettings.radiusKm} км; ${filterDescription()}; период: ${formatPeriod(userSettings.periodHours)}.`;
 document.querySelectorAll('input[name="regional-band-selection"], input[name="regional-mode-selection"]')
   .forEach((input) => input.addEventListener("change", updateFilterVisibility));
 
