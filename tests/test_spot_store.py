@@ -189,3 +189,36 @@ def test_list_recent_does_not_modify_storage(tmp_path):
 
     assert rows == []
     assert store.count() == 1
+
+
+
+def test_iter_recent_for_region_keeps_tx_and_rx_candidates_and_filters(tmp_path):
+    store = SpotStore(tmp_path / "spots.sqlite3")
+    now = 100_000
+    store.add_spot(
+        make_spot(tx_grid="KO59XX", rx_grid="FN31pr", observed_at=now - 10, sequence=1),
+        received_at=now,
+    )
+    store.add_spot(
+        make_spot(tx_grid="FN31pr", rx_grid="KO59XW", observed_at=now - 9, sequence=2),
+        received_at=now,
+    )
+    store.add_spot(
+        make_spot(tx_grid="FN31pr", rx_grid="FN32pr", observed_at=now - 8, sequence=3),
+        received_at=now,
+    )
+    store.add_spot(
+        make_spot(tx_grid="KO59XX", rx_grid="FN31pr", band="40m", observed_at=now - 7, sequence=4),
+        received_at=now,
+    )
+
+    rows = list(store.iter_recent_for_region(
+        locator="KO59XX",
+        radius_km=1,
+        now=now,
+        since=now - 60,
+        bands=["20m"],
+        modes=["FT8"],
+    ))
+
+    assert {row["sequence"] for row in rows} == {"1", "2"}
