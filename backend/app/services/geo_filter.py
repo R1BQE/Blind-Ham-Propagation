@@ -84,8 +84,10 @@ def locator_prefixes_for_radius(
             ),
         )
 
-    first_lat_index = max(0, math.ceil(min_latitude + 89.5))
-    last_lat_index = min(179, math.floor(max_latitude + 89.5))
+    # Include every 1-degree latitude cell intersecting the bounding box,
+    # not only cells whose 4-character parent center is inside it.
+    first_lat_index = max(0, math.floor(min_latitude + 90.0) - 1)
+    last_lat_index = min(179, math.floor(max_latitude + 90.0))
     prefixes: list[str] = []
     for latitude_index in range(first_lat_index, last_lat_index + 1):
         latitude_center = -89.5 + latitude_index
@@ -94,7 +96,8 @@ def locator_prefixes_for_radius(
             longitude_difference = abs(
                 (longitude_center - center_lon + 180.0) % 360.0 - 180.0
             )
-            if longitude_difference > longitude_delta:
+            # A 4-character Maidenhead square is 2 degrees wide.
+            if longitude_difference > longitude_delta + 1.0:
                 continue
             longitude_field, longitude_square = divmod(longitude_index, 10)
             latitude_field, latitude_square = divmod(latitude_index, 10)
