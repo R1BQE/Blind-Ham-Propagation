@@ -280,8 +280,8 @@ class SpotStore:
             "observed_at >= ?",
             "observed_at <= ?",
             (
-                f"(substr(tx_grid, 1, 4) IN ({placeholders}) "
-                f"OR substr(rx_grid, 1, 4) IN ({placeholders}) "
+                f"(upper(substr(tx_grid, 1, 4)) IN ({placeholders}) "
+                f"OR upper(substr(rx_grid, 1, 4)) IN ({placeholders}) "
                 "OR (tx_grid IS NOT NULL AND length(tx_grid) < 4) "
                 "OR (rx_grid IS NOT NULL AND length(rx_grid) < 4))"
             ),
