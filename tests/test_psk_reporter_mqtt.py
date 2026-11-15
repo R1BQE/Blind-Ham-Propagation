@@ -21,6 +21,7 @@ def isolate_settings_file(tmp_path, monkeypatch):
 class FakeStore:
     def __init__(self):
         self.items = []
+        self.prune_calls = 0
 
     def add_spots(self, spots):
         inserted = 0
