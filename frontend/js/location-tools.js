@@ -115,7 +115,7 @@
     const heading = document.createElement("h3");
     heading.textContent = "Где находится мой локатор";
     const summary = document.createElement("p");
-    summary.textContent = "Определяем страну, город и район по центру ячейки локатора…";
+    summary.textContent = "Определяем страну, регион и ближайший населённый пункт по центру ячейки локатора…";
     const attribution = document.createElement("p");
     attribution.className = "muted";
     attribution.textContent = "Источники геоданных: GeoNames (CC BY 4.0), Natural Earth (общественное достояние).";
@@ -144,7 +144,7 @@
         if (!locationLine?.classList.contains("station-location")) {
           locationLine = document.createElement("p");
           locationLine.className = "station-location muted";
-          locationLine.textContent = "Определяем страну, город и район…";
+          locationLine.textContent = "Определяем страну, регион и ближайший населённый пункт…";
           value.insertAdjacentElement("afterend", locationLine);
         }
         if (!points.has(locator)) points.set(locator, { locator, targets: [] });
@@ -185,7 +185,7 @@
         if (!locatorCenter(locator)) continue;
         const locationLine = document.createElement("p");
         locationLine.className = "station-location muted";
-        locationLine.textContent = "Определяем страну, город и район…";
+        locationLine.textContent = "Определяем страну, регион и ближайший населённый пункт…";
         value.insertAdjacentElement("afterend", locationLine);
         if (!points.has(locator)) points.set(locator, { locator, targets: [] });
         points.get(locator).targets.push(locationLine);
