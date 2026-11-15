@@ -232,7 +232,7 @@ class SpotStore:
         if since is not None:
             cutoff = max(cutoff, int(since))
 
-        with self._connect() as connection:
+        with self._connection() as connection:
             cursor = connection.execute(
                 """
                 SELECT * FROM spots
