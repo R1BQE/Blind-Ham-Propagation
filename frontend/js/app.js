@@ -7,7 +7,7 @@ async function readApiResponse(response, operation) {
   try {
     data = body ? JSON.parse(body) : {};
   } catch {
-    const preview = body.replace(/\\s+/g, " ").trim().slice(0, 180);
+    const preview = body.replace(/\s+/g, " ").trim().slice(0, 180);
     throw new Error(
       `${operation}: сервер вернул не JSON (HTTP ${response.status}; ${contentType}). ${preview}`
     );
