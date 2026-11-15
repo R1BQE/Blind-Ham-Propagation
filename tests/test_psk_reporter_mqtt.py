@@ -38,6 +38,10 @@ class FakeStore:
     def count(self):
         return len(self.items)
 
+    def prune(self):
+        self.prune_calls = getattr(self, "prune_calls", 0) + 1
+        return 0
+
 
 TOPIC = "pskr/filter/v2/20m/FT8/R1BQE/W1ABC/KO59XX/FN31pr/54/291"
 PAYLOAD = (
@@ -126,6 +130,20 @@ def test_collector_saves_normalized_spot_and_counts_duplicate():
     assert status["stored_spots"] == 1
     assert store.items[0]["tx_call"] == "R1BQE"
     assert store.items[0]["rx_call"] == "W1ABC"
+
+
+def test_pruning_runs_on_its_own_interval(monkeypatch):
+    store = FakeStore()
+    collector = PSKReporterCollector(MQTTConfig(enabled=True), store=store)
+    collector._last_prune_at = 100.0
+    monkeypatch.setattr(mqtt_module, "PRUNE_INTERVAL_SECONDS", 60.0)
+    monkeypatch.setattr(mqtt_module.time, "monotonic", lambda: 159.0)
+    assert collector._prune_if_due() is True
+    assert store.prune_calls == 0
+
+    monkeypatch.setattr(mqtt_module.time, "monotonic", lambda: 160.0)
+    assert collector._prune_if_due() is True
+    assert store.prune_calls == 1
 
 
 def test_collector_counts_malformed_messages_without_stopping():
