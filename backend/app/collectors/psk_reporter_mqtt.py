@@ -191,8 +191,14 @@ class PSKReporterCollector:
         if client is not None:
             try:
                 client.disconnect()
-            finally:
+            except Exception as exc:
+                self._record_error(exc)
+                logger.exception("Ошибка отключения PSK Reporter MQTT")
+            try:
                 client.loop_stop()
+            except Exception as exc:
+                self._record_error(exc)
+                logger.exception("Ошибка остановки MQTT loop")
 
         # Stop accepting MQTT callbacks first, then drain every queued spot.
         self._flush_stop.set()
