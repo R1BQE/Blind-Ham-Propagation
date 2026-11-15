@@ -96,6 +96,31 @@ class SpotStore:
         payload = json.dumps(identity, sort_keys=True, separators=(",", ":"), default=str)
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
+    @staticmethod
+    def _prepare_values(spot: dict[str, Any], received_at: int | None) -> tuple[Any, ...]:
+        required = ("band", "mode", "tx_call", "rx_call", "frequency_hz", "observed_at")
+        missing = [key for key in required if spot.get(key) is None]
+        if missing:
+            raise ValueError("В споте отсутствуют обязательные поля: " + ", ".join(missing))
+
+        received = int(time.time()) if received_at is None else int(received_at)
+        return (
+            SpotStore._dedupe_key(spot),
+            int(spot["observed_at"]),
+            received,
+            str(spot["band"]),
+            str(spot["mode"]),
+            str(spot["tx_call"]),
+            str(spot["rx_call"]),
+            spot.get("tx_grid"),
+            spot.get("rx_grid"),
+            str(spot["tx_dxcc"]) if spot.get("tx_dxcc") is not None else None,
+            str(spot["rx_dxcc"]) if spot.get("rx_dxcc") is not None else None,
+            int(spot["frequency_hz"]),
+            float(spot["snr_db"]) if spot.get("snr_db") is not None else None,
+            str(spot["sequence"]) if spot.get("sequence") is not None else None,
+        )
+
     def _prune_connection(self, connection: sqlite3.Connection, now: int) -> int:
         cutoff = now - self.retention_seconds
         cursor = connection.execute(
@@ -116,44 +141,39 @@ class SpotStore:
         )
         return deleted + cursor.rowcount
 
+    def add_spots(
+        self,
+        spots: list[tuple[dict[str, Any], int | None]],
+    ) -> tuple[int, int]:
+        """Insert a batch in one transaction and prune once; return (inserted, duplicates)."""
+        if not spots:
+            return 0, 0
+
+        prepared = [self._prepare_values(spot, received_at) for spot, received_at in spots]
+        newest_received_at = max(values[2] for values in prepared)
+        inserted = 0
+
+        with self._connection() as connection:
+            for values in prepared:
+                cursor = connection.execute(
+                    """
+                    INSERT OR IGNORE INTO spots (
+                        dedupe_key, observed_at, received_at, band, mode,
+                        tx_call, rx_call, tx_grid, rx_grid, tx_dxcc, rx_dxcc,
+                        frequency_hz, snr_db, sequence
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    values,
+                )
+                inserted += cursor.rowcount
+            self._prune_connection(connection, newest_received_at)
+
+        return inserted, len(prepared) - inserted
+
     def add_spot(self, spot: dict[str, Any], *, received_at: int | None = None) -> bool:
         """Insert one normalized spot; return False when it is a duplicate."""
-        required = ("band", "mode", "tx_call", "rx_call", "frequency_hz", "observed_at")
-        missing = [key for key in required if spot.get(key) is None]
-        if missing:
-            raise ValueError("В споте отсутствуют обязательные поля: " + ", ".join(missing))
-
-        observed_at = int(spot["observed_at"])
-        received = int(time.time()) if received_at is None else int(received_at)
-        values = (
-            self._dedupe_key(spot),
-            observed_at,
-            received,
-            str(spot["band"]),
-            str(spot["mode"]),
-            str(spot["tx_call"]),
-            str(spot["rx_call"]),
-            spot.get("tx_grid"),
-            spot.get("rx_grid"),
-            str(spot["tx_dxcc"]) if spot.get("tx_dxcc") is not None else None,
-            str(spot["rx_dxcc"]) if spot.get("rx_dxcc") is not None else None,
-            int(spot["frequency_hz"]),
-            float(spot["snr_db"]) if spot.get("snr_db") is not None else None,
-            str(spot["sequence"]) if spot.get("sequence") is not None else None,
-        )
-        with self._connection() as connection:
-            cursor = connection.execute(
-                """
-                INSERT OR IGNORE INTO spots (
-                    dedupe_key, observed_at, received_at, band, mode,
-                    tx_call, rx_call, tx_grid, rx_grid, tx_dxcc, rx_dxcc,
-                    frequency_hz, snr_db, sequence
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                values,
-            )
-            self._prune_connection(connection, received)
-            return cursor.rowcount == 1
+        inserted, _duplicates = self.add_spots([(spot, received_at)])
+        return inserted == 1
 
     def prune(self, *, now: int | None = None) -> int:
         """Delete expired rows and enforce the maximum history size."""
