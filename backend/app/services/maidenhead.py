@@ -70,7 +70,6 @@ def _locator_to_center_uncached(locator: str) -> tuple[float, float]:
     )
 
 
-
 @lru_cache(maxsize=65_536)
 def _locator_to_center_cached(locator: str) -> tuple[float, float]:
     """Cache normalized Maidenhead locator conversions."""
@@ -82,6 +81,7 @@ def locator_to_center(locator: str) -> tuple[float, float]:
     if not isinstance(locator, str):
         raise LocatorError("Локатор должен быть текстовой строкой.")
     return _locator_to_center_cached(locator.strip().upper())
+
 
 def coordinates_to_locator(
     latitude: float,
