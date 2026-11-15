@@ -163,6 +163,50 @@ def test_radio_path_azimuth_is_always_from_transmitter_to_receiver():
     assert rx_item["station_azimuth"] == "Северо-восток"
     assert tx_item["station_azimuth_degrees"] != rx_item["station_azimuth_degrees"]
 
+
+def test_regional_report_paginates_unique_stations_and_counts_their_spots():
+    rows = []
+    for index in range(23):
+        rows.append(spot(
+            f"R{index}ABC",
+            f"W{index}XYZ",
+            "KO59XX",
+            "KO59XW",
+            observed_at=10_000 - index,
+        ))
+    # A second report from an existing station must update its count, not
+    # create a duplicate row in the station list.
+    rows.append(spot("R0ABC", "W99XYZ", "KO59XX", "KO59XW", observed_at=9_900))
+    store = MemoryStore(rows)
+
+    first = build_regional_report(
+        "KO59XX", store=store, now=10_100, details_limit=10, details_offset=0,
+    )
+    second = build_regional_report(
+        "KO59XX", store=store, now=10_100, details_limit=10, details_offset=10,
+    )
+    third = build_regional_report(
+        "KO59XX", store=store, now=10_100, details_limit=10, details_offset=20,
+    )
+
+    assert first["tx"]["stations_total"] == 23
+    assert len(first["tx"]["stations"]) == 10
+    assert len(second["tx"]["stations"]) == 10
+    assert len(third["tx"]["stations"]) == 3
+    assert first["tx"]["stations"][0]["local_call"] == "R0ABC"
+    assert first["tx"]["stations"][0]["station_spots"] == 2
+    assert not (
+        {row["local_call"] for row in first["tx"]["stations"]}
+        & {row["local_call"] for row in second["tx"]["stations"]}
+    )
+    assert len(first["rx"]["stations"]) == 10
+    assert len(second["rx"]["stations"]) == 10
+
+
+def test_regional_report_rejects_negative_station_offset():
+    with pytest.raises(ValueError, match="Смещение"):
+        build_regional_report("KO59XX", details_offset=-1, store=MemoryStore([]), now=10_100)
+
 def test_regional_report_limits_latest_station_records_to_three():
     store = MemoryStore([
         spot(
