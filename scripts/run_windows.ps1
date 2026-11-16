@@ -79,6 +79,12 @@ try {
     & $VenvPython -m pip install --upgrade -r (Join-Path $Root "requirements.txt")
     if ($LASTEXITCODE -ne 0) { throw "Не удалось установить зависимости. Проверь доступ к PyPI и логи." }
 
+    Write-LauncherLog "Checking offline geography database."
+    & $VenvPython (Join-Path $Root "scripts\ensure_geography.py")
+    if ($LASTEXITCODE -ne 0) {
+        throw "Не удалось подготовить офлайн-базу географии. Проверь доступ к GeoNames/Natural Earth и логи."
+    }
+
     # Reuse a running instance only when it already exposes the regional API.
     $Existing = $null
     try {
