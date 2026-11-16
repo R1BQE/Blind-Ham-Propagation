@@ -16,7 +16,7 @@ python -m pip install -e ".[dev]"
 python -m pytest tests -q
 ```
 
-On Windows, use `run-windows.bat` for normal local startup. It updates the local code, prepares the environment, starts the backend, and opens the application. Starting Uvicorn manually does not replace all lifecycle behavior provided by the local launcher.
+On Windows, use `run-windows.bat` for normal local startup. It updates the local code, prepares the environment, checks the offline geography database, rebuilds it when missing, corrupt, or incompatible, starts the backend, and opens the application. A first run on a clean checkout downloads GeoNames and Natural Earth and therefore requires internet access. Starting Uvicorn manually does not replace all lifecycle behavior provided by the local launcher.
 
 ## Production VDS
 
@@ -33,7 +33,7 @@ The existing installation uses one working directory, one `.venv`, local setting
 Run these commands as root:
 
 - `bp status` — shows the checked-out Git commit, branch, service state, local health check, and rollback commit.
-- `bp update` — fast-forwards from `origin/main`, installs pinned dependencies only if `requirements-vds.lock` changes, runs tests, validates changed systemd/Apache configuration, restarts the service, and checks the local health endpoint.
+- `bp update` — fast-forwards from `origin/main`, installs pinned dependencies only if `requirements-vds.lock` changes, runs tests, validates or rebuilds the offline geography database as the service user when needed, validates changed systemd/Apache configuration, restarts the service, and checks the local health endpoint. It also checks the database when the code is already current.
 - `bp rollback` — returns to the previous successfully deployed commit and restores matching dependencies/configuration.
 
 A normal manual update can be performed as follows:
@@ -73,7 +73,7 @@ The installer creates an initial `settings.ini` if one does not already exist. E
 
 ## Initial installation
 
-`scripts/install_vds.sh` is intended only for the initial installation on a Debian VDS. It creates the system user and service, virtual environment, installs dependencies from `requirements-vds.lock`, prepares runtime directories, and creates initial settings. Before starting the service, it downloads GeoNames and Natural Earth, builds `data/geography.sqlite3` as the service user, and verifies database integrity, required tables, and schema version. An existing valid database is preserved without downloading it again. If download or validation fails, installation stops before starting the service.
+`scripts/install_vds.sh` is intended only for the initial installation on a Debian VDS. It creates the system user and service, virtual environment, installs dependencies from `requirements-vds.lock`, prepares runtime directories, and creates initial settings. Before starting the service, it runs the shared `scripts/ensure_geography.py` helper as the service user. The helper verifies SQLite integrity, required tables and indexes, schema version, and populated-place count. If the database is missing, corrupt, or incompatible, it downloads GeoNames and Natural Earth and builds `data/geography.sqlite3`. A valid database is reused without downloading it again. If preparation fails, installation stops before starting the service.
 
 If the `blind-ham-propagation` service is already installed, the script refuses to perform another installation and directs the operator to `bp update`. Do not use the installer to update an existing server.
 
