@@ -5,6 +5,7 @@ set -Eeuo pipefail
 ROOT="/var/www/html/blind-prop"
 BRANCH="main"
 SERVICE="blind-ham-propagation"
+SERVICE_USER="blindham-prop"
 SERVICE_FILE="/etc/systemd/system/${SERVICE}.service"
 APACHE_FILE="/etc/apache2/conf-available/blind-ham-propagation.conf"
 HEALTH_URL="http://127.0.0.1:8765/api/v1/health"
@@ -28,6 +29,7 @@ require_installation() {
     command -v systemctl >/dev/null || die "Не найден systemctl."
     command -v systemd-analyze >/dev/null || die "Не найден systemd-analyze."
     command -v apachectl >/dev/null || die "Не найден apachectl."
+    command -v runuser >/dev/null || die "Не найден runuser."
 }
 
 check_clean_checkout() {
@@ -308,6 +310,11 @@ do_update() {
 
     if ! run_tests; then
         abort_update "$previous" "$work" "$current" "Тесты не прошли"
+    fi
+
+    say "Проверяю и при необходимости восстанавливаю офлайн-базу географии."
+    if ! runuser -u "$SERVICE_USER" -- "$ROOT/.venv/bin/python" "$ROOT/scripts/ensure_geography.py"; then
+        abort_update "$previous" "$work" "$current" "Не удалось подготовить офлайн-базу географии"
     fi
 
     if ! apply_configs "$current" "$work"; then
