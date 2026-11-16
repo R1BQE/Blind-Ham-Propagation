@@ -288,6 +288,11 @@ do_update() {
     fi
     current="$(git -C "$ROOT" rev-parse HEAD)" || abort_update "$previous" "$work" "$previous" "Не удалось определить коммит после git pull"
     if [[ "$current" == "$previous" ]]; then
+        say "Код уже актуален; проверяю офлайн-базу географии."
+        if ! runuser -u "$SERVICE_USER" -- "$ROOT/.venv/bin/python" "$ROOT/scripts/ensure_geography.py"; then
+            rm -rf "$work"
+            die "Не удалось подготовить офлайн-базу географии."
+        fi
         rm -rf "$work"
         say "Уже установлена последняя версия: ${current:0:12}"
         return 0
