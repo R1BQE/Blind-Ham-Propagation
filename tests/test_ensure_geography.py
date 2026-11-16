@@ -1,6 +1,9 @@
 import sqlite3
+import sys
+from pathlib import Path
 
-from scripts.ensure_geography import validate_database
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+from ensure_geography import validate_database
 
 
 def create_valid_database(path):
