@@ -21,7 +21,7 @@ def validate_database(database: str | Path = DATABASE) -> tuple[bool, str]:
     if not path.is_file() or path.stat().st_size == 0:
         return False, "файл отсутствует или пуст"
     try:
-        connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=10)
+        connection = sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True, timeout=10)
         try:
             integrity = connection.execute("PRAGMA quick_check").fetchone()
             if not integrity or integrity[0] != "ok":
