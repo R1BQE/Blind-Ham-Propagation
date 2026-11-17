@@ -8,6 +8,7 @@ from pathlib import Path
 import threading
 import time
 import uuid
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
@@ -26,7 +27,7 @@ SUPPORTED_MODES = (
 # The collector always receives the complete supported feed. User-selected
 # filters are applied to each regional session, never to shared MQTT state.
 DEFAULT_TOPIC_FILTERS = tuple(
-    "pskr/filter/v2/{}/{}" .format(band, mode) + "/#"
+    f"pskr/filter/v2/{band}/{mode}/#"
     for band in SUPPORTED_BANDS
     for mode in SUPPORTED_MODES
 )
