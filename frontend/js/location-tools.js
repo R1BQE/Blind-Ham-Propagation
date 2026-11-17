@@ -2,6 +2,7 @@
   "use strict";
 
   const API = "./api/v1";
+  const GEOGRAPHY_LOOKUP_BATCH_SIZE = 100;
   const dialog = document.querySelector("#locator-address-dialog");
   const addressForm = document.querySelector("#locator-address-form");
   const addressInput = document.querySelector("#locator-address-query");
@@ -55,11 +56,14 @@
       .filter((value) => locatorCenter(value)))];
     const missing = unique.filter((locator) => !geographyCache.has(locator));
 
-    if (missing.length) {
+    // The API accepts at most 100 locators per request. Keep this loop
+    // independent of the total number of stations in a regional report.
+    for (let offset = 0; offset < missing.length; offset += GEOGRAPHY_LOOKUP_BATCH_SIZE) {
+      const batch = missing.slice(offset, offset + GEOGRAPHY_LOOKUP_BATCH_SIZE);
       const response = await fetch(`${API}/geography/lookup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ locators: missing }),
+        body: JSON.stringify({ locators: batch }),
         cache: "no-store",
       });
       const payload = await response.json().catch(() => ({}));
