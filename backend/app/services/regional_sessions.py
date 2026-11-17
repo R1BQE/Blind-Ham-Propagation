@@ -7,11 +7,11 @@ import math
 import secrets
 import threading
 import time
+from datetime import datetime, timezone
 from typing import Any
 
 from backend.app.services.geo_filter import classify_spot_region, distance_between_locators, locator_prefixes_for_radius
 from backend.app.services.maidenhead import locator_to_center
-from backend.app.services.regional_report import _bearing, _iso_utc
 
 SESSION_DURATION_SECONDS = 60
 RESULT_TTL_SECONDS = 600
@@ -19,6 +19,32 @@ MAX_ACTIVE_SESSIONS = 10
 MAX_DEDUPE_KEYS = 4096
 MAX_STATIONS_PER_DIRECTION = 5000
 MAX_SPOT_AGE_SECONDS = 900
+
+COMPASS_POINTS = (
+    "Север", "Северо-восток", "Восток", "Юго-восток",
+    "Юг", "Юго-запад", "Запад", "Северо-запад",
+)
+
+
+def _bearing(latitude_1: float, longitude_1: float,
+             latitude_2: float, longitude_2: float) -> tuple[float, str]:
+    """Return initial great-circle bearing and a Russian compass direction."""
+    lat1 = math.radians(latitude_1)
+    lat2 = math.radians(latitude_2)
+    delta_lon = math.radians(longitude_2 - longitude_1)
+    y = math.sin(delta_lon) * math.cos(lat2)
+    x = math.cos(lat1) * math.sin(lat2) - (
+        math.sin(lat1) * math.cos(lat2) * math.cos(delta_lon)
+    )
+    degrees = (math.degrees(math.atan2(y, x)) + 360.0) % 360.0
+    return round(degrees, 1), COMPASS_POINTS[int((degrees + 22.5) // 45.0) % 8]
+
+
+def _iso_utc(timestamp: int | None) -> str | None:
+    if timestamp is None:
+        return None
+    return datetime.fromtimestamp(int(timestamp), tz=timezone.utc).isoformat()
+
 
 
 class RegionalSessionError(ValueError):
