@@ -231,3 +231,57 @@ def test_lifespan_starts_collector_independently_of_browser_sessions(monkeypatch
 
     assert FakeCollector.instance.stops == 1
 
+
+
+def test_regional_session_api_starts_and_reports_progress(monkeypatch):
+    class FakeCollector:
+        def __init__(self):
+            self.spot_observer = None
+
+        def start(self):
+            pass
+
+        def stop(self):
+            pass
+
+        def is_connected(self):
+            return True
+
+    monkeypatch.setattr("backend.app.main.PSKReporterCollector", FakeCollector)
+    with TestClient(app) as running_client:
+        started = running_client.post(
+            "/api/v1/psk-reporter/regional/sessions",
+            json={"locator": "KO59", "radius_km": 500},
+        )
+        assert started.status_code == 200
+        session_id = started.json()["session_id"]
+        progress = running_client.get(
+            f"/api/v1/psk-reporter/regional/sessions/{session_id}"
+        )
+
+    assert progress.status_code == 200
+    assert progress.json()["state"] == "collecting"
+    assert progress.json()["locator"] == "KO59"
+
+
+def test_regional_session_api_requires_connected_mqtt(monkeypatch):
+    class FakeCollector:
+        def __init__(self):
+            self.spot_observer = None
+
+        def start(self):
+            pass
+
+        def stop(self):
+            pass
+
+        def is_connected(self):
+            return False
+
+    monkeypatch.setattr("backend.app.main.PSKReporterCollector", FakeCollector)
+    with TestClient(app) as running_client:
+        response = running_client.post(
+            "/api/v1/psk-reporter/regional/sessions",
+            json={"locator": "KO59", "radius_km": 500},
+        )
+    assert response.status_code == 503
