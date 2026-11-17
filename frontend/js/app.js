@@ -488,16 +488,26 @@ async function cancelRegionalCollection() {
   regionalCancelButton.disabled = true;
   regionalStatus.textContent = "Останавливаем сбор…";
   try {
-    await readApiResponse(await fetch(
+    const cancelled = await readApiResponse(await fetch(
       `${API}/psk-reporter/regional/sessions/${encodeURIComponent(activeRegionalSessionId)}`,
       { method: "DELETE", cache: "no-store" },
     ), "Остановка сбора");
     regionalPollRun += 1;
     setRegionalCollectionState(false);
     regionalReport.setAttribute("aria-busy", "false");
-    regionalStatus.textContent = "Сбор остановлен. Незавершённые результаты не будут показаны.";
-    activeRegionalSessionId = null;
-    try { localStorage.removeItem("blindHamPropagationSessionId"); } catch {}
+    if (cancelled.state === "completed") {
+      const completed = await readApiResponse(await fetch(
+        `${API}/psk-reporter/regional/sessions/${encodeURIComponent(activeRegionalSessionId)}`,
+        { cache: "no-store" },
+      ), "Получение завершённого результата");
+      latestRegionalReport = completed.report;
+      renderRegionalReport(latestRegionalReport);
+      regionalStatus.textContent = "Сбор успел завершиться. Результаты сохранены.";
+    } else {
+      regionalStatus.textContent = "Сбор остановлен. Незавершённые результаты не будут показаны.";
+      activeRegionalSessionId = null;
+      try { localStorage.removeItem("blindHamPropagationSessionId"); } catch {}
+    }
   } catch (error) {
     regionalStatus.textContent = error.message || "Не удалось остановить сбор.";
     regionalCancelButton.disabled = false;
@@ -580,7 +590,7 @@ function renderLocal(data, regional, errors = {}) {
 
   const activity = document.createElement("section");
   activity.className = "result-card";
-  addText(activity, "h3", "Какие диапазоны сейчас наиболее активны рядом с тобой");
+  addText(activity, "h3", "Какие диапазоны были наиболее активны по последнему сбору");
   addText(activity, "p",
     `Учитываются свежие радионаблюдения, собранные вручную в течение ${Math.round((regional?.period_seconds || userSettings.durationSeconds) / 60)} мин в радиусе ${regional?.radius_km ?? userSettings.radiusKm} км от локатора ${data.locator}. Считаются реальные записи PSK Reporter, а не расчётная вероятность связи.`);
   if (regional) {
