@@ -14,7 +14,8 @@ from backend.app.services.regional_sessions import RegionalSessionManager
 async def lifespan(application: FastAPI):
     regional_sessions = RegionalSessionManager()
     application.state.regional_session_manager = regional_sessions
-    collector = PSKReporterCollector(spot_observer=regional_sessions.add_spot)
+    collector = PSKReporterCollector()
+    collector.spot_observer = regional_sessions.add_spot
     application.state.psk_reporter_collector = collector
     # MQTT collection is a service-level task, independent of browser viewers.
     collector.start()
