@@ -13,7 +13,7 @@ from backend.app.services.geo_filter import classify_spot_region, distance_betwe
 from backend.app.services.maidenhead import locator_to_center
 from backend.app.services.regional_report import _bearing, _iso_utc
 
-SESSION_DURATION_SECONDS = 180
+SESSION_DURATION_SECONDS = 60
 RESULT_TTL_SECONDS = 600
 MAX_ACTIVE_SESSIONS = 10
 MAX_DEDUPE_KEYS = 4096
