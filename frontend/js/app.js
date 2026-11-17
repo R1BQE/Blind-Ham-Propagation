@@ -350,6 +350,8 @@ function renderRegionalDirection(parent, title, description, data, roles, direct
 
 function renderRegionalReport(data) {
   regionalReport.replaceChildren();
+  regionalDescription.textContent =
+    `Последний сбор: локатор ${data.locator}, радиус ${data.radius_km} км, ${Math.round((data.period_seconds || 60) / 60)} мин.`;
   const info = document.createElement("p");
   info.className = "muted";
   info.textContent =
@@ -433,8 +435,12 @@ async function startRegionalCollection() {
     const runId = regionalPollRun;
     try { localStorage.setItem("blindHamPropagationSessionId", activeRegionalSessionId); } catch {}
     setRegionalCollectionState(true);
+    latestRegionalReport = null;
     regionalReport.replaceChildren();
     regionalReport.setAttribute("aria-busy", "true");
+    if (!document.getElementById("panel-local").hidden) {
+      void loadLocalDashboard(locator);
+    }
     regionalStatus.textContent = session.reused
       ? `Этот сбор уже выполняется. Осталось около ${session.remaining_seconds} секунд.`
       : `Сбор начат на ${durationSeconds / 60} мин. Получаем свежие наблюдения…`;
@@ -492,6 +498,38 @@ async function cancelRegionalCollection() {
   } catch (error) {
     regionalStatus.textContent = error.message || "Не удалось остановить сбор.";
     regionalCancelButton.disabled = false;
+  }
+}
+
+
+async function restoreLastRegionalSession() {
+  let sessionId = null;
+  try { sessionId = localStorage.getItem("blindHamPropagationSessionId"); } catch {}
+  if (!sessionId) return;
+  try {
+    const progress = await readApiResponse(await fetch(
+      `${API}/psk-reporter/regional/sessions/${encodeURIComponent(sessionId)}`,
+      { cache: "no-store" },
+    ), "Восстановление последнего сбора");
+    activeRegionalSessionId = sessionId;
+    if (progress.state === "completed") {
+      latestRegionalReport = progress.report;
+      renderRegionalReport(latestRegionalReport);
+      regionalStatus.textContent = "Показан результат последнего сбора.";
+      return;
+    }
+    if (progress.state === "collecting") {
+      regionalPollRun += 1;
+      setRegionalCollectionState(true);
+      regionalStatus.textContent = `Восстановлен выполняющийся сбор. Осталось около ${progress.remaining_seconds} секунд.`;
+      void pollRegionalSession(sessionId, regionalPollRun);
+      return;
+    }
+    activeRegionalSessionId = null;
+    localStorage.removeItem("blindHamPropagationSessionId");
+  } catch {
+    activeRegionalSessionId = null;
+    try { localStorage.removeItem("blindHamPropagationSessionId"); } catch {}
   }
 }
 
@@ -652,6 +690,7 @@ void loadSolar();
 regionalStartButton.addEventListener("click", startRegionalCollection);
 regionalCancelButton.addEventListener("click", cancelRegionalCollection);
 loadSettings();
+void restoreLastRegionalSession();
 collectionDescription.textContent =
   `Локатор ${userSettings.locator}; радиус ${userSettings.radiusKm} км; продолжительность ${userSettings.durationSeconds / 60} мин.`;
 regionalDescription.textContent = "Результатов ещё нет. Запусти сбор на вкладке «Мой район».";
