@@ -241,8 +241,8 @@ class RegionalSessionManager:
         return {
             "spots": stats.spots, "unique_local_stations": len(stats.stations),
             "last_seen": _iso_utc(stats.last_seen), "by_band": bands,
-            "stations": visible, "latest": visible, "stations_total": len(ordered),
-            "stations_offset": 0, "stations_limit": 100,
+            "stations": visible, "latest": visible, "stations_total": len(visible),
+            "stations_total_all": len(ordered), "stations_offset": 0, "stations_limit": 100,
         }
 
     def get(self, session_id: str, *, now: int | None = None) -> dict[str, Any]:
