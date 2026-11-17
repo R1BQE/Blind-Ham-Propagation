@@ -16,12 +16,10 @@ from backend.app.services.maidenhead import (
     locator_to_center,
 )
 from backend.app.services.noaa import get_space_weather
-from backend.app.services.regional_report import build_regional_report
 from backend.app.services.regional_sessions import (
     RegionalSessionCapacityError,
     RegionalSessionError,
 )
-from backend.app.services.spot_store import SpotStore
 
 router = APIRouter()
 SETTINGS_PATH = Path(__file__).resolve().parents[3] / "settings.ini"
@@ -67,7 +65,7 @@ async def health() -> dict[str, str]:
 
 @router.get("/psk-reporter/status")
 async def psk_reporter_status(request: Request) -> dict:
-    """Return MQTT collector connection and bounded-storage counters."""
+    """Return MQTT connection state and live-feed counters."""
     collector = getattr(request.app.state, "psk_reporter_collector", None)
     if collector is None:
         return {"enabled": False, "state": "not_started"}
@@ -135,37 +133,6 @@ def regional_session_stations(
         return manager.get_stations(session_id, direction, offset=offset, limit=limit)
     except RegionalSessionError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-
-
-@router.get("/psk-reporter/regional")
-def psk_reporter_regional(
-    request: Request,
-    locator: str = Query(default="KP50DB", min_length=2, max_length=12),
-    radius_km: float = Query(default=100.0, gt=0, le=1000),
-    hours: float = Query(default=6, ge=0.5, le=6),
-    limit: int = Query(default=10, ge=1, le=100),
-    offset: int = Query(default=0, ge=0, le=100_000),
-    bands: str | None = Query(default=None),
-    modes: str | None = Query(default=None),
-) -> dict:
-    """Return independent TX/RX PSK Reporter statistics around a QTH."""
-    collector = getattr(request.app.state, "psk_reporter_collector", None)
-    store = getattr(collector, "store", None) if collector is not None else None
-    try:
-        return build_regional_report(
-            locator,
-            radius_km,
-            hours,
-            store=store or SpotStore(),
-            details_limit=limit,
-            details_offset=offset,
-            bands=[value for value in (bands or "").split(",") if value],
-            modes=[value for value in (modes or "").split(",") if value],
-        )
-    except LocatorError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
