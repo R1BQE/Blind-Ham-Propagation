@@ -9,7 +9,7 @@ The application consists of a static frontend and a Python/FastAPI backend.
 - `frontend/`: semantic HTML, responsive CSS, vanilla JavaScript, web app manifest, and service worker.
 - `backend/app/main.py`: FastAPI application and router registration.
 - `backend/app/api/routes.py`: versioned HTTP and WebSocket route handlers.
-- `backend/app/services/`: provider clients, Maidenhead conversion, local/regional reports, MQTT parsing/storage helpers, and domain logic.
+- `backend/app/services/`: provider clients, Maidenhead conversion, local reports, MQTT parsing, in-memory regional sessions, and domain logic.
 - `backend/app/collectors/`: long-running collectors, including the PSK Reporter MQTT collector.
 - `backend/run_local.py`: local development lifecycle entry point; local-only session shutdown functionality must not leak into production.
 - `tests/`: pytest tests.
