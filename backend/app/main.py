@@ -7,11 +7,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.app.api.routes import router
 from backend.app.collectors.psk_reporter_mqtt import PSKReporterCollector
+from backend.app.services.regional_sessions import RegionalSessionManager
 
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
-    collector = PSKReporterCollector()
+    regional_sessions = RegionalSessionManager()
+    application.state.regional_session_manager = regional_sessions
+    collector = PSKReporterCollector(spot_observer=regional_sessions.add_spot)
     application.state.psk_reporter_collector = collector
     # MQTT collection is a service-level task, independent of browser viewers.
     collector.start()
