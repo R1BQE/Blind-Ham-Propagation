@@ -51,6 +51,8 @@ class _Session:
     scanned: int = 0
     accepted: int = 0
     completed_at: int | None = None
+    duration_seconds: int = SESSION_DURATION_SECONDS
+    cancelled: bool = False
 
 
 class RegionalSessionManager:
@@ -89,24 +91,28 @@ class RegionalSessionManager:
 
     def _summary(self, session: _Session, now: int, reused: bool = False) -> dict[str, Any]:
         done = session.completed_at is not None or now >= session.finishes_at
+        state = "cancelled" if session.cancelled else ("completed" if done else "collecting")
         return {
             "session_id": session.session_id,
             "locator": session.locator,
             "radius_km": session.radius_km,
-            "state": "completed" if done else "collecting",
+            "state": state,
             "started_at": _iso_utc(session.started_at),
             "finishes_at": _iso_utc(session.finishes_at),
             "remaining_seconds": max(0, session.finishes_at - now),
-            "duration_seconds": self.duration_seconds,
+            "duration_seconds": session.duration_seconds,
             "reused": reused,
         }
 
-    def start(self, locator: str, radius_km: float, *, now: int | None = None) -> dict[str, Any]:
+    def start(self, locator: str, radius_km: float, *, duration_seconds: int | None = None, now: int | None = None) -> dict[str, Any]:
         normalized = locator.strip().upper()
         locator_to_center(normalized)
         radius = float(radius_km)
         if not math.isfinite(radius) or not 0 < radius <= 1000:
             raise ValueError("Радиус должен быть больше 0 и не более 1000 км.")
+        duration = self.duration_seconds if duration_seconds is None else int(duration_seconds)
+        if duration not in {60, 120, 180, 300}:
+            raise ValueError("Продолжительность сбора должна составлять 1, 2, 3 или 5 минут.")
         current = int(time.time()) if now is None else int(now)
         key = self._region_key(normalized, radius)
         with self._lock:
@@ -124,8 +130,9 @@ class RegionalSessionManager:
                 locator=normalized,
                 radius_km=radius,
                 started_at=current,
-                finishes_at=current + self.duration_seconds,
+                finishes_at=current + duration,
                 prefixes=frozenset(locator_prefixes_for_radius(normalized, radius)),
+                duration_seconds=duration,
             )
             self._sessions[session.session_id] = session
             self._active_regions[key] = session.session_id
@@ -230,19 +237,20 @@ class RegionalSessionManager:
             session.accepted += 1
 
     @staticmethod
-    def _direction_result(stats: _Direction) -> dict[str, Any]:
+    def _direction_result(stats: _Direction, *, offset: int = 0, limit: int = 10) -> dict[str, Any]:
         bands = [
             {"band": band, "mode": mode, "spots": value["count"],
              "stations": len(value["stations"]), "last_seen": _iso_utc(value["last_seen"])}
             for (band, mode), value in sorted(stats.bands.items())
         ]
         ordered = sorted(stats.stations.values(), key=lambda x: x["observed_at_epoch"], reverse=True)
-        visible = [{k: v for k, v in row.items() if k != "observed_at_epoch"} for row in ordered[:100]]
+        page = ordered[offset:offset + limit]
+        visible = [{k: v for k, v in row.items() if k != "observed_at_epoch"} for row in page]
         return {
             "spots": stats.spots, "unique_local_stations": len(stats.stations),
             "last_seen": _iso_utc(stats.last_seen), "by_band": bands,
-            "stations": visible, "latest": visible, "stations_total": len(visible),
-            "stations_total_all": len(ordered), "stations_offset": 0, "stations_limit": 100,
+            "stations": visible, "latest": visible, "stations_total": len(ordered),
+            "stations_total_all": len(ordered), "stations_offset": offset, "stations_limit": limit,
         }
 
     def get(self, session_id: str, *, now: int | None = None) -> dict[str, Any]:
@@ -259,7 +267,8 @@ class RegionalSessionManager:
             lat, lon = locator_to_center(session.locator)
             summary["report"] = {
                 "locator": session.locator, "latitude": round(lat, 6), "longitude": round(lon, 6),
-                "radius_km": session.radius_km, "period_seconds": self.duration_seconds,
+                "radius_km": session.radius_km, "period_seconds": session.duration_seconds,
+                "session_id": session.session_id,
                 "generated_at": _iso_utc(current), "period_started_at": _iso_utc(session.started_at),
                 "stored_spots_scanned": session.scanned,
                 "tx": self._direction_result(session.tx), "rx": self._direction_result(session.rx),
