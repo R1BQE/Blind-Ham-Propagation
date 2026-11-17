@@ -67,6 +67,9 @@ function applySettings(settings) {
 
 window.applyQthLocator = (locator) => {
   const settings = { ...userSettings, locator: String(locator).trim().toUpperCase() };
+  if (latestRegionalReport && latestRegionalReport.locator !== settings.locator) {
+    latestRegionalReport = null;
+  }
   applySettings(settings);
   try {
     localStorage.setItem("blindHamPropagationSettings", JSON.stringify(settings));
@@ -522,7 +525,10 @@ async function restoreLastRegionalSession() {
       regionalPollRun += 1;
       setRegionalCollectionState(true);
       regionalStatus.textContent = `Восстановлен выполняющийся сбор. Осталось около ${progress.remaining_seconds} секунд.`;
-      void pollRegionalSession(sessionId, regionalPollRun);
+      void pollRegionalSession(sessionId, regionalPollRun).catch((error) => {
+        setRegionalCollectionState(false);
+        regionalStatus.textContent = error.message || "Не удалось продолжить сбор.";
+      });
       return;
     }
     activeRegionalSessionId = null;
@@ -658,10 +664,11 @@ async function loadLocalDashboard(locator) {
       await fetch(`${API}/local/report?locator=${encodeURIComponent(locator)}`, { cache: "no-store" }),
       "Расчёт условий в районе",
     );
-    renderLocal(data, latestRegionalReport);
-    localStatus.textContent = latestRegionalReport
+    const regionalForLocator = latestRegionalReport?.locator === locator ? latestRegionalReport : null;
+    renderLocal(data, regionalForLocator);
+    localStatus.textContent = regionalForLocator
       ? "Условия и результаты последнего сбора отображены."
-      : "Освещённость рассчитана. Радионаблюдения появятся после ручного сбора.";
+      : "Освещённость рассчитана. Радионаблюдения появятся после ручного сбора для этого локатора.";
   } catch (error) {
     localStatus.textContent = error.message || "Не удалось загрузить данные для локатора.";
   } finally {
@@ -680,6 +687,9 @@ localForm.addEventListener("submit", async (event) => {
     return;
   }
   userSettings = { ...userSettings, locator };
+  if (latestRegionalReport && latestRegionalReport.locator !== locator) {
+    latestRegionalReport = null;
+  }
   applySettings(userSettings);
   try { localStorage.setItem("blindHamPropagationSettings", JSON.stringify(userSettings)); } catch {}
   await loadLocalDashboard(locator);
