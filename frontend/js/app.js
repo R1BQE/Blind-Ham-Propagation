@@ -28,6 +28,11 @@ const localStatus = document.querySelector("#local-status");
 const localReport = document.querySelector("#local-report");
 const serviceStatus = document.querySelector("#service-status");
 const regionalStatus = document.querySelector("#regional-status");
+const regionalAnnouncement = document.querySelector("#regional-announcement");
+
+function announceRegional(message) {
+  if (regionalAnnouncement) regionalAnnouncement.textContent = message;
+}
 const regionalDescription = document.querySelector("#regional-description");
 const collectionDescription = document.querySelector("#collection-description");
 const regionalReport = document.querySelector("#regional-report");
@@ -270,8 +275,10 @@ function renderRegionalDirection(parent, title, description, data, roles, direct
 
     for (const item of data.stations) {
       const entry = document.createElement("li");
-      const stationHeading = addText(entry, "h4", item.local_call || item.local_grid || "Станция без позывного");
+      const stationName = item.local_call || item.local_grid || "Станция без позывного";
+      const stationHeading = addText(entry, "h4", stationName);
       stationHeading.tabIndex = -1;
+      stationHeading.setAttribute("aria-label", `${roles.stationType}, ${stationName}`);
       addText(entry, "p", `Наблюдений: ${item.station_spots || 1}; последнее: ${formatObservationTime(item.observed_at)}`, "muted");
       addText(entry, "p", `${item.band} · ${item.mode}`);
 
@@ -318,7 +325,9 @@ function renderRegionalDirection(parent, title, description, data, roles, direct
   if ((data.stations?.length || 0) < (data.stations_total || 0)) {
     const more = document.createElement("button");
     more.type = "button";
-    more.textContent = "Загрузить ещё 10";
+    more.textContent = direction === "tx"
+      ? "Загрузить ещё 10 передатчиков"
+      : "Загрузить ещё 10 приёмников";
     more.addEventListener("click", async () => {
       more.disabled = true;
       try {
@@ -335,7 +344,6 @@ function renderRegionalDirection(parent, title, description, data, roles, direct
         }
         data.stations = [...(data.stations || []), ...(nextData.stations || [])];
         data.stations_total = nextData.stations_total;
-        regionalStatus.textContent = "Подгружено";
         const newEntries = Array.from(list.children).slice(previousCount);
         const firstNew = newEntries[0];
         if (firstNew) firstNew.querySelector("h4")?.focus();
@@ -369,6 +377,7 @@ function renderRegionalReport(data) {
     {
       localTitle: "Передатчик рядом с тобой",
       remoteTitle: "Удалённый приёмник",
+      stationType: "Передатчик",
     },
     "tx",
     data.session_id
@@ -381,6 +390,7 @@ function renderRegionalReport(data) {
     {
       localTitle: "Приёмник рядом с тобой",
       remoteTitle: "Удалённый передатчик",
+      stationType: "Приёмник",
     },
     "rx",
     data.session_id
@@ -447,6 +457,7 @@ async function startRegionalCollection() {
     regionalStatus.textContent = session.reused
       ? `Этот сбор уже выполняется. Осталось около ${session.remaining_seconds} секунд.`
       : `Сбор начат на ${durationSeconds / 60} мин. Получаем свежие наблюдения…`;
+    announceRegional(session.reused ? "Сбор уже выполняется." : "Сбор начат.");
     await pollRegionalSession(activeRegionalSessionId, runId);
   } catch (error) {
     regionalStatus.textContent = error.message || "Не удалось запустить сбор.";
@@ -462,6 +473,7 @@ async function pollRegionalSession(sessionId, runId) {
     ), "Получение состояния сбора");
     if (progress.state === "cancelled") {
       regionalStatus.textContent = "Сбор остановлен. Незавершённый результат не сохранён.";
+      announceRegional("Сбор остановлен.");
       setRegionalCollectionState(false);
       regionalReport.setAttribute("aria-busy", "false");
       return;
@@ -470,6 +482,7 @@ async function pollRegionalSession(sessionId, runId) {
       latestRegionalReport = progress.report;
       renderRegionalReport(latestRegionalReport);
       regionalStatus.textContent = `Сбор завершён. Получено ${progress.accepted_spots} подходящих спотов.`;
+      announceRegional(`Сбор завершён. Подходящих спотов: ${progress.accepted_spots}.`);
       setRegionalCollectionState(false);
       regionalReport.setAttribute("aria-busy", "false");
       if (!document.getElementById("panel-local").hidden) {
@@ -503,8 +516,10 @@ async function cancelRegionalCollection() {
       latestRegionalReport = completed.report;
       renderRegionalReport(latestRegionalReport);
       regionalStatus.textContent = "Сбор успел завершиться. Результаты сохранены.";
+      announceRegional("Сбор завершён. Результаты сохранены.");
     } else {
       regionalStatus.textContent = "Сбор остановлен. Незавершённые результаты не будут показаны.";
+      announceRegional("Сбор остановлен.");
       activeRegionalSessionId = null;
       try { localStorage.removeItem("blindHamPropagationSessionId"); } catch {}
     }
