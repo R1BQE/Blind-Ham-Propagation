@@ -85,7 +85,8 @@ try {
         throw "Не удалось подготовить офлайн-базу географии. Проверь доступ к GeoNames/Natural Earth и логи."
     }
 
-    # Reuse a running instance only when it already exposes the regional API.
+    # Reuse a running instance only when it exposes the live MQTT collector
+    # counters introduced with in-memory regional sessions.
     $Existing = $null
     try {
         $Existing = Invoke-RestMethod -Uri "http://127.0.0.1:8765/api/v1/health" -TimeoutSec 2
@@ -94,22 +95,21 @@ try {
     }
 
     if ($Existing.service -eq "blind-ham-propagation") {
-        $RegionalApiAvailable = $false
+        $CollectorApiAvailable = $false
         try {
-            $null = Invoke-RestMethod -Uri "http://127.0.0.1:8765/api/v1/psk-reporter/regional?locator=KP50DB&radius_km=100&hours=6&limit=1" -TimeoutSec 3
-            $RegionalApiAvailable = $true
+            $CollectorStatus = Invoke-RestMethod -Uri "http://127.0.0.1:8765/api/v1/psk-reporter/status" -TimeoutSec 3
+            $CollectorApiAvailable = $CollectorStatus.PSObject.Properties.Name -contains "spots_received"
         } catch {
             $StatusCode = $null
             if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
                 $StatusCode = [int]$_.Exception.Response.StatusCode
             }
             if ($StatusCode -ne 404) {
-                throw "Локальный сервер отвечает, но проверка регионального API завершилась ошибкой HTTP $StatusCode. Перезапусти приложение и проверь логи: $StderrLog"
+                throw "Локальный сервер отвечает, но проверка MQTT API завершилась ошибкой HTTP $StatusCode. Перезапусти приложение и проверь логи: $StderrLog"
             }
         }
 
-        # A server with the regional endpoint may still be older than the
-        # offline-geography feature. Do not reuse it until this API is verified.
+        # A compatible collector alone is not enough: verify offline geography too.
         $GeographyApiAvailable = $false
         try {
             $GeographyResponse = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8765/api/v1/geography/lookup" -ContentType "application/json" -Body '{"locators":["KO59XX"]}' -TimeoutSec 5
@@ -131,9 +131,9 @@ try {
             }
         }
 
-        if ($RegionalApiAvailable -and $GeographyApiAvailable) {
+        if ($CollectorApiAvailable -and $GeographyApiAvailable) {
             Start-Process $Url
-            Write-LauncherLog "An existing compatible local instance with regional and offline-geography APIs was opened in the browser."
+            Write-LauncherLog "An existing compatible local instance with live MQTT collector and offline-geography APIs was opened in the browser."
             exit 0
         }
 
