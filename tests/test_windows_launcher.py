@@ -7,11 +7,13 @@ SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "run_windows.ps1"
 SOURCE = SCRIPT.read_text(encoding="utf-8-sig")
 
 
-def test_launcher_checks_regional_and_offline_geography_apis() -> None:
-    assert "/api/v1/psk-reporter/regional?" in SOURCE
+def test_launcher_checks_live_collector_and_offline_geography_apis() -> None:
+    assert "/api/v1/psk-reporter/status" in SOURCE
+    assert "spots_received" in SOURCE
     assert "/api/v1/geography/lookup" in SOURCE
     assert "GeographyApiAvailable" in SOURCE
-    assert "$RegionalApiAvailable -and $GeographyApiAvailable" in SOURCE
+    assert "$CollectorApiAvailable -and $GeographyApiAvailable" in SOURCE
+    assert "/api/v1/psk-reporter/regional?" not in SOURCE
 
 
 def test_launcher_requires_a_real_geography_result_before_reusing_server() -> None:
