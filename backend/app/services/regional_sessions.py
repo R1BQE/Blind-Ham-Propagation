@@ -111,7 +111,7 @@ class RegionalSessionManager:
         if not math.isfinite(radius) or not 0 < radius <= 1000:
             raise ValueError("Радиус должен быть больше 0 и не более 1000 км.")
         duration = self.duration_seconds if duration_seconds is None else int(duration_seconds)
-        if duration not in {60, 120, 180, 300}:
+        if duration_seconds is not None and duration not in {60, 120, 180, 300}:
             raise ValueError("Продолжительность сбора должна составлять 1, 2, 3 или 5 минут.")
         current = int(time.time()) if now is None else int(now)
         key = self._region_key(normalized, radius)
