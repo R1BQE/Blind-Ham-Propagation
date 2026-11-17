@@ -245,13 +245,13 @@
     return data;
   }
 
-  function setLocator(locator, accuracyText) {
+  function setLocator(locator) {
     if (typeof window.applyQthLocator === "function") {
       window.applyQthLocator(locator);
     } else if (activeLocatorInput) {
       activeLocatorInput.value = locator;
     }
-    if (activeStatus) activeStatus.textContent = `Определён локатор ${locator}. ${accuracyText}`;
+    if (activeStatus) activeStatus.textContent = `Локатор ${locator} определён.`;
     if (activeLocatorInput) {
       activeLocatorInput.value = locator;
       activeLocatorInput.focus();
@@ -273,11 +273,11 @@
       activeTrigger = button;
       if (activeStatus) activeStatus.textContent = "";
       if (!navigator.geolocation) {
-        if (activeStatus) activeStatus.textContent = "Браузер не поддерживает определение местоположения.";
+        if (activeStatus) activeStatus.textContent = "Геолокация не поддерживается браузером.";
         return;
       }
       button.disabled = true;
-      if (activeStatus) activeStatus.textContent = "Запрашиваем разрешение на определение местоположения…";
+      if (activeStatus) activeStatus.textContent = "Определяем местоположение…";
       const requestId = ++geolocationRequestId;
       // Geolocation's own timeout may not include the time spent waiting for
       // the browser permission prompt. Keep the interface recoverable anyway.
@@ -286,7 +286,7 @@
         button.disabled = false;
         if (activeStatus) {
           activeStatus.textContent =
-            "Браузер не завершил запрос местоположения за 25 секунд. Проверь разрешение на геолокацию для этого сайта в настройках браузера.";
+            "Не удалось определить местоположение. Проверь разрешение браузера.";
         }
       }, 25000);
       navigator.geolocation.getCurrentPosition(async (position) => {
@@ -295,10 +295,7 @@
         try {
           const { latitude, longitude, accuracy } = position.coords;
           const result = await coordinatesToLocator(latitude, longitude, accuracy);
-          const accuracyText = Number.isFinite(accuracy)
-            ? `Точность геолокации около ${Math.round(accuracy)} м; выбрано ${result.precision} символов.`
-            : `Выбрана точность ${result.precision} символов.`;
-          setLocator(result.locator, accuracyText);
+          setLocator(result.locator);
         } catch (error) {
           if (activeStatus) activeStatus.textContent = error.message;
         } finally {
@@ -361,7 +358,7 @@
       const response = await (await loadYandex()).geocode(query, { results: 5 });
       const objects = response.geoObjects;
       if (!objects.getLength()) {
-        addressStatus.textContent = "По этому запросу ничего не найдено. Уточни адрес.";
+        addressStatus.textContent = "Адрес не найден. Уточни запрос.";
         return;
       }
       for (let index = 0; index < objects.getLength(); index += 1) {
@@ -382,12 +379,12 @@
             item.setAttribute("aria-pressed", String(item === option));
           });
           addressSelected.textContent = `Выбран адрес: ${result.title}`;
-          addressStatus.textContent = "Адрес выбран. Нажми «Подтвердить локатор».";
+          addressStatus.textContent = "Адрес выбран. Подтверди локатор.";
           addressConfirm.disabled = false;
         });
         addressResults.append(option);
       }
-      addressStatus.textContent = `Найдено вариантов: ${objects.getLength()}. Выбери подходящий адрес.`;
+      addressStatus.textContent = `Найдено вариантов: ${objects.getLength()}. Выбери адрес.`;
       addressResults.querySelector("button")?.focus();
     } catch (error) {
       addressStatus.textContent = error.message || "Не удалось выполнить поиск адреса.";
@@ -407,7 +404,7 @@
           : 5000;
       const [latitude, longitude] = selectedAddress.coordinates;
       const result = await coordinatesToLocator(latitude, longitude, accuracy);
-      setLocator(result.locator, `Адресная точка: ${selectedAddress.title}. Расчётная точность координат — около ${accuracy} м; локатор содержит ${result.precision} символов.`);
+      setLocator(result.locator);
       confirmedAddress = true;
       dialog.close();
     } catch (error) {
