@@ -43,10 +43,12 @@ Documentation: https://www.mqtt.pskreporter.info/
 
 PSK Reporter supplies reception reports from participating stations. A spot is evidence that a particular receiver decoded a particular transmission at a particular time and frequency. It is not a propagation forecast and does not prove that another station will achieve the same result.
 
-The project uses an MQTT topic-filter pilot and stores a bounded recent history in SQLite. The regional report keeps two directions separate:
+The shared MQTT/TLS collector receives the live PSK Reporter feed and forwards valid messages to active, manually started regional sessions. Each session filters spots by QTH area and collection time.
 
 - TX: transmissions from stations inside the selected region that were heard by remote receivers.
 - RX: remote transmissions heard by receivers inside the region.
+
+The historical SQLite spot database is not used and has been removed from the application. During collection, RAM retains only aggregate counters and station details for active sessions. A lack of spots during a short session does not prove that a band is closed.
 
 A station's Maidenhead locator represents an area, not an exact antenna coordinate. Distances and bearings calculated from locator-cell centres are estimates. Keep this limitation visible.
 
