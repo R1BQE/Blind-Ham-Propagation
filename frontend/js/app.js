@@ -36,7 +36,6 @@ const regionalLocatorInput = document.querySelector("#regional-locator");
 const regionalLocatorError = document.querySelector("#regional-locator-error");
 const regionalLocatorSubmit = document.querySelector("#regional-locator-submit");
 const regionalRadiusInput = document.querySelector("#regional-radius");
-const regionalPeriodSelect = document.querySelector("#regional-period");
 
 const DEFAULT_SETTINGS = { locator: "KP50DB", radiusKm: 100, periodHours: 6 };
 let userSettings = { ...DEFAULT_SETTINGS };
@@ -84,9 +83,8 @@ function applySettings(settings) {
   locatorInput.value = settings.locator;
   regionalLocatorInput.value = settings.locator;
   regionalRadiusInput.value = String(settings.radiusKm);
-  regionalPeriodSelect.value = String(settings.periodHours || 6);
   regionalDescription.textContent =
-    `Область поиска: локатор ${settings.locator}, радиус ${settings.radiusKm} км. Период — последние ${formatPeriod(settings.periodHours)}.`;
+    `Область поиска: локатор ${settings.locator}, радиус ${settings.radiusKm} км. Сбор новых наблюдений — 3 минуты.`;
 }
 
 window.applyQthLocator = (locator) => {
@@ -123,7 +121,6 @@ regionalLocatorForm.addEventListener("submit", async (event) => {
   updateFilterVisibility();
   const locator = regionalLocatorInput.value.trim().toUpperCase();
   const radiusKm = Number(regionalRadiusInput.value);
-  const periodHours = Number(regionalPeriodSelect.value);
   const filters = getSelectedFilters();
   const { bands, modes } = filters;
   if (!locator) {
@@ -134,11 +131,6 @@ regionalLocatorForm.addEventListener("submit", async (event) => {
   if (!Number.isFinite(radiusKm) || radiusKm < 1 || radiusKm > 1000) {
     regionalLocatorError.textContent = "Радиус должен быть положительным числом от 1 до 1000 км.";
     regionalRadiusInput.focus();
-    return;
-  }
-  if (![0.5, 1, 2, 3, 4, 5, 6].includes(periodHours)) {
-    regionalLocatorError.textContent = "Выбери период наблюдений от 30 минут до 6 часов.";
-    regionalPeriodSelect.focus();
     return;
   }
   if (!bands.length) {
@@ -166,10 +158,10 @@ regionalLocatorForm.addEventListener("submit", async (event) => {
 
     selectedBands = bands;
     selectedModes = modes;
-    const settings = { locator: locatorData.locator, radiusKm, periodHours };
+    const settings = { locator: locatorData.locator, radiusKm, periodHours: 6 };
     applySettings(settings);
     regionalDescription.textContent =
-      `Локатор ${settings.locator}; радиус ${radiusKm} км; ${filterDescription()}; период: ${formatPeriod(periodHours)}.`;
+      `Локатор ${settings.locator}; радиус ${radiusKm} км; сбор новых наблюдений — 3 минуты.`;
     try {
       localStorage.setItem("blindHamPropagationSettings", JSON.stringify(settings));
       localStorage.setItem("blindHamPropagationPSKFilters", JSON.stringify({
@@ -459,7 +451,7 @@ function renderRegionalReport(data) {
   const info = document.createElement("p");
   info.className = "muted";
   info.textContent =
-    `Твой локатор: ${data.locator}. Радиус поиска: ${data.radius_km} км. Период: последние ${formatPeriod(data.period_hours)}. Диапазоны: ${(data.bands || []).length ? (data.bands || []).join(", ") : "все"}; режимы: ${(data.modes || []).length ? (data.modes || []).join(", ") : "все"}. В отчёт вошли записи о приёме сигналов, сохранённые к моменту обновления.`;
+    `Твой локатор: ${data.locator}. Радиус поиска: ${data.radius_km} км. Сбор новых наблюдений: ${Math.round((data.period_seconds || 180) / 60)} минуты. В отчёт вошли споты, полученные непосредственно во время этого сбора.`;
   regionalReport.append(info);
 
   renderRegionalDirection(
@@ -486,33 +478,57 @@ function renderRegionalReport(data) {
   );
   void window.locationTools?.enrichRegionalReport(regionalReport, data);
 }
+let regionalAnalysisRun = 0;
+
+function waitForRegionalPoll() {
+  return new Promise((resolve) => window.setTimeout(resolve, 5000));
+}
+
 async function loadRegionalReport() {
+  const runId = ++regionalAnalysisRun;
   regionalRefresh.disabled = true;
+  regionalLocatorSubmit.disabled = true;
   regionalReport.setAttribute("aria-busy", "true");
-  regionalStatus.textContent = "Загружаем региональные наблюдения…";
+  regionalStatus.textContent = "Запускаем трёхминутный сбор новых радионаблюдений…";
   regionalReport.replaceChildren();
-  const params = new URLSearchParams({
-    locator: userSettings.locator,
-    radius_km: String(userSettings.radiusKm),
-    hours: String(userSettings.periodHours || 6),
-    limit: "10",
-    offset: "0",
-    bands: bandSelection === "all" ? "" : selectedBands.join(","),
-    modes: modeSelection === "all" ? "" : selectedModes.join(","),
-  });
   try {
-    const response = await fetch(`${API}/psk-reporter/regional?${params}`, {
+    const startResponse = await fetch(`${API}/psk-reporter/regional/sessions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ locator: userSettings.locator, radius_km: userSettings.radiusKm }),
       cache: "no-store",
     });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || "Не удалось получить региональные данные.");
-    renderRegionalReport(data);
-    regionalStatus.textContent = "Радионаблюдения обновлены.";
+    const session = await readApiResponse(startResponse, "Запуск регионального анализа");
+    regionalStatus.textContent = session.reused
+      ? `Для этого региона уже идёт сбор. Осталось около ${session.remaining_seconds} секунд.`
+      : "Сбор начат. Сервер принимает новые споты в течение трёх минут.";
+    while (runId === regionalAnalysisRun) {
+      await waitForRegionalPoll();
+      if (runId !== regionalAnalysisRun) return;
+      const response = await fetch(
+        `${API}/psk-reporter/regional/sessions/${encodeURIComponent(session.session_id)}`,
+        { cache: "no-store" },
+      );
+      const progress = await readApiResponse(response, "Получение состояния регионального анализа");
+      if (progress.state === "completed") {
+        renderRegionalReport(progress.report);
+        regionalStatus.textContent =
+          `Сбор завершён. Получено ${progress.accepted_spots} подходящих спотов. Результат сформирован.`;
+        return;
+      }
+      regionalStatus.textContent =
+        `Собираем наблюдения. Осталось примерно ${progress.remaining_seconds} секунд. Получено подходящих спотов: ${progress.accepted_spots}.`;
+    }
   } catch (error) {
-    regionalStatus.textContent = error.message;
+    if (runId === regionalAnalysisRun) {
+      regionalStatus.textContent = error.message || "Не удалось выполнить региональный анализ.";
+    }
   } finally {
-    regionalRefresh.disabled = false;
-    regionalReport.setAttribute("aria-busy", "false");
+    if (runId === regionalAnalysisRun) {
+      regionalRefresh.disabled = false;
+      regionalLocatorSubmit.disabled = false;
+      regionalReport.setAttribute("aria-busy", "false");
+    }
   }
 }
 
@@ -701,7 +717,7 @@ try {
 }
 updateFilterVisibility();
 regionalDescription.textContent =
-  `Локатор ${userSettings.locator}; радиус ${userSettings.radiusKm} км; ${filterDescription()}; период: ${formatPeriod(userSettings.periodHours)}.`;
+  `Локатор ${userSettings.locator}; радиус ${userSettings.radiusKm} км; сбор новых наблюдений — 3 минуты.`;
 document.querySelectorAll('input[name="regional-band-selection"], input[name="regional-mode-selection"]')
   .forEach((input) => input.addEventListener("change", updateFilterVisibility));
 
