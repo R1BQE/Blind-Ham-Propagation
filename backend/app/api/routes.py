@@ -123,7 +123,7 @@ def cancel_regional_session(session_id: str, request: Request) -> dict:
 def regional_session_stations(
     session_id: str,
     request: Request,
-    direction: str = Query(pattern="^(tx|rx)$"),
+    direction: str = Query(min_length=2, max_length=2),
     offset: int = Query(default=0, ge=0, le=100_000),
     limit: int = Query(default=10, ge=1, le=100),
 ) -> dict:
