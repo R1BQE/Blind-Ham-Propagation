@@ -96,19 +96,8 @@
               <input id="regional-radius" name="radius" type="number" min="1" max="1000"
                 step="1" value="100" required>
             </div>
-            <div class="form-row">
-              <label for="regional-period">За какой период</label>
-              <select id="regional-period" name="period-hours">
-                <option value="0.5">Последние 30 минут</option>
-                <option value="1">Последний 1 час</option>
-                <option value="2">Последние 2 часа</option>
-                <option value="3">Последние 3 часа</option>
-                <option value="4">Последние 4 часа</option>
-                <option value="5">Последние 5 часов</option>
-                <option value="6" selected>Последние 6 часов</option>
-              </select>
-            </div>
-            <fieldset class="choice-group">
+            <p class="muted">После запуска сервер собирает новые наблюдения PSK Reporter в течение 3 минут. В отчёт попадут только споты, полученные во время этого сбора.</p>
+            <fieldset class="choice-group" hidden>
               <legend>Частоты</legend>
               <div class="choice-options">
                 <label><input type="radio" name="regional-band-selection" value="all" checked> Все</label>
@@ -130,7 +119,7 @@
                 <label><input type="checkbox" name="regional-band" value="70cm"> 70 см</label>
               </div>
             </fieldset>
-            <fieldset class="choice-group">
+            <fieldset class="choice-group" hidden>
               <legend>Виды цифровой связи</legend>
               <div class="choice-options">
                 <label><input type="radio" name="regional-mode-selection" value="all" checked> Все</label>
@@ -151,12 +140,12 @@
                 <label><input type="checkbox" name="regional-mode" value="WSPR"> WSPR</label>
               </div>
             </fieldset>
-            <p id="regional-locator-help" class="muted">По умолчанию ищем на всех частотах и во всех цифровых режимах. Можно выбрать только нужные. Период — от 30 минут до 6 часов.</p>
+            <p id="regional-locator-help" class="muted">Учитываются все поддерживаемые диапазоны и цифровые режимы. Сбор длится ровно 3 минуты.</p>
             <p id="regional-locator-error" class="field-error" role="alert"></p>
-            <button type="submit" id="regional-locator-submit">Показать наблюдения</button>
+            <button type="submit" id="regional-locator-submit">Начать трёхминутный анализ</button>
           </form>
           <p id="regional-description">Область поиска: локатор KP50DB, радиус 100 км. Период — последние 6 часов.</p>
-          <button type="button" id="regional-refresh">Обновить список</button>
+          <button type="button" id="regional-refresh">Начать новый анализ</button>
           <p id="regional-status" class="status" role="status" aria-live="polite">Региональные данные ещё не загружены.</p>
           <div id="regional-report" class="report" aria-busy="false"></div>
         </section>
