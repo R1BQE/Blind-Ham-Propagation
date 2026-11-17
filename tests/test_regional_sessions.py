@@ -71,3 +71,48 @@ def test_completed_result_expires():
         pass
     else:
         raise AssertionError("Expected expired session")
+
+
+
+def test_session_accepts_user_selected_duration():
+    manager = RegionalSessionManager()
+    started = manager.start("KO59", 100, duration_seconds=120, now=1_800_000_000)
+    assert started["duration_seconds"] == 120
+    assert started["remaining_seconds"] == 120
+
+
+def test_session_rejects_unsupported_user_duration():
+    manager = RegionalSessionManager()
+    try:
+        manager.start("KO59", 100, duration_seconds=90, now=1_800_000_000)
+    except ValueError as exc:
+        assert "1, 2, 3 или 5" in str(exc)
+    else:
+        raise AssertionError("Expected unsupported duration to be rejected")
+
+
+def test_cancelled_session_does_not_return_report():
+    manager = RegionalSessionManager()
+    started = manager.start("KO59", 100, duration_seconds=120, now=1_800_000_000)
+    cancelled = manager.cancel(started["session_id"], now=1_800_000_030)
+    assert cancelled["state"] == "cancelled"
+    result = manager.get(started["session_id"], now=1_800_000_031)
+    assert result["state"] == "cancelled"
+    assert "report" not in result
+
+
+def test_session_station_pagination_returns_all_station_count():
+    manager = RegionalSessionManager(duration_seconds=10)
+    started = manager.start("KO59", 100, now=1_800_000_000)
+    for index in range(12):
+        manager.add_spot(make_spot(
+            tx_call=f"R1{index:03d}",
+            sequence=str(index),
+            observed_at=1_800_000_001 + index,
+        ), received_at=1_800_000_001 + index)
+    first = manager.get(started["session_id"], now=1_800_000_010)["report"]["tx"]
+    second = manager.get_stations(started["session_id"], "tx", offset=10, limit=10, now=1_800_000_010)
+    assert len(first["stations"]) == 10
+    assert first["stations_total"] == 12
+    assert len(second["stations"]) == 2
+    assert second["stations_offset"] == 10
