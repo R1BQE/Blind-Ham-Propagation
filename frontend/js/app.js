@@ -429,7 +429,7 @@ async function startRegionalCollection() {
     return;
   }
   regionalStartButton.disabled = true;
-  regionalStatus.textContent = "Проверяем локатор и подключение PSK Reporter…";
+  regionalStatus.textContent = "Проверяем подключение…";
   try {
     const validated = await readApiResponse(await fetch(`${API}/locator/validate`, {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -461,6 +461,7 @@ async function startRegionalCollection() {
     await pollRegionalSession(activeRegionalSessionId, runId);
   } catch (error) {
     regionalStatus.textContent = error.message || "Не удалось запустить сбор.";
+    announceRegional("Не удалось запустить сбор.");
     setRegionalCollectionState(false);
   }
 }
@@ -525,6 +526,7 @@ async function cancelRegionalCollection() {
     }
   } catch (error) {
     regionalStatus.textContent = error.message || "Не удалось остановить сбор.";
+    announceRegional("Не удалось остановить сбор.");
     regionalCancelButton.disabled = false;
   }
 }
@@ -553,6 +555,7 @@ async function restoreLastRegionalSession() {
       void pollRegionalSession(sessionId, regionalPollRun).catch((error) => {
         setRegionalCollectionState(false);
         regionalStatus.textContent = error.message || "Не удалось продолжить сбор.";
+        announceRegional("Ошибка при получении состояния сбора.");
       });
       return;
     }
@@ -692,8 +695,8 @@ async function loadLocalDashboard(locator) {
     const regionalForLocator = latestRegionalReport?.locator === locator ? latestRegionalReport : null;
     renderLocal(data, regionalForLocator);
     localStatus.textContent = regionalForLocator
-      ? "Условия и результаты последнего сбора отображены."
-      : "Освещённость рассчитана. Радионаблюдения появятся после ручного сбора для этого локатора.";
+      ? "Данные района обновлены."
+      : "Условия района рассчитаны. Радионаблюдений пока нет.";
   } catch (error) {
     localStatus.textContent = error.message || "Не удалось загрузить данные для локатора.";
   } finally {
