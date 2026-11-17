@@ -64,47 +64,50 @@ def shape_records(archive_path: Path, table: str, connection: sqlite3.Connection
         with tempfile.TemporaryDirectory() as temporary:
             archive.extractall(temporary)
             reader = shapefile.Reader(str(Path(temporary) / shp_name))
-            fields = [item[0] for item in reader.fields[1:]]
-            count = 0
-            for shape_record in reader.iterShapeRecords():
-                properties = dict(zip(fields, shape_record.record))
-                geometry = shape_record.shape.__geo_interface__
-                if not geometry or geometry.get("type") not in ("Polygon", "MultiPolygon"):
-                    continue
-                if table == "countries":
-                    code = field_value(properties, "ADM0_A3", "SOV_A3", "ISO_A3")
-                    name = field_value(properties, "NAME_RU", "NAME", "ADMIN")
-                    iso2 = field_value(properties, "ISO_A2")
-                    if not code or not name:
+            try:
+                fields = [item[0] for item in reader.fields[1:]]
+                count = 0
+                for shape_record in reader.iterShapeRecords():
+                    properties = dict(zip(fields, shape_record.record))
+                    geometry = shape_record.shape.__geo_interface__
+                    if not geometry or geometry.get("type") not in ("Polygon", "MultiPolygon"):
                         continue
-                    xmin, ymin, xmax, ymax = shape_record.shape.bbox
-                    cursor = connection.execute(
-                        "INSERT INTO countries(code, iso2, name, min_lon, max_lon, min_lat, max_lat, geometry) "
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                        (code, iso2, name, xmin, xmax, ymin, ymax, json.dumps(geometry, separators=(",", ":"))),
-                    )
-                    connection.execute(
-                        "INSERT INTO countries_rtree(id, min_lon, max_lon, min_lat, max_lat) VALUES (?, ?, ?, ?, ?)",
-                        (cursor.lastrowid, xmin, xmax, ymin, ymax),
-                    )
-                else:
-                    code = field_value(properties, "adm1_code", "postal", "iso_3166_2")
-                    country = field_value(properties, "adm0_a3", "adm0_a3_us")
-                    name = field_value(properties, "name_ru", "name", "name_en", "gn_name")
-                    if not code or not country or not name:
-                        continue
-                    xmin, ymin, xmax, ymax = shape_record.shape.bbox
-                    cursor = connection.execute(
-                        "INSERT INTO admin1(code, country_code, name, min_lon, max_lon, min_lat, max_lat, geometry) "
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                        (code, country, name, xmin, xmax, ymin, ymax, json.dumps(geometry, separators=(",", ":"))),
-                    )
-                    connection.execute(
-                        "INSERT INTO admin1_rtree(id, min_lon, max_lon, min_lat, max_lat) VALUES (?, ?, ?, ?, ?)",
-                        (cursor.lastrowid, xmin, xmax, ymin, ymax),
-                    )
-                count += 1
-            return count
+                    if table == "countries":
+                        code = field_value(properties, "ADM0_A3", "SOV_A3", "ISO_A3")
+                        name = field_value(properties, "NAME_RU", "NAME", "ADMIN")
+                        iso2 = field_value(properties, "ISO_A2")
+                        if not code or not name:
+                            continue
+                        xmin, ymin, xmax, ymax = shape_record.shape.bbox
+                        cursor = connection.execute(
+                            "INSERT INTO countries(code, iso2, name, min_lon, max_lon, min_lat, max_lat, geometry) "
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                            (code, iso2, name, xmin, xmax, ymin, ymax, json.dumps(geometry, separators=(",", ":"))),
+                        )
+                        connection.execute(
+                            "INSERT INTO countries_rtree(id, min_lon, max_lon, min_lat, max_lat) VALUES (?, ?, ?, ?, ?)",
+                            (cursor.lastrowid, xmin, xmax, ymin, ymax),
+                        )
+                    else:
+                        code = field_value(properties, "adm1_code", "postal", "iso_3166_2")
+                        country = field_value(properties, "adm0_a3", "adm0_a3_us")
+                        name = field_value(properties, "name_ru", "name", "name_en", "gn_name")
+                        if not code or not country or not name:
+                            continue
+                        xmin, ymin, xmax, ymax = shape_record.shape.bbox
+                        cursor = connection.execute(
+                            "INSERT INTO admin1(code, country_code, name, min_lon, max_lon, min_lat, max_lat, geometry) "
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                            (code, country, name, xmin, xmax, ymin, ymax, json.dumps(geometry, separators=(",", ":"))),
+                        )
+                        connection.execute(
+                            "INSERT INTO admin1_rtree(id, min_lon, max_lon, min_lat, max_lat) VALUES (?, ?, ?, ?, ?)",
+                            (cursor.lastrowid, xmin, xmax, ymin, ymax),
+                        )
+                    count += 1
+                return count
+            finally:
+                reader.close()
 
 
 def import_russian_alternate_names(archive_path: Path, connection: sqlite3.Connection) -> int:
