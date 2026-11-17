@@ -108,13 +108,36 @@ try {
             }
         }
 
-        if ($RegionalApiAvailable) {
+        # A server with the regional endpoint may still be older than the
+        # offline-geography feature. Do not reuse it until this API is verified.
+        $GeographyApiAvailable = $false
+        try {
+            $GeographyResponse = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8765/api/v1/geography/lookup" -ContentType "application/json" -Body '{"locators":["KO59XX"]}' -TimeoutSec 5
+            if (-not $GeographyResponse.results -or -not $GeographyResponse.results[0].country) {
+                throw "Географический API ответил, но не вернул страну для контрольного локатора KO59XX. Проверь офлайн-базу и логи: $StderrLog"
+            }
+            $GeographyApiAvailable = $true
+        } catch {
+            $StatusCode = $null
+            if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
+                $StatusCode = [int]$_.Exception.Response.StatusCode
+            }
+            if ($StatusCode -eq 404) {
+                Write-LauncherLog "The existing local instance does not expose the offline-geography API."
+            } elseif ($StatusCode) {
+                throw "Локальный сервер отвечает, но проверка офлайн-географии завершилась ошибкой HTTP $StatusCode. Проверь базу и логи: $StderrLog"
+            } else {
+                throw
+            }
+        }
+
+        if ($RegionalApiAvailable -and $GeographyApiAvailable) {
             Start-Process $Url
-            Write-LauncherLog "An existing compatible local instance was opened in the browser."
+            Write-LauncherLog "An existing compatible local instance with regional and offline-geography APIs was opened in the browser."
             exit 0
         }
 
-        Write-LauncherLog "The existing local instance is outdated (regional API returned 404); restarting it."
+        Write-LauncherLog "The existing local instance is outdated (a required API is missing); restarting it."
         $ListenerProcessId = Get-ListeningProcessId -Port 8765
         if (-not $ListenerProcessId) {
             throw "Обнаружен старый сервер, но Windows не смогла определить процесс на порту 8765. Закрой окно старого сервера вручную и повтори запуск. Подробности: $StderrLog"
