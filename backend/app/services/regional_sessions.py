@@ -280,6 +280,40 @@ class RegionalSessionManager:
             }
             return summary
 
+
+    def cancel(self, session_id: str, *, now: int | None = None) -> dict[str, Any]:
+        """Stop an active collection without producing a completed report."""
+        current = int(time.time()) if now is None else int(now)
+        with self._lock:
+            self._refresh(current)
+            session = self._sessions.get(session_id)
+            if session is None:
+                raise RegionalSessionError("Сессия не найдена или срок хранения результата истёк.")
+            if session.completed_at is None:
+                session.cancelled = True
+                session.completed_at = current
+                self._active_regions.pop(self._region_key(session.locator, session.radius_km), None)
+            return self._summary(session, current)
+
+    def get_stations(
+        self, session_id: str, direction: str, *, offset: int = 0,
+        limit: int = 10, now: int | None = None,
+    ) -> dict[str, Any]:
+        current = int(time.time()) if now is None else int(now)
+        if direction not in {"tx", "rx"}:
+            raise ValueError("Направление должно быть tx или rx.")
+        if offset < 0 or limit < 1 or limit > 100:
+            raise ValueError("Некорректные параметры страницы станций.")
+        with self._lock:
+            self._refresh(current)
+            session = self._sessions.get(session_id)
+            if session is None:
+                raise RegionalSessionError("Сессия не найдена или срок хранения результата истёк.")
+            if session.cancelled or current < session.finishes_at:
+                raise RegionalSessionError("Результаты станций появятся после завершения сбора.")
+            stats = session.tx if direction == "tx" else session.rx
+            return self._direction_result(stats, offset=offset, limit=limit)
+
     def status(self) -> dict[str, int]:
         now = int(time.time())
         with self._lock:
