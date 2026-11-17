@@ -107,9 +107,11 @@ class PSKReporterCollector:
         config: MQTTConfig | None = None,
         *,
         store: SpotStore | Any | None = None,
+        spot_observer: Any | None = None,
     ) -> None:
         self.config = config or MQTTConfig.from_environment()
         self.store = store
+        self.spot_observer = spot_observer
         self._client: Any = None
         self._lock = threading.Lock()
         self._queue_lock = threading.Lock()
@@ -340,8 +342,15 @@ class PSKReporterCollector:
                 self._invalid_messages += 1
             return
 
-        # MQTT callbacks only enqueue data. SQLite writes happen in batches
-        # on the dedicated writer thread, every five seconds.
+        # Feed the short-lived RAM aggregator without retaining raw spot history.
+        # Observer failures must never interrupt the shared MQTT collector.
+        if self.spot_observer is not None:
+            try:
+                self.spot_observer(spot, received_at=now)
+            except Exception:
+                logger.exception("Ошибка передачи спота в региональный RAM-агрегатор")
+
+        # The legacy SQLite history remains enabled during the migration.
         with self._queue_lock:
             self._pending_spots.append((dict(spot), now))
 
