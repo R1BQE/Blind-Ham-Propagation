@@ -17,6 +17,10 @@ from backend.app.services.maidenhead import (
 )
 from backend.app.services.noaa import get_space_weather
 from backend.app.services.regional_report import build_regional_report
+from backend.app.services.regional_sessions import (
+    RegionalSessionCapacityError,
+    RegionalSessionError,
+)
 from backend.app.services.spot_store import SpotStore
 
 router = APIRouter()
@@ -25,6 +29,11 @@ SETTINGS_PATH = Path(__file__).resolve().parents[3] / "settings.ini"
 
 class LocatorRequest(BaseModel):
     locator: str = Field(min_length=2, max_length=12, examples=["KO59XX"])
+
+
+class RegionalSessionRequest(BaseModel):
+    locator: str = Field(min_length=2, max_length=12, examples=["KO59XX"])
+    radius_km: float = Field(default=500.0, gt=0, le=1000)
 
 
 class LocatorResponse(BaseModel):
@@ -62,6 +71,38 @@ async def psk_reporter_status(request: Request) -> dict:
     if collector is None:
         return {"enabled": False, "state": "not_started"}
     return collector.status()
+
+
+@router.post("/psk-reporter/regional/sessions")
+def start_regional_session(payload: RegionalSessionRequest, request: Request) -> dict:
+    """Start or join a three-minute in-memory regional analysis."""
+    collector = getattr(request.app.state, "psk_reporter_collector", None)
+    if collector is None or not collector.is_connected():
+        raise HTTPException(
+            status_code=503,
+            detail="PSK Reporter MQTT сейчас не подключён. Попробуй позже.",
+        )
+    manager = getattr(request.app.state, "regional_session_manager", None)
+    if manager is None:
+        raise HTTPException(status_code=503, detail="Региональный анализ недоступен.")
+    try:
+        return manager.start(payload.locator, payload.radius_km)
+    except RegionalSessionCapacityError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.get("/psk-reporter/regional/sessions/{session_id}")
+def get_regional_session(session_id: str, request: Request) -> dict:
+    """Return collection progress or the completed in-memory report."""
+    manager = getattr(request.app.state, "regional_session_manager", None)
+    if manager is None:
+        raise HTTPException(status_code=503, detail="Региональный анализ недоступен.")
+    try:
+        return manager.get(session_id)
+    except RegionalSessionError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.get("/psk-reporter/regional")
