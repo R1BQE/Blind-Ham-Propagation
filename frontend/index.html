@@ -67,6 +67,30 @@
           </div>
           <p id="locator-tools-status" class="status" role="status" aria-live="polite"></p>
         </form>
+
+        <section class="result-card" aria-labelledby="collection-heading">
+          <h3 id="collection-heading">Сбор свежих радионаблюдений</h3>
+          <p>Сбор запускается только вручную. Один сбор обновляет данные и здесь, и на вкладке «Станции».</p>
+          <div class="form-row">
+            <label for="regional-radius">Радиус поиска, км</label>
+            <input id="regional-radius" name="radius" type="number" min="1" max="1000" step="1" value="100" required>
+          </div>
+          <div class="form-row">
+            <label for="regional-duration">Продолжительность сбора</label>
+            <select id="regional-duration" name="duration">
+              <option value="60" selected>1 минута</option>
+              <option value="120">2 минуты</option>
+              <option value="180">3 минуты</option>
+              <option value="300">5 минут</option>
+            </select>
+          </div>
+          <div class="locator-actions">
+            <button type="button" id="regional-start">Начать сбор</button>
+            <button type="button" id="regional-cancel" class="secondary-button" disabled>Остановить сбор</button>
+          </div>
+          <p id="regional-description" class="muted">Локатор KP50DB; радиус 100 км; продолжительность 1 минута.</p>
+          <p id="regional-status" class="status" role="status" aria-live="polite">Сбор ещё не запускался.</p>
+        </section>
         <p id="local-status" class="status" role="status" aria-live="polite">Локатор ещё не указан.</p>
         <div id="local-report" class="report" aria-busy="false"></div>
       </section>
@@ -78,76 +102,9 @@
         <p>Здесь собраны споты PSK Reporter: кто, кого, на каком диапазоне и в каком режиме принял. Укажи свой QTH-локатор, чтобы найти наблюдения поблизости.</p>
         <section class="result-card" aria-labelledby="regional-heading">
           <h3 id="regional-heading">Приём станций рядом со мной</h3>
-          <form id="regional-locator-form" novalidate>
-            <div class="form-row">
-              <label for="regional-locator">Мой QTH-локатор</label>
-              <input id="regional-locator" name="locator" type="text" inputmode="text"
-                autocomplete="off" autocapitalize="characters" spellcheck="false"
-                maxlength="12" minlength="2" aria-describedby="regional-locator-help regional-locator-error"
-                placeholder="KP50DB" required>
-            </div>
-            <div class="locator-actions">
-              <button type="button" id="regional-geolocate" data-locator-geolocate data-locator-target="#regional-locator" data-status-target="#regional-tools-status">Определить автоматически</button>
-              <button type="button" id="regional-address-open" data-locator-address data-locator-target="#regional-locator" data-status-target="#regional-tools-status">Указать адрес</button>
-            </div>
-            <p id="regional-tools-status" class="status" role="status" aria-live="polite"></p>
-            <div class="form-row">
-              <label for="regional-radius">Искать в радиусе, км</label>
-              <input id="regional-radius" name="radius" type="number" min="1" max="1000"
-                step="1" value="100" required>
-            </div>
-            <p class="muted">После запуска сервер собирает новые наблюдения PSK Reporter в течение 3 минут. В отчёт попадут только споты, полученные во время этого сбора.</p>
-            <fieldset class="choice-group" hidden>
-              <legend>Частоты</legend>
-              <div class="choice-options">
-                <label><input type="radio" name="regional-band-selection" value="all" checked> Все</label>
-                <label><input type="radio" name="regional-band-selection" value="custom"> Настроить</label>
-              </div>
-              <div id="regional-band-options" class="choice-grid" hidden>
-                <label><input type="checkbox" name="regional-band" value="160m"> 160 м</label>
-                <label><input type="checkbox" name="regional-band" value="80m"> 80 м</label>
-                <label><input type="checkbox" name="regional-band" value="60m"> 60 м</label>
-                <label><input type="checkbox" name="regional-band" value="40m"> 40 м</label>
-                <label><input type="checkbox" name="regional-band" value="30m"> 30 м</label>
-                <label><input type="checkbox" name="regional-band" value="20m"> 20 м</label>
-                <label><input type="checkbox" name="regional-band" value="17m"> 17 м</label>
-                <label><input type="checkbox" name="regional-band" value="15m"> 15 м</label>
-                <label><input type="checkbox" name="regional-band" value="12m"> 12 м</label>
-                <label><input type="checkbox" name="regional-band" value="10m"> 10 м</label>
-                <label><input type="checkbox" name="regional-band" value="6m"> 6 м</label>
-                <label><input type="checkbox" name="regional-band" value="2m"> 2 м</label>
-                <label><input type="checkbox" name="regional-band" value="70cm"> 70 см</label>
-              </div>
-            </fieldset>
-            <fieldset class="choice-group" hidden>
-              <legend>Виды цифровой связи</legend>
-              <div class="choice-options">
-                <label><input type="radio" name="regional-mode-selection" value="all" checked> Все</label>
-                <label><input type="radio" name="regional-mode-selection" value="custom"> Настроить</label>
-              </div>
-              <div id="regional-mode-options" class="choice-grid" hidden>
-                <label><input type="checkbox" name="regional-mode" value="FT8"> FT8</label>
-                <label><input type="checkbox" name="regional-mode" value="FT4"> FT4</label>
-                <label><input type="checkbox" name="regional-mode" value="JS8"> JS8</label>
-                <label><input type="checkbox" name="regional-mode" value="JT65"> JT65</label>
-                <label><input type="checkbox" name="regional-mode" value="JT9"> JT9</label>
-                <label><input type="checkbox" name="regional-mode" value="MSK144"> MSK144</label>
-                <label><input type="checkbox" name="regional-mode" value="PSK31"> PSK31</label>
-                <label><input type="checkbox" name="regional-mode" value="PSK63"> PSK63</label>
-                <label><input type="checkbox" name="regional-mode" value="RTTY"> RTTY</label>
-                <label><input type="checkbox" name="regional-mode" value="OLIVIA"> Olivia</label>
-                <label><input type="checkbox" name="regional-mode" value="MFSK"> MFSK</label>
-                <label><input type="checkbox" name="regional-mode" value="WSPR"> WSPR</label>
-              </div>
-            </fieldset>
-            <p id="regional-locator-help" class="muted">Учитываются все поддерживаемые диапазоны и цифровые режимы. Сбор длится ровно 3 минуты.</p>
-            <p id="regional-locator-error" class="field-error" role="alert"></p>
-            <button type="submit" id="regional-locator-submit">Начать трёхминутный анализ</button>
-          </form>
-          <p id="regional-description">Область поиска: локатор KP50DB, радиус 100 км. Период — последние 6 часов.</p>
-          <button type="button" id="regional-refresh">Начать новый анализ</button>
-          <p id="regional-status" class="status" role="status" aria-live="polite">Региональные данные ещё не загружены.</p>
+          <p id="regional-description">Результатов ещё нет. Запусти сбор на вкладке «Мой район».</p>
           <div id="regional-report" class="report" aria-busy="false"></div>
+
         </section>
         <p class="muted">Запись означает, что станция действительно приняла передачу. Это не гарантирует, что ты сможешь связаться с ней. Нет записей — не значит, что связь невозможна.</p>
       </section>
@@ -183,6 +140,6 @@
   </footer>
   <script src="./js/solar-monitor.js?v=20261117-1" defer></script>
   <script src="./js/location-tools.js?v=20261117-1" defer></script>
-  <script src="./js/app.js?v=20261117-1" defer></script>
+  <script src="./js/app.js?v=20261117-2" defer></script>
 </body>
 </html>
