@@ -360,6 +360,11 @@ class PSKReporterCollector:
             self._errors += 1
             self._last_error = message[:500]
 
+    def is_connected(self) -> bool:
+        """Return connection state without triggering a SQLite COUNT query."""
+        with self._lock:
+            return self._state == "connected"
+
     def status(self) -> dict[str, Any]:
         with self._lock:
             result = {
