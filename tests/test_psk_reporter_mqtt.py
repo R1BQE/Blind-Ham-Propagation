@@ -18,32 +18,6 @@ def isolate_settings_file(tmp_path, monkeypatch):
     )
 
 
-class FakeStore:
-    def __init__(self):
-        self.items = []
-        self.prune_calls = 0
-
-    def add_spots(self, spots):
-        inserted = 0
-        for spot, received_at in spots:
-            if any(item["sequence"] == spot["sequence"] for item in self.items):
-                continue
-            self.items.append({**spot, "received_at": received_at})
-            inserted += 1
-        return inserted, len(spots) - inserted
-
-    def add_spot(self, spot, *, received_at=None):
-        inserted, _duplicates = self.add_spots([(spot, received_at)])
-        return inserted == 1
-
-    def count(self):
-        return len(self.items)
-
-    def prune(self):
-        self.prune_calls = getattr(self, "prune_calls", 0) + 1
-        return 0
-
-
 TOPIC = "pskr/filter/v2/20m/FT8/R1BQE/W1ABC/KO59XX/FN31pr/54/291"
 PAYLOAD = (
     b'{"sq":12345,"f":14074653,"md":"FT8","rp":-5,'
@@ -53,7 +27,7 @@ PAYLOAD = (
 
 def test_default_collector_is_disabled_and_uses_all_bands_and_modes():
     config = MQTTConfig()
-    collector = PSKReporterCollector(config, store=FakeStore())
+    collector = PSKReporterCollector(config)
 
     collector.start()
     status = collector.status()
@@ -65,6 +39,8 @@ def test_default_collector_is_disabled_and_uses_all_bands_and_modes():
     assert status["enabled"] is False
     assert status["state"] == "disabled"
     assert status["topic_filters"] == list(DEFAULT_TOPIC_FILTERS)
+    assert "stored_spots" not in status
+    assert "queued_spots" not in status
 
 
 def test_build_topic_filters_creates_band_mode_combinations():
@@ -90,7 +66,6 @@ def test_build_topic_filters_rejects_empty_and_unknown_values():
         PSKReporterCollector.build_topic_filters(["20m"], ["UNKNOWN"])
 
 
-
 def test_on_connect_subscribes_to_the_complete_matrix_in_one_request():
     class FakeClient:
         def __init__(self):
@@ -100,7 +75,7 @@ def test_on_connect_subscribes_to_the_complete_matrix_in_one_request():
             self.calls.append(topics)
             return 0, 1
 
-    collector = PSKReporterCollector(MQTTConfig(enabled=True), store=FakeStore())
+    collector = PSKReporterCollector(MQTTConfig(enabled=True))
     client = FakeClient()
 
     collector._on_connect(client, None, None, 0, None)
@@ -108,57 +83,56 @@ def test_on_connect_subscribes_to_the_complete_matrix_in_one_request():
     assert len(client.calls) == 1
     assert client.calls[0] == [(topic, 0) for topic in DEFAULT_TOPIC_FILTERS]
     assert collector.status()["state"] == "connected"
-def test_collector_saves_normalized_spot_and_counts_duplicate():
-    store = FakeStore()
+
+
+def test_collector_forwards_valid_spots_to_ram_observer_without_storage():
+    received = []
     collector = PSKReporterCollector(
         MQTTConfig(enabled=True),
-        store=store,
+        spot_observer=lambda spot, received_at: received.append((spot, received_at)),
     )
 
     collector._handle_message(TOPIC, PAYLOAD)
-    collector._handle_message(TOPIC, PAYLOAD)
-
-    queued_status = collector.status()
-    assert queued_status["queued_spots"] == 2
-    assert queued_status["spots_saved"] == 0
-    assert store.items == []
-
-    assert collector._flush_pending() is True
     status = collector.status()
-    assert status["messages_received"] == 2
-    assert status["spots_saved"] == 1
-    assert status["duplicates"] == 1
-    assert status["stored_spots"] == 1
-    assert store.items[0]["tx_call"] == "R1BQE"
-    assert store.items[0]["rx_call"] == "W1ABC"
 
-
-def test_pruning_runs_on_its_own_interval(monkeypatch):
-    store = FakeStore()
-    collector = PSKReporterCollector(MQTTConfig(enabled=True), store=store)
-    collector._last_prune_at = 100.0
-    monkeypatch.setattr(mqtt_module, "PRUNE_INTERVAL_SECONDS", 60.0)
-    monkeypatch.setattr(mqtt_module.time, "monotonic", lambda: 159.0)
-    assert collector._prune_if_due() is True
-    assert store.prune_calls == 0
-
-    monkeypatch.setattr(mqtt_module.time, "monotonic", lambda: 160.0)
-    assert collector._prune_if_due() is True
-    assert store.prune_calls == 1
+    assert status["messages_received"] == 1
+    assert status["spots_received"] == 1
+    assert status["invalid_messages"] == 0
+    assert status["last_spot_at"] is not None
+    assert len(received) == 1
+    assert received[0][0]["tx_call"] == "R1BQE"
+    assert received[0][0]["rx_call"] == "W1ABC"
+    assert "spots_saved" not in status
+    assert "stored_spots" not in status
+    assert "queued_spots" not in status
 
 
 def test_collector_counts_malformed_messages_without_stopping():
-    collector = PSKReporterCollector(
-        MQTTConfig(enabled=True),
-        store=FakeStore(),
-    )
+    collector = PSKReporterCollector(MQTTConfig(enabled=True))
 
     collector._handle_message("wrong/topic", b"not-json")
 
     status = collector.status()
     assert status["messages_received"] == 1
     assert status["invalid_messages"] == 1
-    assert status["spots_saved"] == 0
+    assert status["spots_received"] == 0
+
+
+def test_observer_failure_does_not_stop_mqtt_message_processing():
+    def broken_observer(spot, received_at):
+        raise RuntimeError("RAM observer failure")
+
+    collector = PSKReporterCollector(
+        MQTTConfig(enabled=True),
+        spot_observer=broken_observer,
+    )
+
+    collector._handle_message(TOPIC, PAYLOAD)
+
+    status = collector.status()
+    assert status["messages_received"] == 1
+    assert status["spots_received"] == 1
+    assert status["errors"] == 0
 
 
 def test_environment_does_not_create_missing_settings_file(monkeypatch):
@@ -238,9 +212,5 @@ def test_environment_topics_are_validated(monkeypatch):
 def test_environment_rejects_unrelated_mqtt_topics(monkeypatch):
     monkeypatch.setenv("PSK_REPORTER_TOPICS", "some/other/topic")
 
-    try:
+    with pytest.raises(ValueError, match="pskr/filter/v2/"):
         MQTTConfig.from_environment()
-    except ValueError as exc:
-        assert "pskr/filter/v2/" in str(exc)
-    else:
-        raise AssertionError("Invalid topic filter was accepted")
