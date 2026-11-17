@@ -51,46 +51,12 @@ def test_invalid_locator_returns_validation_error():
     assert response.status_code == 422
 
 
-def test_regional_psk_report_endpoint(monkeypatch):
-    class EmptyStore:
-        def list_recent(self, *, now=None, limit=1000, band=None):
-            return []
-
-    monkeypatch.setenv("PSK_REPORTER_ENABLED", "false")
-    monkeypatch.setattr("backend.app.api.routes.SpotStore", EmptyStore)
-    with TestClient(app) as running_client:
-        response = running_client.get(
-            "/api/v1/psk-reporter/regional",
-            params={"locator": "KP50DB", "radius_km": 100, "hours": 0.5},
-        )
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["locator"] == "KP50DB"
-    assert payload["radius_km"] == 100
-    assert payload["period_hours"] == 0.5
-    assert payload["tx"]["spots"] == 0
-    assert payload["rx"]["spots"] == 0
-
-
-def test_regional_psk_report_rejects_period_outside_supported_values(monkeypatch):
-    monkeypatch.setenv("PSK_REPORTER_ENABLED", "false")
-    with TestClient(app) as running_client:
-        response = running_client.get(
-            "/api/v1/psk-reporter/regional",
-            params={"locator": "KP50DB", "hours": 1.5},
-        )
-    assert response.status_code == 422
-
-
-def test_regional_psk_report_rejects_invalid_locator(monkeypatch):
-    monkeypatch.setenv("PSK_REPORTER_ENABLED", "false")
-    with TestClient(app) as running_client:
-        response = running_client.get(
-            "/api/v1/psk-reporter/regional",
-            params={"locator": "NOTVALID"},
-        )
-    assert response.status_code == 422
+def test_legacy_historical_regional_endpoint_is_removed():
+    response = client.get(
+        "/api/v1/psk-reporter/regional",
+        params={"locator": "KP50DB"},
+    )
+    assert response.status_code == 404
 
 
 def test_offline_geography_lookup_endpoint(monkeypatch):
