@@ -33,7 +33,8 @@ class LocatorRequest(BaseModel):
 
 class RegionalSessionRequest(BaseModel):
     locator: str = Field(min_length=2, max_length=12, examples=["KO59XX"])
-    radius_km: float = Field(default=500.0, gt=0, le=1000)
+    radius_km: float = Field(default=100.0, gt=0, le=1000)
+    duration_seconds: int = Field(default=60, ge=60, le=300)
 
 
 class LocatorResponse(BaseModel):
@@ -75,7 +76,7 @@ async def psk_reporter_status(request: Request) -> dict:
 
 @router.post("/psk-reporter/regional/sessions")
 def start_regional_session(payload: RegionalSessionRequest, request: Request) -> dict:
-    """Start or join a three-minute in-memory regional analysis."""
+    """Start or join a manually requested in-memory regional analysis."""
     collector = getattr(request.app.state, "psk_reporter_collector", None)
     if collector is None or not collector.is_connected():
         raise HTTPException(
@@ -86,7 +87,7 @@ def start_regional_session(payload: RegionalSessionRequest, request: Request) ->
     if manager is None:
         raise HTTPException(status_code=503, detail="Региональный анализ недоступен.")
     try:
-        return manager.start(payload.locator, payload.radius_km)
+        return manager.start(payload.locator, payload.radius_km, duration_seconds=payload.duration_seconds)
     except RegionalSessionCapacityError as exc:
         raise HTTPException(status_code=429, detail=str(exc)) from exc
     except ValueError as exc:
@@ -103,6 +104,39 @@ def get_regional_session(session_id: str, request: Request) -> dict:
         return manager.get(session_id)
     except RegionalSessionError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+
+@router.delete("/psk-reporter/regional/sessions/{session_id}")
+def cancel_regional_session(session_id: str, request: Request) -> dict:
+    """Cancel an active regional collection."""
+    manager = getattr(request.app.state, "regional_session_manager", None)
+    if manager is None:
+        raise HTTPException(status_code=503, detail="Региональный анализ недоступен.")
+    try:
+        return manager.cancel(session_id)
+    except RegionalSessionError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/psk-reporter/regional/sessions/{session_id}/stations")
+def regional_session_stations(
+    session_id: str,
+    request: Request,
+    direction: str = Query(pattern="^(tx|rx)$"),
+    offset: int = Query(default=0, ge=0, le=100_000),
+    limit: int = Query(default=10, ge=1, le=100),
+) -> dict:
+    """Return a page of stations from a completed in-memory session."""
+    manager = getattr(request.app.state, "regional_session_manager", None)
+    if manager is None:
+        raise HTTPException(status_code=503, detail="Региональный анализ недоступен.")
+    try:
+        return manager.get_stations(session_id, direction, offset=offset, limit=limit)
+    except RegionalSessionError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/psk-reporter/regional")
