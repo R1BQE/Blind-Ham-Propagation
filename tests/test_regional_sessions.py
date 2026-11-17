@@ -102,7 +102,7 @@ def test_cancelled_session_does_not_return_report():
 
 
 def test_session_station_pagination_returns_all_station_count():
-    manager = RegionalSessionManager(duration_seconds=10)
+    manager = RegionalSessionManager(duration_seconds=20)
     started = manager.start("KO59", 100, now=1_800_000_000)
     for index in range(12):
         manager.add_spot(make_spot(
@@ -110,8 +110,8 @@ def test_session_station_pagination_returns_all_station_count():
             sequence=str(index),
             observed_at=1_800_000_001 + index,
         ), received_at=1_800_000_001 + index)
-    first = manager.get(started["session_id"], now=1_800_000_010)["report"]["tx"]
-    second = manager.get_stations(started["session_id"], "tx", offset=10, limit=10, now=1_800_000_010)
+    first = manager.get(started["session_id"], now=1_800_000_020)["report"]["tx"]
+    second = manager.get_stations(started["session_id"], "tx", offset=10, limit=10, now=1_800_000_020)
     assert len(first["stations"]) == 10
     assert first["stations_total"] == 12
     assert len(second["stations"]) == 2
