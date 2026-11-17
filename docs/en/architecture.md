@@ -70,15 +70,19 @@ Do not combine these into one statistic:
 
 Neither direction proves that the user's own station, antenna, or power can establish the same contact. These are regional proxy observations.
 
-### MQTT collection and filtering
+### Live MQTT collection and manual sessions
 
-The PSK Reporter MQTT topic supports topic-level filters and wildcards, but cannot express a geographic radius. The collector receives candidate spots and applies geographic filtering locally after parsing TX/RX locators.
+PSK Reporter MQTT topics support topic filters and wildcards, but cannot express a geographic radius. The shared collector subscribes to supported bands and modes, parses incoming messages, and forwards normalized spots to the manager of active regional sessions.
 
-The collector subscribes only to configured bands/modes, reconnects with backoff, tolerates malformed messages and broker outages, stores normalized reports in bounded SQLite history, deduplicates observations, and runs on demand while one or more visitors have the observations tab open.
+- The MQTT collector runs independently of browser tabs when enabled in `settings.ini`.
+- Opening a tab never starts regional collection.
+- The user explicitly starts a session with a locator, radius, and duration.
+- The manager applies geographic filtering and counts only spots received during that session.
+- RAM retains only the aggregates and station lists needed for the result; raw spot history is never written.
+- Session results have a limited lifetime and are lost when the backend restarts.
+- One shared MQTT collector serves all active sessions. The current implementation requires a single Uvicorn worker.
 
-The collector is shared across viewers and must run in a single Uvicorn worker unless coordination is redesigned. Browser viewer sessions are coordinated through WebSocket; after the last viewer disconnects, the collector stops after its idle timeout.
-
-The public HTTP API reads stored observations; it must not create a new MQTT connection per request.
+The historical PSK Reporter SQLite database and its history-reading API have been removed. SQLite remains only for the separate offline geography database, `data/geography.sqlite3`.
 
 ## Data handling rules
 
